@@ -105,3 +105,25 @@ Husk's native runtime is GPL-2.0-or-later. Preserve the exact upstream LICENSE a
 The upstream source tree and project manifest were inspected at the pinned revision. Husk's project.yml includes translation-layer-next but also links QEMU, ANGLE, MoltenVK and other separately built components and stages a guest image. Its project file must not be copied wholesale.
 
 The importer and audit generator have been expanded to stage both C source trees and the relevant host dependency sources, but the manual workflow has not yet been dispatched. No Husk sources have yet been copied by that workflow, no native runtime target has been compiled, no IPA has been built, and no real APK execution is claimed.
+
+
+## Materialized source audit — 2026-11-17
+
+The pinned source import has now run successfully through GitHub Actions run 43935128347 and was committed as 7895c7dc03b66f49598081bd4e5a19c9cc93513d. The vendored snapshot contains 167 files: 96 native source files, 10 Swift host files, 52 headers/includes, 4 build recipes, 4 docs, and 1 certificate resource.
+
+The generated audit found no unresolved quoted includes using its current local-path/basename scan, and 12 files without SPDX markers in the first 8 KiB. Neither result proves that the source compiles or that provenance is fully resolved. The no-SPDX items include scripts, a certificate bundle, embedded include data, and docs; provenance must be reviewed individually.
+
+The pinned upstream XcodeGen manifest compiles both `src/translation-layer` and `src/translation-layer-next` into Husk's app target. It lists native link dependencies (zlib, libresolv, sqlite3, AudioToolbox, CoreText, CoreGraphics, ImageIO, WebKit, VideoToolbox, CoreMedia, CoreVideo, Accelerate, Security), plus separately built ANGLE/MoltenVK and runtime data (Java runtime and Android system fonts/certificates). Its QEMU guest staging/build assets are separate from the native translation target and are not imported into INFINITY.
+
+The Swift host references are not directly compilable as a Strata drop-in: the legacy host layer references Husk-only app services/models, and the engine view depends on native C entry points plus Husk window/orientation adapters. Keep the original sources intact under Vendor/Husk and write Strata-owned adapters around a stable runtime interface.
+
+## Integration gates after source import
+
+1. Complete a host-to-C symbol/API map, including legacy scan/attempt APIs and native launch, input, graphics, and lifecycle calls.
+2. Review all no-SPDX and embedded data files for provenance and applicable licenses; inspect build recipes without executing them blindly.
+3. Create an isolated INFINITY-owned runtime target with explicit source membership, frameworks, generated assets, and deployment constraints.
+4. Keep QEMU outside the native target unless a separately tested optional backend is justified.
+5. Preserve SideStore targets, source, entitlements, packaging, signing, installation and refresh flows. Do not alter the IPA builder or build/sign/export an IPA without explicit permission.
+6. Require Xcode compile/link evidence before marking the backend integrated, then require real-device APK launch/render/input/stability evidence before claiming compatibility.
+
+**Current status:** source materialized and inventoried; no Husk source has yet been compiled into Strata, no runtime target exists, and no APK execution is verified.
