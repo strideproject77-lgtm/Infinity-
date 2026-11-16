@@ -57,11 +57,12 @@ Status: source inventory complete; architecture documented; isolated backend reg
 - Integrate the selected source into the Xcode project/build system and document the pinned upstream revision.
 
 ### Phase 2 — APK intake and analysis
-Status: not started.
+Status: initial read-only ZIP inventory implemented; manifest decoding, app metadata extraction, install, and execution are not implemented.
 
-- Import APKs without confusing them with IPA packages.
-- Parse APK ZIP entries, manifest, DEX files, ABI folders, ELF metadata, and 16 KiB page requirements.
-- Extract app name/icon/version/package ID for the unified Home Screen.
+- Added `INFINITYAPKInspection.swift`: memory-mapped, read-only ZIP central-directory inspection with entry/path validation, encrypted-entry rejection, ZIP64 rejection, DEX filename inventory, native-library and ABI-folder inventory, compression counts, and archive-size reporting.
+- Added an APK inspection entry point to Strata Runtime Manager. It reports structural evidence only and explicitly does not extract, install, decode AndroidManifest.xml, or execute APK code.
+- The first local Swift type-check and synthetic ZIP/APK fixture passed. This is parser-level evidence only, not an Xcode/iOS build or real APK compatibility test.
+- Next: decode binary AndroidManifest.xml safely, extract app name/icon/version/package ID, inspect DEX/ELF headers, then connect APK records to the unified Home Screen.
 - Report unsupported ABIs and missing runtime features honestly.
 
 ### Phase 3 — Java/DEX execution
@@ -118,3 +119,19 @@ Status: not started.
 - SideStore: protected source, targets, packaging script, entitlements, and workflows were not modified.
 - Blockers: full source/provenance and license review; actual engine source integration; native framework/linker configuration; QEMU build/guest/graphics/audio bridge; test access to a real device.
 - Actual progress: Phase 0 complete. Phase 1 has source inventory, dual-backend design, and registry foundation committed; native and QEMU engine integration remain incomplete.
+
+## Upstream update audit — 2026-11-16
+
+- Checked the latest visible commits for Strata upstream (`huzaifahshahid71-ops/Strata`): latest remains `3221d76e332ceb1330882b4d55fdb6a1bf565cb0` (Strata 4.0, 2026-11-11), matching the INFINITY baseline.
+- Checked Husk upstream (`Leviidev/Husk`): latest visible commit remains `29abb512d81bf8cc08babcbe7f7007cb557208ef` (2026-11-11), matching the previously audited revision.
+- No newer upstream commits were found in this check. Continue manual monitoring; do not blindly sync or merge. Audit code, dependencies, compatibility, security, and licenses before selectively integrating changes.
+
+## Current batch report — 2026-11-16
+
+- Runtime changes: no Husk execution engine imported yet. The backend registry remains a capability contract and is not marked ready.
+- APK intake: added a read-only ZIP archive inspector and connected it to Strata Runtime Manager. It inventories manifest presence, DEX names, native library paths, ABI folders, compression methods, and sizes; it does not decode, extract, install, or run APKs.
+- Tests: `swiftc -typecheck` passed for the inspector on Linux after guarding Apple security-scoped URL calls by platform. A synthetic ZIP/APK fixture passed checks for manifest presence, DEX inventory, arm64-v8a detection, native library inventory, and stored/deflated entry counts. No Xcode build, iOS device test, or real APK execution was performed.
+- UI: added a small APK inspection section in Runtime Manager. Existing IPA launch path and SideStore code were not intentionally changed.
+- IPA: no build, signing, or export performed.
+- Blockers: Husk per-file provenance/dependency audit and source integration; APK binary XML decoding; real APK test assets/device validation; safe native runtime build configuration.
+- Actual progress: Phase 0 complete; Phase 1 architecture/source inventory and backend registry foundation complete but runtime engine integration pending; Phase 2 started with read-only APK archive inspection.
