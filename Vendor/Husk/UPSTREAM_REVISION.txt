@@ -1,0 +1,10 @@
+Repository: https://github.com/Leviidev/Husk
+Revision: 29abb512d81bf8cc08babcbe7f7007cb557208ef
+Native sources: src/translation-layer and src/translation-layer-next
+Host source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift
+Host app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift
+Runtime resource: src/app/Husk/Resources/cacert.pem
+Build recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh
+Technical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md
+Import date: 2026-11-16
+Method: git archive from the exact pinned commit

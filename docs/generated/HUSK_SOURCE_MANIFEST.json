@@ -1,0 +1,3486 @@
+{
+  "upstream": "https://github.com/Leviidev/Husk",
+  "revision_file": "Repository: https://github.com/Leviidev/Husk\nRevision: 29abb512d81bf8cc08babcbe7f7007cb557208ef\nNative sources: src/translation-layer and src/translation-layer-next\nHost source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift\nHost app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift\nRuntime resource: src/app/Husk/Resources/cacert.pem\nBuild recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh\nTechnical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md\nImport date: 2026-11-16\nMethod: git archive from the exact pinned commit",
+  "imported_groups": [
+    "translation-layer",
+    "translation-layer-next",
+    "host-runtime",
+    "host-reference",
+    "build-support",
+    "upstream-docs",
+    "resources"
+  ],
+  "file_count": 167,
+  "counts_by_kind": {
+    "build-script": 4,
+    "documentation": 4,
+    "header": 52,
+    "native-source": 96,
+    "other": 1,
+    "swift-host-source": 10
+  },
+  "counts_by_suffix": {
+    ".c": 92,
+    ".h": 49,
+    ".inc": 3,
+    ".m": 4,
+    ".md": 4,
+    ".pem": 1,
+    ".sh": 4,
+    ".swift": 10
+  },
+  "swift_imports": {
+    "AVFoundation": 2,
+    "Darwin": 1,
+    "Foundation": 2,
+    "GameController": 1,
+    "QuartzCore": 1,
+    "SwiftUI": 7,
+    "UIKit": 7,
+    "UniformTypeIdentifiers": 3,
+    "os": 1
+  },
+  "system_header_includes": {
+    "Accelerate/Accelerate.h": 1,
+    "AudioToolbox/AudioToolbox.h": 3,
+    "CommonCrypto/CommonDigest.h": 2,
+    "CommonCrypto/CommonHMAC.h": 1,
+    "CoreFoundation/CoreFoundation.h": 6,
+    "CoreGraphics/CoreGraphics.h": 3,
+    "CoreMedia/CoreMedia.h": 1,
+    "CoreText/CoreText.h": 2,
+    "CoreVideo/CoreVideo.h": 1,
+    "ImageIO/ImageIO.h": 2,
+    "Security/Security.h": 2,
+    "TargetConditionals.h": 12,
+    "VideoToolbox/VideoToolbox.h": 1,
+    "alloca.h": 1,
+    "arpa/inet.h": 4,
+    "assert.h": 1,
+    "crt_externs.h": 2,
+    "crtdbg.h": 1,
+    "ctype.h": 2,
+    "dirent.h": 6,
+    "dispatch/dispatch.h": 1,
+    "dlfcn.h": 13,
+    "errno.h": 25,
+    "execinfo.h": 1,
+    "fcntl.h": 18,
+    "fnmatch.h": 1,
+    "getopt.h": 1,
+    "ifaddrs.h": 2,
+    "inttypes.h": 2,
+    "libgen.h": 1,
+    "libkern/OSCacheControl.h": 6,
+    "limits.h": 4,
+    "locale.h": 1,
+    "mach-o/dyld.h": 1,
+    "mach-o/fat.h": 1,
+    "mach-o/fixup-chains.h": 1,
+    "mach-o/getsect.h": 1,
+    "mach-o/loader.h": 2,
+    "mach/mach.h": 8,
+    "mach/mach_time.h": 3,
+    "mach/mach_vm.h": 1,
+    "mach/thread_policy.h": 1,
+    "mach/vm_map.h": 4,
+    "malloc.h": 1,
+    "malloc/malloc.h": 1,
+    "math.h": 15,
+    "net/if.h": 3,
+    "netdb.h": 1,
+    "netinet/in.h": 3,
+    "netinet/tcp.h": 1,
+    "os/proc.h": 4,
+    "poll.h": 2,
+    "pthread.h": 58,
+    "regex.h": 1,
+    "resolv.h": 1,
+    "sched.h": 5,
+    "search.h": 1,
+    "semaphore.h": 1,
+    "setjmp.h": 5,
+    "signal.h": 11,
+    "sqlite3.h": 1,
+    "stdarg.h": 17,
+    "stdatomic.h": 33,
+    "stdbool.h": 62,
+    "stddef.h": 26,
+    "stdint.h": 60,
+    "stdio.h": 72,
+    "stdlib.h": 85,
+    "string.h": 95,
+    "strings.h": 4,
+    "sys/event.h": 1,
+    "sys/file.h": 1,
+    "sys/ioctl.h": 2,
+    "sys/mman.h": 8,
+    "sys/mount.h": 3,
+    "sys/resource.h": 1,
+    "sys/select.h": 2,
+    "sys/socket.h": 1,
+    "sys/stat.h": 27,
+    "sys/statvfs.h": 1,
+    "sys/sysctl.h": 3,
+    "sys/time.h": 6,
+    "sys/times.h": 1,
+    "sys/types.h": 1,
+    "sys/ucontext.h": 3,
+    "sys/uio.h": 2,
+    "sys/un.h": 1,
+    "sys/utsname.h": 1,
+    "sys/wait.h": 1,
+    "time.h": 33,
+    "unistd.h": 50,
+    "utime.h": 1,
+    "wchar.h": 3,
+    "wctype.h": 1,
+    "xlocale.h": 2,
+    "zlib.h": 6
+  },
+  "files": [
+    {
+      "path": "build-support/build_android_system.sh",
+      "kind": "build-script",
+      "suffix": ".sh",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "build-support/build_angle_ios.sh",
+      "kind": "build-script",
+      "suffix": ".sh",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "build-support/build_art_support.sh",
+      "kind": "build-script",
+      "suffix": ".sh",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "build-support/build_java_runtime.sh",
+      "kind": "build-script",
+      "suffix": ".sh",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "host-reference/HuskApp.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "SwiftUI"
+      ]
+    },
+    {
+      "path": "host-runtime/AppWindows.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "SwiftUI",
+        "UIKit"
+      ]
+    },
+    {
+      "path": "host-runtime/HuskAudio.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "AVFoundation"
+      ]
+    },
+    {
+      "path": "host-runtime/HuskFilePicker.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "SwiftUI",
+        "UIKit",
+        "UniformTypeIdentifiers"
+      ]
+    },
+    {
+      "path": "host-runtime/HuskGamepad.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "Foundation",
+        "GameController"
+      ]
+    },
+    {
+      "path": "host-runtime/HuskKeyboard.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "SwiftUI",
+        "UIKit"
+      ]
+    },
+    {
+      "path": "host-runtime/HuskLog.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "Foundation",
+        "Darwin",
+        "UIKit",
+        "os"
+      ]
+    },
+    {
+      "path": "host-runtime/TLAppSettings.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "SwiftUI",
+        "UIKit"
+      ]
+    },
+    {
+      "path": "host-runtime/TLUnityView.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "SwiftUI",
+        "UIKit",
+        "QuartzCore",
+        "AVFoundation",
+        "UniformTypeIdentifiers"
+      ]
+    },
+    {
+      "path": "host-runtime/TranslationLayer.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "SwiftUI",
+        "UIKit",
+        "UniformTypeIdentifiers"
+      ]
+    },
+    {
+      "path": "resources/cacert.pem",
+      "kind": "other",
+      "suffix": ".pem",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-blit.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-blit.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "math.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-blit.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-dex.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dex.h",
+        "husk-tl-framework.h",
+        "husk-tl-internal.h",
+        "husk-tl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "mach/mach_time.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "math.h",
+        "stdarg.h",
+        "dlfcn.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-dex.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdint.h",
+        "stdbool.h",
+        "stddef.h",
+        "stdlib.h",
+        "pthread.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-elf.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdarg.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-framework.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-framework.h",
+        "husk-tl-sound.h",
+        "husk-tl-res.h",
+        "husk-tl-blit.h",
+        "husk-tl-prefs.h",
+        "husk-tl-dex.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "math.h",
+        "CoreFoundation/CoreFoundation.h",
+        "CoreGraphics/CoreGraphics.h",
+        "ImageIO/ImageIO.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-framework.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dex.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-internal.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-json.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-load.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-sound.h",
+        "husk-tl-internal.h",
+        "husk-tl.h",
+        "husk-tl-dex.h",
+        "husk-tl-framework.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dlfcn.h",
+        "errno.h",
+        "fcntl.h",
+        "mach/mach_time.h",
+        "pthread.h",
+        "sched.h",
+        "stdarg.h",
+        "stdatomic.h",
+        "stdbool.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/mman.h",
+        "sys/stat.h",
+        "time.h",
+        "unistd.h",
+        "libkern/OSCacheControl.h",
+        "mach/mach.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-prefs.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-prefs.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-prefs.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-probe.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "TargetConditionals.h",
+        "dlfcn.h",
+        "libkern/OSCacheControl.h",
+        "mach/mach.h",
+        "mach/vm_map.h",
+        "errno.h",
+        "pthread.h",
+        "sched.h",
+        "setjmp.h",
+        "signal.h",
+        "stdarg.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/mman.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-res.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-res.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-res.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-scan.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdarg.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-shim.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dlfcn.h",
+        "errno.h",
+        "pthread.h",
+        "sched.h",
+        "stdatomic.h",
+        "stdarg.h",
+        "stdbool.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-sound.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-sound.h",
+        "stb_vorbis.inc"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "math.h",
+        "pthread.h",
+        "stdbool.h",
+        "stdint.h",
+        "stdlib.h",
+        "string.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-sound.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl-zip.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "fcntl.h",
+        "stdarg.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/mman.h",
+        "sys/stat.h",
+        "unistd.h",
+        "zlib.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/husk-tl.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer/stb_vorbis.inc",
+      "kind": "header",
+      "suffix": ".inc",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "assert.h",
+        "math.h",
+        "malloc.h",
+        "alloca.h",
+        "limits.h",
+        "crtdbg.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-console-abi.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-console-host.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-console-host.h",
+        "husk-jit-arena.h",
+        "husk-tl-gamepad.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dlfcn.h",
+        "fcntl.h",
+        "pthread.h",
+        "stdarg.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "unistd.h",
+        "TargetConditionals.h",
+        "mach/mach.h",
+        "os/proc.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-console-host.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-console-abi.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-jit-arena.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-jit-arena.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dlfcn.h",
+        "errno.h",
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/mman.h",
+        "TargetConditionals.h",
+        "libkern/OSCacheControl.h",
+        "mach/mach.h",
+        "mach/vm_map.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-jit-arena.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-a64.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-a64.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-a64.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-aosp.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-aosp.h",
+        "husk-tl-binder.h",
+        "husk-tl-servicemanager.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-aosp.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-aot.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-aot.h",
+        "husk-tl-codesign.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "mach-o/fixup-chains.h",
+        "mach-o/loader.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "TargetConditionals.h",
+        "unistd.h",
+        "zlib.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-aot.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-arm32.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-arm32.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dvm-internal.h",
+        "husk-tl-internal.h",
+        "husk-tl-jni.h",
+        "husk-tl-jni-internal.h",
+        "husk-tl-ld.h",
+        "husk-tl-xmem.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "inttypes.h",
+        "pthread.h",
+        "stdarg.h",
+        "stdbool.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "fcntl.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-arm32.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-audio.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-audio.h",
+        "husk-tl-bionic.h",
+        "husk-tl-cocos.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "AudioToolbox/AudioToolbox.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-audio.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-binder.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-binder.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "pthread.h",
+        "stdlib.h",
+        "string.h",
+        "unistd.h",
+        "sys/mman.h",
+        "sys/types.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-binder.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic-cxx.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "pthread.h",
+        "malloc/malloc.h",
+        "pthread.h",
+        "sched.h",
+        "setjmp.h",
+        "sys/resource.h",
+        "sys/time.h",
+        "sys/stat.h",
+        "signal.h",
+        "stdatomic.h",
+        "stdlib.h",
+        "string.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic-io.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h",
+        "husk-tl-codewrite.h",
+        "husk-tl-xmem.h",
+        "husk-tl-binder.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "ctype.h",
+        "dirent.h",
+        "errno.h",
+        "execinfo.h",
+        "TargetConditionals.h",
+        "stdbool.h",
+        "fcntl.h",
+        "limits.h",
+        "arpa/inet.h",
+        "poll.h",
+        "pthread.h",
+        "signal.h",
+        "stdarg.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/file.h",
+        "sys/ioctl.h",
+        "ifaddrs.h",
+        "net/if.h",
+        "netinet/in.h",
+        "xlocale.h",
+        "sys/mman.h",
+        "sys/mount.h",
+        "sys/select.h",
+        "sys/stat.h",
+        "sys/time.h",
+        "sys/uio.h",
+        "mach/mach.h",
+        "time.h",
+        "search.h",
+        "dlfcn.h",
+        "libkern/OSCacheControl.h",
+        "unistd.h",
+        "utime.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic-ldbl.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "inttypes.h",
+        "errno.h",
+        "fcntl.h",
+        "math.h",
+        "signal.h",
+        "stdint.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "sys/time.h",
+        "sys/uio.h",
+        "sys/wait.h",
+        "unistd.h",
+        "zlib.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic-ndk.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h",
+        "husk-tl-ld.h",
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dirent.h",
+        "errno.h",
+        "fcntl.h",
+        "poll.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "strings.h",
+        "stdbool.h",
+        "time.h",
+        "sys/stat.h",
+        "unistd.h",
+        "zlib.h",
+        "mach/mach.h",
+        "mach/mach_time.h",
+        "mach/thread_policy.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic-net.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "arpa/inet.h",
+        "errno.h",
+        "fcntl.h",
+        "netdb.h",
+        "netinet/in.h",
+        "netinet/tcp.h",
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/ioctl.h",
+        "sys/select.h",
+        "sys/socket.h",
+        "sys/stat.h",
+        "sys/time.h",
+        "sys/un.h",
+        "unistd.h",
+        "ifaddrs.h",
+        "net/if.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic-pthread.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "pthread.h",
+        "sched.h",
+        "semaphore.h",
+        "signal.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "unistd.h",
+        "string.h",
+        "time.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic-str.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-va.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "ctype.h",
+        "crt_externs.h",
+        "errno.h",
+        "fcntl.h",
+        "fnmatch.h",
+        "getopt.h",
+        "locale.h",
+        "net/if.h",
+        "regex.h",
+        "math.h",
+        "setjmp.h",
+        "stdarg.h",
+        "stdio.h",
+        "stdlib.h",
+        "stdatomic.h",
+        "string.h",
+        "strings.h",
+        "time.h",
+        "unistd.h",
+        "wchar.h",
+        "wctype.h",
+        "xlocale.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic-sys.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "fcntl.h",
+        "pthread.h",
+        "signal.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "sys/times.h",
+        "wchar.h",
+        "string.h",
+        "sys/event.h",
+        "sys/mman.h",
+        "sys/stat.h",
+        "time.h",
+        "unistd.h",
+        "math.h",
+        "zlib.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-ld.h",
+        "husk-tl-va.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "CoreFoundation/CoreFoundation.h",
+        "crt_externs.h",
+        "dlfcn.h",
+        "errno.h",
+        "libgen.h",
+        "pthread.h",
+        "signal.h",
+        "stdarg.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/sysctl.h",
+        "sys/utsname.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-bionic.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-cocos-text.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-cocos.h",
+        "husk-tl-internal.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "CoreGraphics/CoreGraphics.h",
+        "CoreText/CoreText.h",
+        "math.h",
+        "pthread.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-cocos.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-cocos.h",
+        "husk-tl-geode.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-gamepad.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-cocos.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-codesign-wwdr.inc",
+      "kind": "header",
+      "suffix": ".inc",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-codesign.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-codesign.h",
+        "husk-tl-codesign-wwdr.inc"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "stdbool.h",
+        "stdint.h",
+        "unistd.h",
+        "time.h",
+        "sys/stat.h",
+        "arpa/inet.h",
+        "TargetConditionals.h",
+        "mach-o/loader.h",
+        "mach-o/fat.h",
+        "CommonCrypto/CommonDigest.h",
+        "CommonCrypto/CommonHMAC.h",
+        "Security/Security.h",
+        "CoreFoundation/CoreFoundation.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-codesign.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-codewrite.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-codewrite.h",
+        "husk-tl-bionic.h",
+        "husk-tl-ld.h",
+        "husk-tl-xmem.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "signal.h",
+        "stdbool.h",
+        "stdint.h",
+        "string.h",
+        "sys/ucontext.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-codewrite.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dexindex.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dexindex.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dexindex.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-android.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-javaapp.h",
+        "husk-tl-dvm-gl.h",
+        "husk-tl-aosp.h",
+        "husk-tl-dvm.h",
+        "husk-tl-bionic.h",
+        "husk-tl-egl.h",
+        "husk-tl-internal.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "CoreFoundation/CoreFoundation.h",
+        "fcntl.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-annotations.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h",
+        "husk-tl-jni-internal.h",
+        "husk-tl-dvm.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-audio.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h",
+        "husk-tl-internal.h",
+        "../translation-layer/stb_vorbis.inc"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "AudioToolbox/AudioToolbox.h",
+        "math.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdbool.h",
+        "stdint.h",
+        "stdlib.h",
+        "string.h",
+        "stdio.h",
+        "unistd.h",
+        "sys/stat.h",
+        "time.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-binder.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h",
+        "husk-tl-binder.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdlib.h",
+        "string.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gl.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gles10.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-gl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdint.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gles10ext.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-gl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdint.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gles11.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-gl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdint.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gles11ext.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-gl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdint.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gles20.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-gl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gles30.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-gl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdint.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gles31.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-gl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdint.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-gles32.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-gl.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdint.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-graphics.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h",
+        "husk-tl-dvm-javaapp.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "CoreFoundation/CoreFoundation.h",
+        "CoreGraphics/CoreGraphics.h",
+        "CoreText/CoreText.h",
+        "ImageIO/ImageIO.h",
+        "math.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-internal.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm.h",
+        "husk-tl-jni-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-javaapp.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-jvm.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "math.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/time.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-media.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "Accelerate/Accelerate.h",
+        "AudioToolbox/AudioToolbox.h",
+        "CoreMedia/CoreMedia.h",
+        "CoreVideo/CoreVideo.h",
+        "VideoToolbox/VideoToolbox.h",
+        "pthread.h",
+        "stdbool.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-natives.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h",
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "math.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/time.h",
+        "time.h",
+        "unistd.h",
+        "strings.h",
+        "CoreFoundation/CoreFoundation.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-proxy.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h",
+        "husk-tl-jni-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-sensors.m",
+      "kind": "native-source",
+      "suffix": ".m",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "TargetConditionals.h",
+        "stdatomic.h",
+        "stdbool.h",
+        "stdint.h",
+        "string.h",
+        "time.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-sqlite.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "sqlite3.h",
+        "stdbool.h",
+        "unistd.h",
+        "stdio.h",
+        "stdint.h",
+        "stdlib.h",
+        "string.h",
+        "strings.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm-web.m",
+      "kind": "native-source",
+      "suffix": ".m",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h",
+        "husk-tl-dvm-javaapp.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "TargetConditionals.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdbool.h",
+        "stdint.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-dvm-internal.h",
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h",
+        "husk-tl-arm32.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "math.h",
+        "stdarg.h",
+        "stdio.h",
+        "stdlib.h",
+        "pthread.h",
+        "string.h",
+        "sys/stat.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-dvm.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-egl-es31.inc",
+      "kind": "header",
+      "suffix": ".inc",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-egl.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-egl.h",
+        "husk-tl-bionic.h",
+        "husk-tl-ld.h",
+        "husk-tl-xmem.h",
+        "husk-tl-egl-es31.inc"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dlfcn.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-egl.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-flutter-codec.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-flutter-codec.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-flutter-codec.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-flutter-plugins.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-flutter-plugins.h",
+        "husk-tl-bionic.h",
+        "husk-tl-flutter-codec.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/mount.h",
+        "sys/stat.h",
+        "sys/sysctl.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-flutter-plugins.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-flutter-text.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-flutter-text.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-flutter-text.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-flutter.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-flutter.h",
+        "husk-tl-bionic.h",
+        "husk-tl-codewrite.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-flutter-codec.h",
+        "husk-tl-flutter-plugins.h",
+        "husk-tl-flutter-text.h",
+        "husk-tl-internal.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h",
+        "husk-tl-vulkan.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "fcntl.h",
+        "sys/stat.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-flutter.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-gameactivity.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-gameactivity.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-gameactivity.h",
+        "husk-tl-arm32.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-gamepad.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h",
+        "husk-tl-xmem.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-gameactivity.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-gamemaker.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-gamemaker.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-gamemaker.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-gamepad.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-gamepad.h",
+        "husk-tl-bionic.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "math.h",
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-gamepad.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-geode.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-geode.h",
+        "husk-tl-bionic.h",
+        "husk-tl-codewrite.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-geode.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-godot.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-godot.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-godot.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-gtasa.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-gtasa.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-gamepad.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-gtasa.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-gameactivity.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-http.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-http.m",
+      "kind": "native-source",
+      "suffix": ".m",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-http.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-assetstream.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "fcntl.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-audiotrack.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-jni.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-cocos.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h",
+        "husk-tl-cocos.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-fmod.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-gms.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-godot-kotlin.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dirent.h",
+        "errno.h",
+        "fcntl.h",
+        "pthread.h",
+        "stdbool.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-godot.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-godot.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dirent.h",
+        "errno.h",
+        "fcntl.h",
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "sys/statvfs.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-hle.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h",
+        "husk-tl-arm32.h",
+        "husk-tl-ld.h",
+        "husk-tl-dexindex.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dirent.h",
+        "errno.h",
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "fcntl.h",
+        "string.h",
+        "sys/stat.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-http.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h",
+        "husk-tl-http.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "arpa/inet.h",
+        "netinet/in.h",
+        "resolv.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-input.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdlib.h",
+        "string.h",
+        "time.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-internal.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdatomic.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-loop.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-dexindex.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-minecraft.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-gameactivity.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/mount.h",
+        "sys/stat.h",
+        "sys/sysctl.h",
+        "time.h",
+        "unistd.h",
+        "TargetConditionals.h",
+        "os/proc.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-security.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "Security/Security.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-tls.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni-ue4.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-va.h",
+        "husk-tl-jni-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdarg.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-jni.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-ld.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-ld.h",
+        "husk-tl-internal.h",
+        "husk-tl-a64.h",
+        "husk-tl-arm32.h",
+        "husk-tl-xmem.h",
+        "husk-tl-codewrite.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "limits.h",
+        "dlfcn.h",
+        "libkern/OSCacheControl.h",
+        "mach-o/dyld.h",
+        "mach-o/getsect.h",
+        "sys/stat.h",
+        "mach/mach.h",
+        "mach/vm_map.h",
+        "pthread.h",
+        "signal.h",
+        "sys/ucontext.h",
+        "stdarg.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-ld.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-nativeactivity.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-nativeactivity.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-gamepad.h",
+        "husk-tl-vulkan.h",
+        "husk-tl-jni.h",
+        "husk-tl-internal.h",
+        "husk-tl-ld.h",
+        "husk-tl-xmem.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dirent.h",
+        "limits.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-nativeactivity.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-gameactivity.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-opensles.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-python.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "stdbool.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/stat.h",
+        "unistd.h",
+        "zlib.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-sdl-apps.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-jni.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-sdl.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-sdl.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-gamepad.h",
+        "husk-tl-jni.h",
+        "husk-tl-internal.h",
+        "husk-tl-ld.h",
+        "husk-tl-vulkan.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "fcntl.h",
+        "sys/stat.h",
+        "unistd.h",
+        "CommonCrypto/CommonDigest.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-sdl.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-gameactivity.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-servicemanager.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-servicemanager.h",
+        "husk-tl-binder.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-servicemanager.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-unity-app.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-unity-app.h",
+        "husk-console-host.h",
+        "husk-tl-bionic.h",
+        "husk-tl-internal.h",
+        "husk-tl-jni.h",
+        "husk-tl-ld.h",
+        "husk-tl-godot.h",
+        "husk-tl-unity.h",
+        "husk-tl-audio.h",
+        "husk-tl-geode.h",
+        "husk-tl-cocos.h",
+        "husk-tl-gameactivity.h",
+        "husk-tl-gamepad.h",
+        "husk-tl-sdl.h",
+        "husk-tl-flutter.h",
+        "husk-tl-flutter-text.h",
+        "husk-tl-gamemaker.h",
+        "husk-tl-dvm.h",
+        "husk-tl-dvm-javaapp.h",
+        "husk-tl-aosp.h",
+        "husk-tl-nativeactivity.h",
+        "husk-tl-gtasa.h",
+        "husk-tl-vulkan.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dlfcn.h",
+        "fcntl.h",
+        "pthread.h",
+        "signal.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "sys/ucontext.h",
+        "unistd.h",
+        "TargetConditionals.h",
+        "os/proc.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-unity-app.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-unity.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-unity.h",
+        "husk-tl-bionic.h",
+        "husk-tl-dexindex.h",
+        "husk-tl-egl.h",
+        "husk-tl-gamepad.h",
+        "husk-tl-jni.h",
+        "husk-tl-arm32.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "pthread.h",
+        "setjmp.h",
+        "stdarg.h",
+        "stdatomic.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "time.h",
+        "unistd.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-unity.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-va.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-va.h",
+        "husk-tl-bionic.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "errno.h",
+        "stdbool.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "wchar.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-va.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdarg.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-vulkan.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-vulkan.m",
+      "kind": "native-source",
+      "suffix": ".m",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-vulkan.h",
+        "husk-tl-bionic.h",
+        "husk-tl-ld.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "TargetConditionals.h",
+        "os/proc.h",
+        "dispatch/dispatch.h",
+        "dlfcn.h",
+        "pthread.h",
+        "stdatomic.h",
+        "stdint.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-xmem.c",
+      "kind": "native-source",
+      "suffix": ".c",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "husk-tl-xmem.h",
+        "husk-tl-internal.h"
+      ],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "dlfcn.h",
+        "errno.h",
+        "pthread.h",
+        "stdio.h",
+        "stdlib.h",
+        "string.h",
+        "sys/mman.h",
+        "TargetConditionals.h",
+        "libkern/OSCacheControl.h",
+        "mach/mach.h",
+        "mach/vm_map.h",
+        "setjmp.h",
+        "signal.h",
+        "unistd.h",
+        "mach/mach_vm.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "translation-layer-next/husk-tl-xmem.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [
+        "stdbool.h",
+        "stddef.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
+    },
+    {
+      "path": "upstream-docs/00-architecture.md",
+      "kind": "documentation",
+      "suffix": ".md",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "upstream-docs/01-licensing.md",
+      "kind": "documentation",
+      "suffix": ".md",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": true,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "upstream-docs/04-translation-layer.md",
+      "kind": "documentation",
+      "suffix": ".md",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
+      "path": "upstream-docs/05-translation-layer-milestone2-handoff.md",
+      "kind": "documentation",
+      "suffix": ".md",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    }
+  ]
+}
