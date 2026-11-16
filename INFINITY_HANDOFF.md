@@ -274,3 +274,23 @@ Status: not started.
 2. Determine the smallest coherent source target that still preserves Husk's full native architecture; identify generated assets and linker/framework requirements from the upstream build manifest and recipes.
 3. Review the 13 no-SPDX items for provenance and transitive licensing; do not treat missing SPDX text as proof of incompatibility.
 4. Add a Strata-owned narrow bridge and isolated runtime target only after the symbol/dependency map is complete. Keep SideStore and IPA workflows untouched.
+
+
+## Native host API closure audit — 2026-11-17
+
+- Reclassified `HuskAudio.swift`, `HuskKeyboard.swift`, and `HuskLog.swift` as host-reference-only because their current implementations depend on QEMU guest audio/display/JIT paths. They are not native translation-layer host components and must not be compiled into the native runtime target as-is.
+- The six remaining Swift host candidates stay under `host-runtime/` as references pending Strata adaptation: `TranslationLayer.swift`, `TLUnityView.swift`, `TLAppSettings.swift`, `AppWindows.swift`, `HuskGamepad.swift`, and `HuskFilePicker.swift`.
+- Added a first-pass Swift-to-native API audit. After comment stripping and C-struct initializer classification, it maps 73 function calls from the selected Swift host references to 73 matching declarations and 73 matching native source definitions. It separately identifies one C struct initializer (`husk_unity_perf`). No missing function declarations/definitions were reported by this textual scan.
+- This is not ABI/compiler/linker proof. The scanner is intentionally scoped to the two translation-layer source trees; QEMU/JIT host functions remain excluded. The upstream HuskBridge.h is still audit-only.
+- The importer now refreshes only after reviewed importer/auditor/workflow changes on main; manual dispatch remains available. The latest import/audit run 43936567610 completed successfully and refreshed the snapshot at pinned revision 29abb512d81bf8cc08babcbe7f7007cb557208ef. Vendor commit: 9eb30d6a824ae0238203fed9bbf51d3c797f625f.
+- The latest source-contract and APK archive test job (run 43936567412) passed. The Swift APK parser type-check job was still queued at the last check.
+- Remaining static audit warnings: 13 files lack SPDX identifiers in the first 8 KiB; one unresolved quoted include remains in audit-only `host-reference/HuskBridge.h` (`HuskRPPairing.h`). Do not import the unrelated pairing/JIT dependency to silence it.
+- No native runtime target, Xcode compile/link, IPA build/sign/export, device launch, or real APK execution has occurred. SideStore remains untouched.
+
+### Next integration batch
+
+1. Extract the minimal window/orientation and lifecycle contracts from the host references into INFINITY-owned adapters; do not compile Husk's broad app UI or @main entry point.
+2. Define a dedicated native runtime target with both translation-layer trees, an INFINITY-owned narrow bridging header, and only the confirmed iOS frameworks/resources.
+3. Audit generated Java runtime, Android system files, ANGLE and optional MoltenVK build products and their licences before any build recipe is run.
+4. Add the target only to Strata's app build graph after a target-by-target check proves SideStore source, target, entitlements, packaging, signing, installation and refresh remain unchanged.
+5. Run an Xcode compile/link CI job (not the IPA builder), then connect APK intake/lifecycle and validate real device launch/render/input/stability.
