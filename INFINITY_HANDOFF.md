@@ -57,13 +57,15 @@ Status: source inventory complete; architecture documented; isolated backend reg
 - Integrate the selected source into the Xcode project/build system and document the pinned upstream revision.
 
 ### Phase 2 — APK intake and analysis
-Status: initial read-only ZIP inventory implemented; manifest decoding, app metadata extraction, install, and execution are not implemented.
+Status: ZIP inventory, bounded manifest extraction, and binary Android manifest metadata decoding implemented; APK installation and execution are not implemented.
 
-- Added `INFINITYAPKInspection.swift`: memory-mapped, read-only ZIP central-directory inspection with entry/path validation, encrypted-entry rejection, ZIP64 rejection, DEX filename inventory, native-library and ABI-folder inventory, compression counts, and archive-size reporting.
-- Added an APK inspection entry point to Strata Runtime Manager. It reports structural evidence only and explicitly does not extract, install, decode AndroidManifest.xml, or execute APK code.
-- The first local Swift type-check and synthetic ZIP/APK fixture passed. This is parser-level evidence only, not an Xcode/iOS build or real APK compatibility test.
-- Next: decode binary AndroidManifest.xml safely, extract app name/icon/version/package ID, inspect DEX/ELF headers, then connect APK records to the unified Home Screen.
-- Report unsupported ABIs and missing runtime features honestly.
+- `INFINITYAPKInspection.swift` inventories the APK ZIP central directory, DEX filenames, native libraries, ABI folders, compression methods, and archive sizes.
+- `INFINITYAPKArchive.c/.h` extracts a named ZIP entry using stored or raw-DEFLATE compression, with a 16 MiB output cap, local-header/name checks, and CRC validation. zlib is linked only to the LiveContainerSwiftUI target.
+- `INFINITYAPKManifest.swift` decodes Android binary XML string pools (UTF-8/UTF-16), manifest package, version name/code, application label/icon resource reference, and MAIN/LAUNCHER activity.
+- Runtime Manager now displays the decoded package and launch metadata when available. Resource references are reported as IDs; `resources.arsc` resolution and actual icon extraction are not implemented.
+- Added `tests/test_infinity_apk_archive.py` for stored/deflated extraction, missing entries, and corrupt archive rejection. The test harness is committed but has not been executed in this environment.
+- No Xcode/iOS build or real APK execution test has been performed. Do not treat manifest parsing as runtime compatibility evidence.
+- Next: add resources.arsc/icon extraction and DEX/ELF header inspection, then wire validated package records into the unified Home Screen.
 
 ### Phase 3 — Java/DEX execution
 Status: not started in INFINITY.
@@ -148,3 +150,15 @@ Status: not started.
 - The importer deliberately excludes Husk UI/app code, QEMU tree and guest images, build/package/signing scripts, generated binaries, and unrelated tools. QEMU remains a separate optional integration decision.
 - SideStore source, settings, targets, packaging, signing, refresh, and installation workflows were not changed. The existing IPA builder was not run; no IPA was built or signed.
 - Next substantial batch: run the importer in a controlled checkout, audit the imported tree's per-file SPDX/provenance and transitive dependencies, then integrate a dependency-complete native runtime slice behind an isolated target. Keep all source out of SideStore and do not mark the backend ready until a real APK launch is verified.
+
+## Current batch report — 2026-11-16 (APK metadata batch)
+
+- Implemented bounded ZIP entry extraction in C using the iOS SDK zlib library. Stored and raw-DEFLATE entries are supported; output is capped at 16 MiB and validated against the local header, central-directory name, and CRC.
+- Implemented Android binary XML manifest decoding in Swift, including UTF-8/UTF-16 string pools, package ID, versionName/versionCode, application label, icon resource ID, and MAIN/LAUNCHER activity resolution.
+- Connected manifest metadata to the Runtime Manager APK inspection report.
+- Added a host-side Python regression test harness. It is committed but not executed; no test pass is claimed.
+- Added the exact Husk upstream GPL-2 license text and provenance record at `ThirdParty/Husk/`. Husk native runtime source is still not vendored or compiled. The current APK inspection code is original INFINITY code.
+- Modified only the LiveContainerSwiftUI bridging header and its Debug/Release linker flags to expose the archive helper and link zlib. SideStore source, target, signing, install/refresh logic, and packaging workflow were not modified.
+- No IPA build/sign/export was run. No Xcode build, iOS device test, or real APK execution was performed.
+- Known limitations: no `resources.arsc` string/icon resolution, no actual icon extraction, no DEX/ELF metadata parsing, no APK installation or execution.
+- Next large batch: inspect and import the complete required Husk runtime source/dependency set, create a dedicated build integration that does not affect SideStore, and then connect the native runtime entry points.
