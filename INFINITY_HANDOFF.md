@@ -173,3 +173,11 @@ Status: not started.
 - This is a bulk source-copy and audit pipeline. It is not yet an automatic Xcode integration generator: the source tree may require generated headers, framework/linker settings, platform adaptations, and third-party dependencies. The workflow intentionally does not compile all 126 files or register them in Strata's target without a dependency-complete selection.
 - The Actions workflow has been committed and its files were fetched back for verification. It has **not been dispatched**, so no vendor snapshot or generated inventory has been created yet.
 - No Xcode build, IPA build/sign/export, device test, or APK execution was performed. SideStore and the existing IPA builder remain untouched.
+
+## Husk source import readiness — 2026-11-16
+
+- A pinned importer is available at `scripts/import_husk_runtime.sh`; it fetches exact Husk revision `29abb512d81bf8cc08babcbe7f7007cb557208ef` and stages only `src/translation-layer-next/`, its GPL license, and licensing guide under `Vendor/Husk/`.
+- `scripts/audit_husk_runtime.py` creates a file/SPDX/quoted-include inventory after import.
+- Manual GitHub Actions workflow: `.github/workflows/import-husk-runtime.yml` (Actions → Import Husk Runtime Sources → Run workflow on `main`, `refresh=false`).
+- This import workflow has not yet been dispatched or verified. Until it runs and its generated manifest/audit are reviewed, no Husk native source is present in the vendored tree and no runtime integration is claimed.
+- A separate `.github/workflows/infinity-tests.yml` was added for the original APK ZIP helper and Swift parser type-check. Its run result is not yet verified.
