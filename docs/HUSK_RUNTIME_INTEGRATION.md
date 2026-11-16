@@ -83,22 +83,25 @@ Husk's native runtime is GPL-2.0-or-later. Preserve the exact upstream LICENSE a
 
 ## Work completed in this batch
 
-- Expanded the pinned importer to include the complete translation-layer-next source directory, selected native-runtime host Swift files, required runtime build recipes and technical/licensing documentation.
+- Expanded the pinned importer to include both translation-layer C trees, the selected Swift host files, app-entry-point source as audit-only reference, CA certificate resource, required runtime build recipes and technical/licensing documentation.
+- Recorded the discovered dual dependency: translation-layer-next is the primary runtime, but the selected current Swift host still calls legacy translation-layer attempt/check APIs.
+- Added host dependency notes for TLWindowHost, HuskOrientation, file picker, input/audio/log helpers and upstream linker frameworks.
 - Expanded the audit generator to inventory native and Swift source groups, SPDX markers, quoted includes, system header includes and Swift module imports.
 - Kept all imported material under Vendor/Husk/, outside Strata's synchronized source groups.
 - Did not change Xcode target membership, project build settings, SideStore or the IPA builder.
 
 ## Remaining integration work
 
-1. Execute the manual import workflow and review the generated manifest/audit.
-2. Resolve all compile-time dependencies and host Swift type dependencies.
-3. Create a dedicated isolated runtime target/module and stable Strata-facing API.
-4. Connect APK intake, split APKs, runtime data, native libraries, DEX execution, graphics, audio and input to Strata's app lifecycle.
-5. Compile the isolated target without changing SideStore or global project settings.
-6. Run real APK tests and record device-level evidence. Never count APK inspection or a successful compile as playable compatibility.
+1. Execute the manual import workflow and review the generated manifest/audit, including per-file provenance and embedded include data.
+2. Resolve legacy-vs-next runtime ownership and replace legacy attempt/check calls only after mapping their behavior to the new runtime.
+3. Extract TLWindowHost and orientation behavior into INFINITY-owned adapters; do not compile HuskApp.swift or unrelated app UI.
+4. Create a dedicated isolated runtime target/module and stable Strata-facing API, with explicit framework/resource dependencies.
+5. Connect APK intake, split APKs, runtime data, native libraries, DEX execution, graphics, audio and input to Strata's app lifecycle.
+6. Compile the isolated target without changing SideStore or global project settings.
+7. Run real APK tests and record device-level evidence. Never count APK inspection or a successful compile as playable compatibility.
 
 ## Evidence and limitations
 
 The upstream source tree and project manifest were inspected at the pinned revision. Husk's project.yml includes translation-layer-next but also links QEMU, ANGLE, MoltenVK and other separately built components and stages a guest image. Its project file must not be copied wholesale.
 
-The expanded importer and audit generator are committed, but the workflow has not yet been dispatched. No Husk sources have yet been copied by that workflow, no native runtime target has been compiled, no IPA has been built, and no real APK execution is claimed.
+The importer and audit generator have been expanded to stage both C source trees and the relevant host dependency sources, but the manual workflow has not yet been dispatched. No Husk sources have yet been copied by that workflow, no native runtime target has been compiled, no IPA has been built, and no real APK execution is claimed.
