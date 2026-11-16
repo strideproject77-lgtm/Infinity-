@@ -1,67 +1,69 @@
 # Husk runtime import pipeline
 
-This pipeline makes the selected Husk runtime source available to INFINITY in one repeatable operation. It is a **source-vendoring step**, not a claim that the runtime is already compiled or executable.
+This pipeline imports the pinned native translation engine together with the selected iOS host-side runtime code and the upstream build recipes that produce required Android runtime data. It is a **source-vendoring and audit step**, not a claim that the runtime is compiled or executable.
+
+## Pinned source snapshot
+
+The importer fetches exact Husk revision 29abb512d81bf8cc08babcbe7f7007cb557208ef and copies:
+
+- src/translation-layer-next/ — native runtime, ELF loader, Bionic, JNI, DEX/Dalvik, Binder, engine bridges, EGL/GLES, audio and input.
+- Selected host runtime files: TLUnityView.swift, TLAppSettings.swift, HuskGamepad.swift, HuskKeyboard.swift, HuskLog.swift and HuskFilePicker.swift.
+- Runtime build recipes: build_java_runtime.sh, build_android_system.sh, build_angle_ios.sh and build_art_support.sh.
+- Technical and licensing documentation needed to understand those components.
+
+The result is placed under Vendor/Husk/, outside Strata's synchronized Xcode source groups. The importer does not add source files to any Xcode target.
 
 ## Import
 
-From the INFINITY repository root on a machine with Git:
+From the INFINITY repository root:
 
 ```sh
 bash scripts/import_husk_runtime.sh
 ```
 
-The script fetches the exact audited Husk revision and copies only:
-
-- `src/translation-layer-next/`
-- Husk's root `LICENSE`
-- Husk's `docs/01-licensing.md`
-
-The result is placed under `Vendor/Husk/`, outside Strata's synchronized Xcode source groups. This prevents an unreviewed 126-file import from being compiled into the app automatically.
+The GitHub Actions equivalent is available from Actions → Import Husk Runtime Sources → Run workflow on main. Leave refresh=false for the first import. The workflow commits the vendored source and generated audit to main.
 
 ## Refresh
 
-The importer refuses to overwrite an existing vendor tree by default. After reviewing the new upstream revision and changing the pinned revision in the script deliberately, run:
+The importer refuses to overwrite an existing native source tree by default. After reviewing upstream changes and deliberately changing the pinned revision in the script, run:
 
 ```sh
 bash scripts/import_husk_runtime.sh --refresh
 ```
 
-Review the complete vendor diff before accepting it. Do not point the script at a moving branch or tag.
+Only importer-owned paths are replaced. INFINITY-owned files such as Vendor/Husk/THIRD_PARTY_NOTICES.md are preserved.
+
+## What is deliberately excluded
+
+- Husk's @main app entry point and complete app/catalog UI.
+- QEMU source, QEMU runner, guest images, kernels, firmware, qcow2 disks and guest staging.
+- Husk's complete XcodeGen project and QEMU-linked build configuration.
+- JIT helper extension, pairing/signing/refresh/install flows and unrelated app features.
+- Prebuilt binaries and generated Android runtime payloads.
+
+QEMU remains a separate optional backend decision. The native translation layer is the primary integration path; ANGLE/GLES, Java runtime assets, Android system fonts/certificates and Vulkan/MoltenVK are separately audited dependencies. The included build recipes are retained for review, not executed by the importer.
 
 ## Integration workflow
 
 1. Import the pinned source snapshot.
-2. Inventory every source/header/include file and retain its original copyright and SPDX header.
-3. Build a dependency map for each selected subsystem (ELF loader, Bionic, JNI, DEX/ART, Binder, graphics, audio).
-4. Check all transitive third-party licenses and platform-derived provenance; the root Husk license alone does not replace component-specific notices.
-5. Select a coherent dependency-complete batch. Do not cherry-pick isolated C files whose internal headers or callbacks are missing.
-6. Port Apple-specific code and build settings separately. Keep imported sources outside Xcode target membership until reviewed.
-7. Add the selected files to an isolated INFINITY runtime target/module; never modify SideStore targets, packaging, signing, refresh or installation flows.
-8. Compile and run consolidated host tests, then an iOS build only when separately authorized. Test 2048 first, then Hill Climb Racing.
-9. Record exact upstream revision, imported paths, notices, test evidence and blockers in `INFINITY_HANDOFF.md`.
+2. Review the generated file-level manifest, SPDX markers, quoted includes and Swift framework imports.
+3. Resolve native symbols, compiler flags, frameworks, deployment-target constraints and Swift type dependencies.
+4. Audit every selected file and transitive dependency's license/provenance. The root Husk license does not replace component-specific notices.
+5. Build an isolated runtime target/module. Keep vendor sources outside synchronized Strata source groups until the target is dependency-complete.
+6. Adapt only the Apple host boundary and Strata lifecycle integration; keep upstream runtime implementation intact wherever possible.
+7. Connect the engine's real APK discovery, native library, DEX, Java runtime data, graphics, audio and input paths to Strata's APK records and app screen.
+8. Preserve all existing Strata targets and the built-in SideStore. Do not alter SideStoreSupport, signing, refresh, installation, entitlements or packaging.
+9. Run one consolidated test pass after the integration batch. No compatibility status is granted by import, parsing or compilation alone; real APK execution is required.
+10. Update INFINITY_HANDOFF.md with exact revision, source groups, tests and blockers.
 
-## Exclusions
+## Audit limitations
 
-This importer intentionally does not copy Husk's app/UI, QEMU source tree, guest images, build scripts, packaging scripts, signing workflows, generated binaries, or unrelated tools. QEMU remains a separately evaluated optional backend.
+scripts/audit_husk_runtime.py inventories imported source groups, source types, SPDX identifiers, quoted includes, system header includes and Swift imports. It is not a compiler, full symbol resolver, legal opinion or proof of runtime compatibility. Missing generated headers, conditional includes, linker symbols, runtime resources, and transitive dependencies still require review.
 
 ## Safety
 
-- The pinned revision is `29abb512d81bf8cc08babcbe7f7007cb557208ef`.
-- The script uses `git archive` at that exact commit; it does not execute upstream scripts.
-- The destination is `Vendor/Husk/`, not `LiveContainerSwiftUI/` and not `SideStoreSupport/`.
-- Importing source does not mean it is build-ready, linked, licensed for every bundled dependency, or capable of running APKs.
-
-
-## One-tap GitHub import
-
-The repository also provides a manual GitHub Actions workflow:
-
-1. Open **Actions** in the repository.
-2. Select **Import Husk Runtime Sources**.
-3. Choose **Run workflow** on `main`.
-4. Leave `refresh=false` for the first import. Only select refresh after reviewing the pinned revision.
-5. The workflow imports the pinned source, generates a source manifest and quoted-header dependency report, and commits the result to `main`.
-
-This lets the import run from GitHub's mobile website/app without a local Mac or laptop. It requires repository Actions to be enabled and the workflow's GitHub token to have contents-write permission.
-
-The audit is deliberately conservative. It inventories C/Objective-C/C++/assembly sources, headers, SPDX identifiers, and unresolved quoted includes. It does not automatically add every file to Xcode: missing generated headers, framework dependencies, build flags, linker symbols, and third-party provenance need review before a source group is selected for compilation.
+- The pinned revision is 29abb512d81bf8cc08babcbe7f7007cb557208ef.
+- The importer uses git archive from that exact commit and does not execute upstream scripts.
+- The destination is Vendor/Husk/, not LiveContainerSwiftUI/ or SideStoreSupport/.
+- The importer workflow does not invoke the IPA builder.
+- No IPA build, signing or export is performed by this pipeline.
