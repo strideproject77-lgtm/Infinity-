@@ -50,3 +50,18 @@ This importer intentionally does not copy Husk's app/UI, QEMU source tree, guest
 - The script uses `git archive` at that exact commit; it does not execute upstream scripts.
 - The destination is `Vendor/Husk/`, not `LiveContainerSwiftUI/` and not `SideStoreSupport/`.
 - Importing source does not mean it is build-ready, linked, licensed for every bundled dependency, or capable of running APKs.
+
+
+## One-tap GitHub import
+
+The repository also provides a manual GitHub Actions workflow:
+
+1. Open **Actions** in the repository.
+2. Select **Import Husk Runtime Sources**.
+3. Choose **Run workflow** on `main`.
+4. Leave `refresh=false` for the first import. Only select refresh after reviewing the pinned revision.
+5. The workflow imports the pinned source, generates a source manifest and quoted-header dependency report, and commits the result to `main`.
+
+This lets the import run from GitHub's mobile website/app without a local Mac or laptop. It requires repository Actions to be enabled and the workflow's GitHub token to have contents-write permission.
+
+The audit is deliberately conservative. It inventories C/Objective-C/C++/assembly sources, headers, SPDX identifiers, and unresolved quoted includes. It does not automatically add every file to Xcode: missing generated headers, framework dependencies, build flags, linker symbols, and third-party provenance need review before a source group is selected for compilation.
