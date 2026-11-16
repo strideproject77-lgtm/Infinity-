@@ -1,63 +1,77 @@
 # INFINITY Android Runtime Architecture
 
-Status: design and source-audit baseline; no runtime backend is integrated yet.
-Updated: 2026-11-16
+Status: expanded Husk integration plan; source importer and audit pipeline updated 2026-11-16.
 
-## Approved direction
+## Target architecture
 
-The project owner approved including QEMU if it is needed. INFINITY will evaluate and keep two separate Android execution backends:
+INFINITY merges Strata's existing iOS host with Husk's advanced Android translation runtime. The target is to preserve the upstream runtime's architecture and implementation as-is wherever possible, not to create a reduced interpreter and gradually grow it.
 
-1. **Native translation backend (primary target):** execute APK DEX and ARM64 native components through a host-side Android compatibility layer. This avoids booting a complete Android operating system for apps that the translation layer can support.
-2. **QEMU guest backend (optional compatibility path):** run a complete ARM64 Android guest for apps that cannot yet run through the native translation backend, or for diagnostics/comparison. This is a separate execution mode, not a transparent speed improvement.
+- Strata remains responsible for iOS UI, app/library management, IPA handling, lifecycle, settings and the existing host infrastructure.
+- Husk's translation-layer-next is the primary Android execution engine.
+- INFINITY-owned adapters connect Husk's native runtime and host callbacks to Strata's app records, display surface, input, orientation, audio and diagnostics.
+- QEMU is a separate optional backend only if it adds meaningful compatibility. It is not the default path and does not replace the native translation layer.
 
-The APK launcher should choose a backend only from explicit capability checks and user-visible status. Never report an APK as compatible merely because it imports, parses, or boots an Android guest.
+## Runtime components to preserve
 
-## What QEMU changes
+The integration should reuse Husk's existing:
+- DEX indexing and Dalvik execution.
+- ARM64/ARM32 translation, JIT/AOT and executable-memory handling.
+- ELF loader, relocations, dependency resolution and symbol binding.
+- Bionic compatibility and system-library shims.
+- JNI and Android Java/native bridge.
+- Binder/service manager and Android framework services.
+- NativeActivity/GameActivity and engine-specific launchers.
+- EGL/GLES, ANGLE integration and Vulkan/MoltenVK path where required.
+- Audio, gamepad, touch, keyboard and text input.
+- Unity, Unreal, SDL, Godot, Cocos, Flutter, GameMaker, Java and other upstream engine bridges.
+- Java runtime and Android system resources required by those engines.
 
-Husk's current QemuRunner.swift describes QEMU as an in-process shared library driven by a dedicated pthread because iOS apps cannot spawn arbitrary child processes. Its guest manager describes a LineageOS ARM64 guest, QCOW2 system disk, userdata disk, and optional pre-booted snapshot.
+Do not replace these with placeholders or claim support based only on APK inspection.
 
-Consequences:
-- QEMU emulates a full guest on devices without a suitable hypervisor; it is not expected to make execution faster.
-- Cold Android boot is documented by Husk as taking several minutes; a pre-booted snapshot reduces boot time but has a multi-gigabyte download and device-specific RAM/resolution constraints.
-- Guest execution adds a Linux kernel, Android userspace, virtual devices, display transport, guest memory, storage, and lifecycle management.
-- QEMU may provide broader Android framework compatibility, but it consumes substantially more storage and memory and can perform poorly on older iPhones.
-- QEMU must be optional, with storage/network disclosure, cancellation, cleanup, safe shutdown, and a way to return to the native launcher.
+## Source import boundary
 
-## Integration boundaries
+The pinned importer fetches Husk revision 29abb512d81bf8cc08babcbe7f7007cb557208ef. It imports:
+- src/translation-layer-next/
+- selected host-side Swift runtime sources
+- selected Java/Android-system/ANGLE/ART build recipes
+- relevant technical and licensing documentation
 
-- Keep all Android runtime code in a new isolated INFINITY runtime module.
+The import remains under Vendor/Husk/, outside synchronized Xcode source groups. It is a source snapshot, not yet an Xcode target. Build recipes are for audit and controlled integration; the importer does not execute them or download runtime payloads.
+
+## Host integration
+
+A dedicated runtime target/module must be created after the source and dependency audit. It must expose a stable Swift-facing API to Strata without pulling the entire Husk app or replacing Strata's Xcode project.
+
+Host adapters should preserve upstream behavior and only bridge platform boundaries:
+- APK and split-APK paths into Husk's app/engine drivers.
+- App data, Android system paths, Java runtime assets and shared storage.
+- CAMetalLayer/display surfaces and frame lifecycle.
+- Touch, keyboard, text and controller events.
+- Orientation, pause/resume, safe shutdown and per-app settings.
+- Native logs, crash diagnostics, FPS and frame timing.
+
+The selected Swift host sources are reference material until their Husk-specific dependencies have been mapped. Do not compile them into Strata's main synchronized source group directly.
+
+## QEMU boundary
+
+QEMU may be included as a separate optional backend after its platform, resource, performance and licensing requirements are audited. Keep guest images, kernels, firmware, qcow2 disks and QEMU libraries separate from the native translation runtime. Do not copy Husk's complete XcodeGen project or its QEMU guest-staging build phases.
+
+## Protected Strata components
+
+- Preserve all existing Strata UI and IPA launch behavior.
 - Do not edit, refactor, relink, replace, or change settings for SideStoreSupport, SideStore-related targets, entitlements, signing/refresh/install flows, or their dependencies.
-- Do not alter the built-in SideStore to accommodate either Android backend.
-- Keep APK app records and the unified Home Screen independent from backend implementation details.
-- Keep native translation and QEMU guest data in separate directories and diagnostics namespaces.
-- Do not add QEMU guest assets to the app bundle by default.
-- Do not modify global Xcode project settings or shared build phases until their effect on SideStore and all existing Strata targets has been audited.
+- Do not modify the existing IPA builder or its packaging scripts.
+- Do not change global Xcode settings or shared build phases until all target effects are reviewed.
+- Work only on main; never force-push or reset it.
 
-## Source and licensing gate
+## Licensing
 
-Audited upstream: Leviidev/Husk, main revision observed 2026-11-16.
+Husk is GPL-2.0-or-later. Preserve the upstream license, file headers and notices. Audit every native/Swift source, embedded include, generated resource, framework and transitive dependency before integration and distribution. INFINITY's existing license and dependency obligations also apply. No blanket compatibility claim is made.
 
-- Husk src/translation-layer-next/ contains 126 files (79 C, 41 headers, 4 Objective-C, 2 include files), approximately 2.67 MiB.
-- Sampled native-runtime C files carry SPDX-License-Identifier: GPL-2.0-or-later.
-- Husk's iOS app target also includes QEMU and references a built libqemu-aarch64-softmmu.dylib, ANGLE, pairing/debug support, and guest image management. These are not interchangeable with the native translation backend.
-- The inspected QEMU runner and guest image manager are GPL-2.0-or-later and document an in-process QEMU library and LineageOS guest workflow.
-- INFINITY currently lists LiveContainer under AGPL-3.0 and has additional third-party dependencies. Before importing code or distributing a combined binary, perform a component-by-component license and notice review. GPL-2.0-or-later can sometimes be taken under GPL-3.0-or-later, but this does not by itself establish that every dependency, patch, asset, or binary is compatible. No legal compatibility claim is made here.
-- Preserve upstream notices and licenses. Exclude files with unclear provenance until verified. Do not silently strip or rewrite license headers.
+## Validation
 
-## Implementation order
-
-1. Complete the source manifest and license/provenance review for native runtime, QEMU, ANGLE, guest images, and helper components.
-2. Create an isolated Android runtime module and stable Swift-facing API; do not touch SideStore or existing IPA launch paths.
-3. Integrate APK import/metadata extraction and persistent app records.
-4. Bring up native DEX execution and validate a real small APK.
-5. Integrate ARM64 ELF/Bionic/JNI and framework services incrementally.
-6. Add QEMU as a separately selectable optional backend after its iOS build and licensing gate passes.
-7. Connect backend selection to the unified launcher, then add diagnostics and real-game testing.
-
-## Validation rules
-
-- No IPA build/sign/export without explicit owner permission.
-- No compatibility claim without actual APK execution evidence on a real device.
-- One consolidated test pass per batch, in this order: 2048, Hill Climb Racing, then other real APKs.
-- Record device, iOS, backend, memory, JIT mode, launch/render/input/audio result, session duration, and crash logs.
-- If QEMU guest setup cannot complete on the target device, report it as a blocker rather than counting guest boot or static analysis as APK compatibility.
+- No IPA build/sign/export without explicit permission.
+- No compatibility claim without real APK execution on device.
+- Test evidence must distinguish import, static analysis, compile/link, launch, render, input, audio and sustained stability.
+- Record device, iOS, runtime revision, backend, memory, JIT mode, FPS/frame timing, session duration and crash logs.
+- Keep one consolidated test pass per batch and record exact blockers in INFINITY_HANDOFF.md.
