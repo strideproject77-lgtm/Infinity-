@@ -135,3 +135,16 @@ Status: not started.
 - IPA: no build, signing, or export performed.
 - Blockers: Husk per-file provenance/dependency audit and source integration; APK binary XML decoding; real APK test assets/device validation; safe native runtime build configuration.
 - Actual progress: Phase 0 complete; Phase 1 architecture/source inventory and backend registry foundation complete but runtime engine integration pending; Phase 2 started with read-only APK archive inspection.
+
+
+## Husk bulk-import pipeline — 2026-11-16
+
+- Added `scripts/import_husk_runtime.sh`, a repeatable source importer pinned to Husk commit `29abb512d81bf8cc08babcbe7f7007cb557208ef`.
+- The importer fetches the exact commit and uses `git archive` to copy only `src/translation-layer-next/`, the upstream root license, and Husk's licensing guide. It does not execute upstream scripts.
+- Vendored output is staged under `Vendor/Husk/`, outside Strata's synchronized Xcode source groups so an unreviewed source dump is not auto-compiled.
+- Added `docs/HUSK_IMPORT_PIPELINE.md` with import/refresh and dependency-audit workflow, and `Vendor/Husk/THIRD_PARTY_NOTICES.md` recording the upstream GPL-2.0-or-later obligation and per-component license caveat.
+- Import command: `bash scripts/import_husk_runtime.sh`; refresh requires explicit `--refresh` and a deliberate pin update after upstream review.
+- The importer has been committed but **has not yet been executed** in a checkout. No Husk source files have been vendored or compiled by this step, and no APK execution capability is claimed.
+- The importer deliberately excludes Husk UI/app code, QEMU tree and guest images, build/package/signing scripts, generated binaries, and unrelated tools. QEMU remains a separate optional integration decision.
+- SideStore source, settings, targets, packaging, signing, refresh, and installation workflows were not changed. The existing IPA builder was not run; no IPA was built or signed.
+- Next substantial batch: run the importer in a controlled checkout, audit the imported tree's per-file SPDX/provenance and transitive dependencies, then integrate a dependency-complete native runtime slice behind an isolated target. Keep all source out of SideStore and do not mark the backend ready until a real APK launch is verified.
