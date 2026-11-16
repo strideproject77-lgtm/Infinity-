@@ -259,3 +259,51 @@ private extension INFINITYAPKManifest.Value {
         return nil
     }
 }
+
+
+enum INFINITYAPKArchive {
+    enum ExtractionError: LocalizedError {
+        case invalidArchive
+        case unsupportedArchive
+        case entryMissing
+        case sizeLimit
+        case allocationFailed
+        case decompressionFailed
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidArchive: return "The APK entry has an invalid ZIP structure."
+            case .unsupportedArchive: return "The APK entry uses an unsupported ZIP feature or compression method."
+            case .entryMissing: return "AndroidManifest.xml could not be found in the APK."
+            case .sizeLimit: return "The APK manifest exceeds the safe extraction size limit."
+            case .allocationFailed: return "There was not enough memory to inspect the APK manifest."
+            case .decompressionFailed: return "The APK manifest could not be decompressed or failed its integrity checks."
+            }
+        }
+    }
+
+    static func extractEntry(from archive: Data, path: String) throws -> Data {
+        var output: UnsafeMutablePointer<UInt8>?
+        var outputLength = 0
+        let status: Int32 = archive.withUnsafeBytes { raw in
+            guard let base = raw.bindMemory(to: UInt8.self).baseAddress else { return 1 }
+            return path.withCString { name in
+                infinity_apk_extract_entry(base, raw.count, name, &output, &outputLength)
+            }
+        }
+        defer {
+            if let output { infinity_apk_free(UnsafeMutableRawPointer(output)) }
+        }
+        guard status == 0, let output else {
+            switch status {
+            case 2, 3, 4, 9: throw ExtractionError.unsupportedArchive
+            case 5: throw ExtractionError.entryMissing
+            case 6: throw ExtractionError.sizeLimit
+            case 7: throw ExtractionError.allocationFailed
+            case 8: throw ExtractionError.decompressionFailed
+            default: throw ExtractionError.invalidArchive
+            }
+        }
+        return Data(bytes: output, count: outputLength)
+    }
+}
