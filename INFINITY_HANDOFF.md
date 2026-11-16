@@ -225,3 +225,12 @@ Status: not started.
 - Verified passing steps: bash -n scripts/import_husk_runtime.sh, python -m unittest discover -s tests -p test_*.py -v, and python -m py_compile scripts/audit_husk_runtime.py.
 - The Swift APK parser type-check job was still queued when this handoff update was made; no result is claimed for it.
 - The Husk import workflow remains manual and has not been dispatched. Therefore no imported vendor source, complete generated manifest, runtime compile, or APK execution is claimed.
+
+
+## Import pipeline hardening — 2026-11-16
+
+- Updated the importer guard so it refuses to overwrite any importer-owned path (both translation-layer trees, host runtime/reference, build-support, docs, resources, license and revision marker) unless --refresh is explicitly supplied.
+- Updated the contract tests to cover both legacy and next-generation source trees, the audit-only app entry point, all vendor groups, and overwrite protection.
+- Synchronized the import-pipeline and runtime-architecture docs with the actual dual-layer import scope.
+- The native test workflow now runs shell syntax validation, all Python unit tests, audit-script syntax validation and the existing Swift parser type-check. The workflow run result has not yet been verified.
+- No importer workflow dispatch, vendor materialization, Xcode runtime target build, IPA build, or real APK execution has occurred. SideStore and IPA packaging remain untouched.
