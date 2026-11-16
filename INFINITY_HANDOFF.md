@@ -162,3 +162,14 @@ Status: not started.
 - No IPA build/sign/export was run. No Xcode build, iOS device test, or real APK execution was performed.
 - Known limitations: no `resources.arsc` string/icon resolution, no actual icon extraction, no DEX/ELF metadata parsing, no APK installation or execution.
 - Next large batch: inspect and import the complete required Husk runtime source/dependency set, create a dedicated build integration that does not affect SideStore, and then connect the native runtime entry points.
+
+
+## One-click bulk Husk source import — 2026-11-16
+
+- Added manual workflow `.github/workflows/import-husk-runtime.yml`. From GitHub Actions on `main`, it runs the pinned importer, generates the audit, and commits the vendored runtime snapshot to `main`; no local Mac/laptop is required. It does not invoke the IPA builder.
+- Added `scripts/audit_husk_runtime.py` to generate `docs/generated/HUSK_SOURCE_MANIFEST.json` and `docs/generated/HUSK_SOURCE_AUDIT.md`, inventorying source/header files, SPDX markers, and unresolved quoted includes.
+- Updated `docs/HUSK_IMPORT_PIPELINE.md` with the mobile-friendly Actions workflow steps.
+- Workflow is manual-dispatch only, limited to the main ref, and commits only `Vendor/Husk` plus the generated source audit. Refresh is an explicit boolean input; the upstream commit remains pinned in the importer.
+- This is a bulk source-copy and audit pipeline. It is not yet an automatic Xcode integration generator: the source tree may require generated headers, framework/linker settings, platform adaptations, and third-party dependencies. The workflow intentionally does not compile all 126 files or register them in Strata's target without a dependency-complete selection.
+- The Actions workflow has been committed and its files were fetched back for verification. It has **not been dispatched**, so no vendor snapshot or generated inventory has been created yet.
+- No Xcode build, IPA build/sign/export, device test, or APK execution was performed. SideStore and the existing IPA builder remain untouched.
