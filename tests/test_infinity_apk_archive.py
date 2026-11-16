@@ -76,7 +76,7 @@ class APKArchiveTests(unittest.TestCase):
 
     def test_corrupt_archive_is_rejected(self):
         archive = bytearray(self.make_zip(8, b"manifest-payload" * 100))
-        archive[35] ^= 0x55
+        archive[52] ^= 0x55
         status, result = self.extract(bytes(archive), "AndroidManifest.xml")
         self.assertNotEqual(status, 0)
         self.assertIsNone(result)
