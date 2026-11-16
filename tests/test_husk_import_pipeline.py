@@ -131,7 +131,6 @@ class HuskImportContractTests(unittest.TestCase):
             self.assertIn("husk_fixture_start — declared / defined", api_report)
             self.assertIn("husk_missing_api", api_report)
             self.assertEqual(len(api_manifest), 2)
-            self.assertIn("husk_fixture_perf", json.loads((output / "HUSK_HOST_API_MANIFEST.json").read_text(encoding="utf-8"))[0]["symbol"] if False else api_report)
             source_manifest = json.loads((output / "HUSK_SOURCE_MANIFEST.json").read_text(encoding="utf-8"))
             self.assertIn("husk_fixture_perf", source_manifest["host_api_types"])
 
