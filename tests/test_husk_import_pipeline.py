@@ -11,29 +11,35 @@ AUDITOR = ROOT / "scripts" / "audit_husk_runtime.py"
 
 
 class HuskImportContractTests(unittest.TestCase):
-    def test_importer_is_pinned_and_includes_native_and_host_runtime(self):
+    def test_importer_is_pinned_and_includes_both_translation_layers(self):
         script = IMPORTER.read_text(encoding="utf-8")
         self.assertIn('REVISION="29abb512d81bf8cc08babcbe7f7007cb557208ef"', script)
-        self.assertIn("src/translation-layer-next", script)
+        self.assertIn("src/translation-layer \\", script)
+        self.assertIn("src/translation-layer-next \\", script)
         for name in (
+            "TranslationLayer.swift",
             "TLUnityView.swift",
             "TLAppSettings.swift",
+            "AppWindows.swift",
             "HuskGamepad.swift",
             "HuskKeyboard.swift",
+            "HuskAudio.swift",
             "HuskLog.swift",
             "HuskFilePicker.swift",
             "build_java_runtime.sh",
             "build_android_system.sh",
             "build_angle_ios.sh",
             "build_art_support.sh",
+            "cacert.pem",
         ):
             self.assertIn(name, script)
 
-    def test_importer_does_not_vendor_qemu_app_or_side_store_workflows(self):
+    def test_app_entry_point_is_audit_only_and_qemu_side_store_are_excluded(self):
         script = IMPORTER.read_text(encoding="utf-8")
+        self.assertIn('cp "$ARCHIVE/src/app/Husk/HuskApp.swift" "$STAGE/host-reference/HuskApp.swift"', script)
+        self.assertIn("never compiled", script)
         forbidden_paths = (
             "src/app/Husk/QemuRunner.swift",
-            "src/app/Husk/HuskApp.swift",
             "src/app/Husk/HuskBridge.h",
             "src/app/Husk.xcodeproj",
             "SideStoreSupport/",
@@ -42,9 +48,12 @@ class HuskImportContractTests(unittest.TestCase):
         for path in forbidden_paths:
             self.assertNotIn(path, script)
 
-    def test_importer_only_replaces_owned_vendor_groups(self):
+    def test_importer_replaces_only_owned_vendor_groups(self):
         script = IMPORTER.read_text(encoding="utf-8")
-        self.assertIn("translation-layer-next host-runtime build-support upstream-docs", script)
+        self.assertIn(
+            "translation-layer translation-layer-next host-runtime host-reference build-support upstream-docs resources",
+            script,
+        )
         self.assertIn('cp "$STAGE/HUSK-LICENSE" "$DEST/HUSK-LICENSE"', script)
         self.assertIn("THIRD_PARTY_NOTICES.md", script)
 
@@ -52,7 +61,16 @@ class HuskImportContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             base = pathlib.Path(temp)
             vendor = base / "Vendor" / "Husk"
-            for group in ("translation-layer-next", "host-runtime", "build-support", "upstream-docs"):
+            groups = (
+                "translation-layer",
+                "translation-layer-next",
+                "host-runtime",
+                "host-reference",
+                "build-support",
+                "upstream-docs",
+                "resources",
+            )
+            for group in groups:
                 (vendor / group).mkdir(parents=True)
             (vendor / "UPSTREAM_REVISION.txt").write_text("Revision: fixture\n", encoding="utf-8")
             (vendor / "translation-layer-next" / "engine.c").write_text(
@@ -83,6 +101,7 @@ class HuskImportContractTests(unittest.TestCase):
             self.assertEqual(manifest["counts_by_kind"]["swift-host-source"], 1)
             self.assertEqual(manifest["swift_imports"]["UIKit"], 1)
             self.assertIn("pthread.h", manifest["system_header_includes"])
+            self.assertIn("legacy translation-layer/", report)
             self.assertIn("Husk source and host integration audit", report)
 
 
