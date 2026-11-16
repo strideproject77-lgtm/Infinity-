@@ -1,15 +1,16 @@
 # Husk runtime import pipeline
 
-This pipeline imports the pinned native translation engine together with the selected iOS host-side runtime code and the upstream build recipes that produce required Android runtime data. It is a **source-vendoring and audit step**, not a claim that the runtime is compiled or executable.
+This pipeline vendors Husk's native translation engine, its legacy host-facing C API dependency, selected iOS host-side runtime code, and the build recipes/resources needed to audit a full translation-layer integration. It is a **source-vendoring and audit step**, not a claim that the runtime is compiled or executable.
 
 ## Pinned source snapshot
 
 The importer fetches exact Husk revision 29abb512d81bf8cc08babcbe7f7007cb557208ef and copies:
 
-- src/translation-layer-next/ — native runtime, ELF loader, Bionic, JNI, DEX/Dalvik, Binder, engine bridges, EGL/GLES, audio and input.
-- Selected host runtime files: TLUnityView.swift, TLAppSettings.swift, HuskGamepad.swift, HuskKeyboard.swift, HuskLog.swift and HuskFilePicker.swift.
-- Runtime build recipes: build_java_runtime.sh, build_android_system.sh, build_angle_ios.sh and build_art_support.sh.
-- Technical and licensing documentation needed to understand those components.
+- src/translation-layer-next/ — primary native runtime: DEX/Dalvik, ARM64/ARM32, ELF, Bionic, JNI, Binder, graphics and engine bridges.
+- src/translation-layer/ — retained because selected upstream Swift host code still calls its attempt/check APIs. This legacy tree is a host dependency, not a replacement for translation-layer-next.
+- Selected host runtime files: TranslationLayer.swift, TLUnityView.swift, TLAppSettings.swift, AppWindows.swift, HuskGamepad.swift, HuskKeyboard.swift, HuskAudio.swift, HuskLog.swift and HuskFilePicker.swift.
+- HuskApp.swift under host-reference/ only. It contains an @main app entry point and must never be compiled into Strata.
+- The upstream CA certificate resource, selected Java/Android-system/ANGLE/ART build recipes, technical docs and licensing guide.
 
 The result is placed under Vendor/Husk/, outside Strata's synchronized Xcode source groups. The importer does not add source files to any Xcode target.
 
@@ -35,30 +36,30 @@ Only importer-owned paths are replaced. INFINITY-owned files such as Vendor/Husk
 
 ## What is deliberately excluded
 
-- Husk's @main app entry point and complete app/catalog UI.
 - QEMU source, QEMU runner, guest images, kernels, firmware, qcow2 disks and guest staging.
 - Husk's complete XcodeGen project and QEMU-linked build configuration.
 - JIT helper extension, pairing/signing/refresh/install flows and unrelated app features.
-- Prebuilt binaries and generated Android runtime payloads.
+- Prebuilt QEMU binaries and generated Android runtime payloads.
 
-QEMU remains a separate optional backend decision. The native translation layer is the primary integration path; ANGLE/GLES, Java runtime assets, Android system fonts/certificates and Vulkan/MoltenVK are separately audited dependencies. The included build recipes are retained for review, not executed by the importer.
+QEMU remains a separate optional backend decision. The native translation layer is the primary path; ANGLE/GLES, Java runtime assets, Android system fonts/certificates and Vulkan/MoltenVK are separately audited dependencies. The included build recipes are retained for review, not executed by the importer.
 
 ## Integration workflow
 
 1. Import the pinned source snapshot.
-2. Review the generated file-level manifest, SPDX markers, quoted includes and Swift framework imports.
-3. Resolve native symbols, compiler flags, frameworks, deployment-target constraints and Swift type dependencies.
-4. Audit every selected file and transitive dependency's license/provenance. The root Husk license does not replace component-specific notices.
-5. Build an isolated runtime target/module. Keep vendor sources outside synchronized Strata source groups until the target is dependency-complete.
-6. Adapt only the Apple host boundary and Strata lifecycle integration; keep upstream runtime implementation intact wherever possible.
-7. Connect the engine's real APK discovery, native library, DEX, Java runtime data, graphics, audio and input paths to Strata's APK records and app screen.
-8. Preserve all existing Strata targets and the built-in SideStore. Do not alter SideStoreSupport, signing, refresh, installation, entitlements or packaging.
-9. Run one consolidated test pass after the integration batch. No compatibility status is granted by import, parsing or compilation alone; real APK execution is required.
-10. Update INFINITY_HANDOFF.md with exact revision, source groups, tests and blockers.
+2. Review the generated manifest across both C trees, host-runtime sources, host-reference, resources, build recipes and docs.
+3. Resolve the legacy-vs-next API relationship. Do not assume translation-layer-next alone satisfies all host calls.
+4. Resolve native symbols, compiler flags, frameworks, deployment-target constraints and Swift type dependencies.
+5. Audit every selected file and transitive dependency's license/provenance. The root Husk license does not replace component-specific notices.
+6. Build an isolated runtime target/module. Keep vendor sources outside synchronized Strata source groups until the target is dependency-complete.
+7. Extract/adapt the minimal window and orientation host boundaries; never compile HuskApp.swift or import Husk's full app UI.
+8. Connect real APK/split-APK paths, runtime data, native libraries, DEX execution, graphics, audio and input to Strata's app lifecycle.
+9. Preserve all existing Strata targets and the built-in SideStore. Do not alter SideStoreSupport, signing, refresh, installation, entitlements or packaging.
+10. Run consolidated compile and real-device tests. Import, parsing or compilation alone does not establish playable compatibility.
+11. Update INFINITY_HANDOFF.md with exact revision, source groups, tests and blockers.
 
 ## Audit limitations
 
-scripts/audit_husk_runtime.py inventories imported source groups, source types, SPDX identifiers, quoted includes, system header includes and Swift imports. It is not a compiler, full symbol resolver, legal opinion or proof of runtime compatibility. Missing generated headers, conditional includes, linker symbols, runtime resources, and transitive dependencies still require review.
+scripts/audit_husk_runtime.py inventories imported source groups, source types, SPDX identifiers, quoted includes, system header includes and Swift imports. It is not a compiler, full symbol resolver, legal opinion or proof of runtime compatibility. Missing generated headers, conditional includes, linker symbols, runtime resources and transitive dependencies still require review.
 
 ## Safety
 
