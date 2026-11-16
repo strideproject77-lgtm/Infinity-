@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Create a deterministic inventory of vendored Husk translation-layer sources.
+"""Inventory the pinned Husk native engine and selected iOS host sources.
 
-This is a source/dependency audit, not a compiler and not a compatibility claim.
+This is a deterministic source/dependency/provenance inventory. It is not a
+compiler, complete license opinion, or proof of iOS/runtime compatibility.
 """
 from __future__ import annotations
 
@@ -12,10 +13,31 @@ import pathlib
 import re
 import sys
 
-SOURCE_SUFFIXES = {".c", ".m", ".mm", ".cc", ".cpp", ".cxx", ".S", ".s"}
+SOURCE_SUFFIXES = {".c", ".m", ".mm", ".cc", ".cpp", ".cxx", ".S", ".s", ".swift"}
+C_SOURCE_SUFFIXES = {".c", ".m", ".mm", ".cc", ".cpp", ".cxx", ".S", ".s"}
 HEADER_SUFFIXES = {".h", ".hh", ".hpp", ".hxx", ".inc", ".def"}
+SCRIPT_SUFFIXES = {".sh", ".py"}
 INCLUDE_RE = re.compile(r'^\s*#\s*include\s*"([^"]+)"', re.MULTILINE)
+SYSTEM_INCLUDE_RE = re.compile(r'^\s*#\s*include\s*<([^>]+)>', re.MULTILINE)
+SWIFT_IMPORT_RE = re.compile(r'^\s*(?:@preconcurrency\s+)?import\s+([A-Za-z_][A-Za-z0-9_]*)', re.MULTILINE)
 SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*([^\s*]+)")
+COPYRIGHT_RE = re.compile(r"SPDX-FileCopyrightText:|Copyright\s+(?:\(c\)\s*)?\d{4}", re.IGNORECASE)
+
+ROOTS = ("translation-layer-next", "host-runtime", "build-support", "upstream-docs")
+
+def classify(path: pathlib.Path) -> str:
+    suffix = path.suffix
+    if suffix in C_SOURCE_SUFFIXES:
+        return "native-source"
+    if suffix == ".swift":
+        return "swift-host-source"
+    if suffix in HEADER_SUFFIXES:
+        return "header"
+    if suffix in SCRIPT_SUFFIXES:
+        return "build-script"
+    if suffix in {".md", ".txt"}:
+        return "documentation"
+    return "other"
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -24,105 +46,129 @@ def main() -> int:
     args = parser.parse_args()
 
     root = pathlib.Path(args.vendor_root).resolve()
-    source_root = root / "translation-layer-next"
-    if not source_root.is_dir():
-        print(f"Missing imported source tree: {source_root}", file=sys.stderr)
+    selected_roots = [root / name for name in ROOTS]
+    missing_roots = [str(p) for p in selected_roots if not p.is_dir()]
+    if missing_roots:
+        print("Missing imported Husk groups: " + ", ".join(missing_roots), file=sys.stderr)
         return 2
 
-    files = sorted(p for p in source_root.rglob("*") if p.is_file())
-    by_suffix = collections.Counter(p.suffix or "[no extension]" for p in files)
+    files = sorted(p for base in selected_roots for p in base.rglob("*") if p.is_file())
     basename_index: dict[str, list[pathlib.Path]] = collections.defaultdict(list)
     for path in files:
         basename_index[path.name].append(path)
 
+    by_kind = collections.Counter()
+    by_suffix = collections.Counter()
     entries = []
-    missing_headers = []
+    unresolved_includes = []
     no_spdx = []
+    swift_imports = collections.Counter()
+    system_includes = collections.Counter()
+
     for path in files:
-        rel = path.relative_to(root.parent).as_posix()
+        rel = path.relative_to(root).as_posix()
+        kind = classify(path)
+        by_kind[kind] += 1
+        by_suffix[path.suffix or "[no extension]"] += 1
         try:
             content = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             content = ""
-        match = SPDX_RE.search(content[:4096])
-        includes = INCLUDE_RE.findall(content)
+
+        spdx = SPDX_RE.search(content[:8192])
+        if not spdx:
+            no_spdx.append(rel)
+        quoted = INCLUDE_RE.findall(content)
         unresolved = []
-        for include in includes:
+        for include in quoted:
             candidate = (path.parent / include).resolve()
             if candidate.is_file():
                 continue
-            matches = basename_index.get(pathlib.PurePosixPath(include).name, [])
-            if not matches:
+            if not basename_index.get(pathlib.PurePosixPath(include).name):
                 unresolved.append(include)
-                missing_headers.append((rel, include))
-        if not match:
-            no_spdx.append(rel)
+                unresolved_includes.append((rel, include))
+        angle = SYSTEM_INCLUDE_RE.findall(content)
+        imports = SWIFT_IMPORT_RE.findall(content) if path.suffix == ".swift" else []
+        swift_imports.update(imports)
+        system_includes.update(angle)
+
         entries.append({
             "path": rel,
+            "kind": kind,
             "suffix": path.suffix,
-            "kind": "source" if path.suffix in SOURCE_SUFFIXES else
-                    "header" if path.suffix in HEADER_SUFFIXES else "other",
-            "spdx": match.group(1) if match else None,
-            "quoted_includes": includes,
+            "spdx": spdx.group(1) if spdx else None,
+            "has_copyright_marker": bool(COPYRIGHT_RE.search(content[:8192])),
+            "quoted_includes": quoted,
             "unresolved_quoted_includes": unresolved,
+            "system_includes": angle,
+            "swift_imports": imports,
         })
 
+    revision_file = root / "UPSTREAM_REVISION.txt"
+    revision = revision_file.read_text(encoding="utf-8").strip() if revision_file.exists() else None
     output = pathlib.Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     manifest_path = output / "HUSK_SOURCE_MANIFEST.json"
     report_path = output / "HUSK_SOURCE_AUDIT.md"
     manifest_path.write_text(json.dumps({
         "upstream": "https://github.com/Leviidev/Husk",
-        "revision_file": (root / "UPSTREAM_REVISION.txt").read_text(encoding="utf-8").strip()
-                         if (root / "UPSTREAM_REVISION.txt").exists() else None,
-        "source_root": str(source_root),
+        "revision_file": revision,
+        "imported_groups": list(ROOTS),
         "file_count": len(files),
+        "counts_by_kind": dict(sorted(by_kind.items())),
         "counts_by_suffix": dict(sorted(by_suffix.items())),
+        "swift_imports": dict(sorted(swift_imports.items())),
+        "system_header_includes": dict(sorted(system_includes.items())),
         "files": entries,
     }, indent=2) + "\n", encoding="utf-8")
 
-    source_count = sum(1 for e in entries if e["kind"] == "source")
-    header_count = sum(1 for e in entries if e["kind"] == "header")
     report = [
-        "# Husk source import audit",
+        "# Husk source and host integration audit",
         "",
-        "> Inventory only. This report does not prove that files compile, link, or run on iOS.",
+        "> Inventory only. This does not prove compilation, linking, complete license compatibility, or APK execution.",
         "",
-        f"- Total files: **{len(files)}**",
-        f"- C/Objective-C/C++/assembly source files: **{source_count}**",
-        f"- Header/include files: **{header_count}**",
-        f"- Files without an SPDX identifier in the first 4 KiB: **{len(no_spdx)}**",
-        f"- Quoted includes with no matching header basename in the imported tree: **{len(missing_headers)}**",
+        f"- Total imported files: **{len(files)}**",
+        f"- Native C/Objective-C/C++/assembly sources: **{by_kind['native-source']}**",
+        f"- Swift host-runtime sources: **{by_kind['swift-host-source']}**",
+        f"- Headers/includes: **{by_kind['header']}**",
+        f"- Build recipes: **{by_kind['build-script']}**",
+        f"- Technical/licensing documents: **{by_kind['documentation']}**",
+        f"- Files without SPDX identifier in first 8 KiB: **{len(no_spdx)}**",
+        f"- Quoted includes with no matching local basename: **{len(unresolved_includes)}**",
         "",
-        "## File types",
+        "## Imported groups",
         "",
-        "| Extension | Count |",
-        "|---|---:|",
+        *[f"- {name}/" for name in ROOTS],
+        "",
+        "## Swift module imports",
+        "",
+        *[f"- {name}: {count}" for name, count in sorted(swift_imports.items())],
+        "",
+        "## System header includes",
+        "",
+        *[f"- {name}: {count}" for name, count in sorted(system_includes.items())],
+        "",
+        "## Unresolved quoted includes",
+        "",
     ]
-    report += [f"| `{suffix}` | {count} |" for suffix, count in sorted(by_suffix.items())]
-    report += ["", "## Missing quoted includes", ""]
-    if missing_headers:
-        report += [f"- `{path}`: `{include}`" for path, include in missing_headers]
-    else:
-        report.append("None detected by this simple quoted-include scan.")
-    report += ["", "## Files without SPDX marker", ""]
-    if no_spdx:
-        report += [f"- `{path}`" for path in no_spdx]
-    else:
-        report.append("None detected in the first 4 KiB of each file.")
+    report += ([f"- {path}: {include}" for path, include in unresolved_includes]
+               if unresolved_includes else ["None detected by this local-path scan."])
+    report += ["", "## Files without SPDX markers", ""]
+    report += ([f"- {path}" for path in no_spdx] if no_spdx else ["None detected."])
     report += [
         "",
-        "## Integration rule",
+        "## Integration gates",
         "",
-        "Use the JSON manifest to select coherent, dependency-complete source groups. "
-        "Quoted-include scanning is only a first pass: generated headers, conditional "
-        "includes, framework/module maps, compiler flags, linker symbols, assembly, "
-        "runtime resources, and transitive third-party licenses still require manual review. "
-        "Do not add the entire tree to an Xcode target automatically.",
+        "- Keep the vendor snapshot outside Strata's synchronized Xcode source groups until a dedicated runtime target is reviewed.",
+        "- Do not import Husk's @main app entry point, QEMU guest orchestration, QEMU binaries, signing/refresh systems, or its complete XcodeGen project.",
+        "- Review every file's provenance and license, including embedded .inc data and generated assets; absence of an SPDX marker is not proof of an incompatible license.",
+        "- Resolve all native symbols, framework/linker requirements, deployment-target constraints, Swift type dependencies, resources, and runtime data before adding target membership.",
+        "- The native runtime's ANGLE/GLES, Java runtime assets, system fonts/certificates, Vulkan/MoltenVK path, and engine-specific bridges are separate dependency groups; do not mark an engine ready until its required assets are present.",
+        "- Preserve Strata and SideStore target memberships, entitlements, signing/refresh/install flows, and the existing IPA builder.",
         "",
     ]
     report_path.write_text("\n".join(report), encoding="utf-8")
-    print(f"Audited {len(files)} files ({source_count} source, {header_count} headers)")
+    print(f"Audited {len(files)} imported files")
     print(f"Wrote {manifest_path} and {report_path}")
     return 0
 
