@@ -1,6 +1,12 @@
 name: Import Husk Runtime Sources
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/import_husk_runtime.sh"
+      - "scripts/audit_husk_runtime.py"
+      - ".github/workflows/import-husk-runtime.yml"
   workflow_dispatch:
     inputs:
       refresh:
