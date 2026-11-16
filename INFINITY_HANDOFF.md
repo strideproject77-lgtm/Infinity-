@@ -217,3 +217,11 @@ Status: not started.
 3. Extract the minimal window/orientation adapters from Husk's host UI without importing its `@main` app or unrelated screens.
 4. Build an isolated runtime target and stable Strata bridge; keep all SideStore paths and settings unchanged.
 5. Only after the target builds, connect APK intake and lifecycle, then validate real APK launch/render/input on device.
+
+
+### Verification update — 2026-11-16
+
+- The INFINITY native tests run for commit 578d496356070817ebebf0fafb6564eafa1f19a5 completed the source-contract and APK archive regression job successfully.
+- Verified passing steps: bash -n scripts/import_husk_runtime.sh, python -m unittest discover -s tests -p test_*.py -v, and python -m py_compile scripts/audit_husk_runtime.py.
+- The Swift APK parser type-check job was still queued when this handoff update was made; no result is claimed for it.
+- The Husk import workflow remains manual and has not been dispatched. Therefore no imported vendor source, complete generated manifest, runtime compile, or APK execution is claimed.
