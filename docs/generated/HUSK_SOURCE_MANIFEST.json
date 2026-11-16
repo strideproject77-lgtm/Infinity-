@@ -3726,9 +3726,6 @@
     "husk_unity_launch": [
       "host-runtime/TLUnityView.swift"
     ],
-    "husk_unity_perf": [
-      "host-runtime/TLUnityView.swift"
-    ],
     "husk_unity_perf_snapshot": [
       "host-runtime/TLUnityView.swift"
     ],
@@ -3745,5 +3742,9 @@
       "host-runtime/TLUnityView.swift"
     ]
   },
-  "host_api_types": {}
+  "host_api_types": {
+    "husk_unity_perf": [
+      "host-runtime/TLUnityView.swift"
+    ]
+  }
 }

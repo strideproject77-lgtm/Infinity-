@@ -956,16 +956,6 @@
     ]
   },
   {
-    "symbol": "husk_unity_perf",
-    "host_files": [
-      "host-runtime/TLUnityView.swift"
-    ],
-    "declared": false,
-    "defined": false,
-    "declaration_files": [],
-    "definition_files": []
-  },
-  {
     "symbol": "husk_unity_perf_snapshot",
     "host_files": [
       "host-runtime/TLUnityView.swift"

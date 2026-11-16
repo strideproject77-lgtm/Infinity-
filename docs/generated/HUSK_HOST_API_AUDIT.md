@@ -2,12 +2,12 @@
 
 > Textual first-pass scan only. It does not replace Clang/Swift compilation or linker symbol inspection.
 
-- Husk function calls found in selected Swift host files: **74**
-- C struct initializers identified separately: **0**
+- Husk function calls found in selected Swift host files: **73**
+- C struct initializers identified separately: **1**
 - Calls with a matching declaration in the two native header trees: **73**
 - Calls with a matching native source definition: **73**
-- Calls without a matching declaration: **1**
-- Calls without a matching definition: **1**
+- Calls without a matching declaration: **0**
+- Calls without a matching definition: **0**
 
 ## API map
 
@@ -79,7 +79,6 @@
 - husk_unity_frames — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_unity_insert_text — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_unity_launch — declared / defined; host: host-runtime/TLUnityView.swift
-- husk_unity_perf — NO DECLARATION / NO DEFINITION; host: host-runtime/TLUnityView.swift
 - husk_unity_perf_snapshot — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_unity_set_paused — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_unity_state — declared / defined; host: host-runtime/TLUnityView.swift
@@ -88,15 +87,15 @@
 
 ## C struct initializers (not function symbols)
 
-None detected.
+- husk_unity_perf — host-runtime/TLUnityView.swift
 
 ## Missing declarations
 
-- husk_unity_perf — host-runtime/TLUnityView.swift
+None detected by this textual scan.
 
 ## Missing native definitions
 
-- husk_unity_perf — host-runtime/TLUnityView.swift
+None detected by this textual scan.
 
 ## Integration notes
 
