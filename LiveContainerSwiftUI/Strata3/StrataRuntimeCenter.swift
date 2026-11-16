@@ -48,14 +48,33 @@ struct StrataRuntimeCenter: View {
                 }
                 if let report = apkInspection {
                     VStack(alignment: .leading, spacing: 5) {
-                        Text(report.fileName).font(.headline).lineLimit(1)
+                        Text(report.manifest?.applicationLabel ?? report.fileName).font(.headline).lineLimit(1)
                         Text(report.summary).font(.caption).foregroundStyle(.secondary)
+                        if let manifest = report.manifest {
+                            LabeledContent("Package", value: manifest.packageName)
+                            if let version = manifest.versionName {
+                                LabeledContent("Version", value: version)
+                            }
+                            if let code = manifest.versionCode {
+                                LabeledContent("Version code", value: "\(code)")
+                            }
+                            if let activity = manifest.launchActivity {
+                                LabeledContent("Launch activity", value: activity)
+                            }
+                            if let icon = manifest.applicationIconResource {
+                                LabeledContent("Icon resource", value: String(format: "0x%08X", icon))
+                            }
+                        } else if let error = report.manifestError {
+                            Text("Manifest metadata: \(error)")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                        }
                         LabeledContent("Archive size", value: ByteCountFormatter.string(fromByteCount: Int64(clamping: report.archiveBytes), countStyle: .file))
                         LabeledContent("ZIP entries", value: "\(report.entries.count)")
                         LabeledContent("Native libraries", value: "\(report.nativeLibraries.count)")
                         LabeledContent("Compression", value: "\(report.storedEntryCount) stored · \(report.deflatedEntryCount) deflated")
                         Text(report.isStructurallyRecognizableAPK
-                             ? "APK structure recognized. Runtime support has not been tested."
+                             ? "APK structure recognized. Execution compatibility is not yet tested."
                              : "Incomplete APK structure: manifest or DEX files are missing.")
                             .font(.caption)
                             .foregroundStyle(report.isStructurallyRecognizableAPK ? .secondary : .orange)
@@ -65,7 +84,7 @@ struct StrataRuntimeCenter: View {
                 if let error = apkInspectionError {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }
-                Text("Read-only ZIP inventory. This does not extract, install or execute the APK, and does not yet decode its Android manifest.")
+                Text("Inspects APK ZIP entries and decodes binary Android manifest metadata. It does not install or execute the APK.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Management") {
