@@ -319,3 +319,15 @@ Create a narrowly scoped INFINITY-owned native bridge and isolated compile targe
 - No `PRODUCT_BUNDLE_IDENTIFIER`, app target identity, signing setting, IPA builder, SideStore source/target/configuration, or install/refresh flow was changed.
 - No IPA build, signing, export, Xcode app build, or device test was run. This commit is not evidence of APK execution.
 - Next: finish source/flag/dependency closure, then add an isolated native runtime target and compile-only CI before connecting launch calls.
+
+
+## Husk native compile-audit batch — 2026-11-17
+
+- Added `scripts/check_husk_native_sources.sh`, a compile-only source audit that enumerates every C and Objective-C implementation in both vendored translation-layer trees and invokes the iPhoneOS SDK Clang for `arm64-apple-ios15.0` with `-fsyntax-only`.
+- Added `.github/workflows/infinity-husk-native-compile.yml`, isolated from the IPA builder. It runs only on relevant native-source/script changes or manual dispatch. It does not invoke `xcodebuild`, create an app target, link an app, archive, sign, export, or package an IPA.
+- The script's shell syntax was checked locally after correcting the `find` expression. The latest GitHub Actions run for the corrected revision `315c4833c097fd402ff569780b117587f6cab54e` was queued when checked; no native source compile pass/failure is claimed yet.
+- The workflow intentionally compiles source files individually rather than asserting that a linkable runtime target exists. It is expected to expose missing generated headers, per-file flags, and SDK incompatibilities. Fixes must be based on actual compiler diagnostics, not broad speculative flags.
+- The existing declaration bridge remains in place: `INFINITYHuskRuntimeBridge.h` imports only Husk's app-facing translation API and is included by Strata's existing Swift bridging header. This still does not link the C engine, and Swift launch calls remain gated off until a complete native target links.
+- No Xcode project, bundle identifier, product identity, signing setting, IPA workflow/builder, SideStore source/target/configuration, or install/refresh path was modified in this batch.
+- No app/IPA build, signing, export, simulator/device launch, or real APK execution was performed.
+- Next: review the compile workflow's complete diagnostics, resolve source-level blockers with narrowly scoped changes, then build a dedicated native target without changing Strata's existing LiveContainer bundle ID or protected SideStore/IPA workflows.
