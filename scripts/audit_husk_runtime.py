@@ -161,6 +161,8 @@ def main() -> int:
         "",
         "- Keep the vendor snapshot outside Strata's synchronized Xcode source groups until a dedicated runtime target is reviewed.",
         "- host-reference/ is source-audit material only; never add HuskApp.swift or its @main entry point to Strata's target.",
+        "- host-reference/HuskBridge.h is also audit-only: it declares QEMU/JIT interfaces and includes Husk-only pairing headers; create an INFINITY-owned translation-layer bridge instead.",
+        "- build-support/project.yml records upstream source membership, frameworks and resource requirements; it is a reference, not a replacement for Strata project settings.",
         "- Do not import QEMU guest orchestration, QEMU binaries, signing/refresh systems, or Husk's complete XcodeGen project.",
         "- Review every file's provenance and license, including embedded .inc data and generated assets; absence of an SPDX marker is not proof of an incompatible license.",
         "- Resolve all native symbols, framework/linker requirements, deployment-target constraints, Swift type dependencies, resources, and runtime data before adding target membership.",
