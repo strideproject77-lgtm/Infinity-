@@ -132,6 +132,11 @@ def main() -> int:
             "swift_imports": imports,
         })
 
+    # Source paths sort after host-runtime/, so classify C struct initializers after all headers are scanned.
+    for symbol in list(host_api_calls):
+        if symbol in native_api_types:
+            host_api_types[symbol].update(host_api_calls.pop(symbol))
+
     revision_file = root / "UPSTREAM_REVISION.txt"
     revision = revision_file.read_text(encoding="utf-8").strip() if revision_file.exists() else None
     output = pathlib.Path(args.output_dir)
