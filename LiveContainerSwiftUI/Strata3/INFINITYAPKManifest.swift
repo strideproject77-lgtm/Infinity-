@@ -28,7 +28,7 @@ struct INFINITYAPKManifest: Sendable {
         }
     }
 
-    private enum Value {
+    fileprivate enum Value {
         case string(String)
         case integer(UInt32)
         case reference(UInt32)
@@ -243,7 +243,7 @@ struct INFINITYAPKManifest: Sendable {
     }
 }
 
-private extension INFINITYAPKManifest.Value {
+fileprivate extension INFINITYAPKManifest.Value {
     var stringValue: String? {
         if case .string(let value) = self { return value }
         if case .reference(let value) = self { return String(format: "@0x%08x", value) }
