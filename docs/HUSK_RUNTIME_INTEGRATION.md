@@ -127,3 +127,16 @@ The Swift host references are not directly compilable as a Strata drop-in: the l
 6. Require Xcode compile/link evidence before marking the backend integrated, then require real-device APK launch/render/input/stability evidence before claiming compatibility.
 
 **Current status:** source materialized and inventoried; no Husk source has yet been compiled into Strata, no runtime target exists, and no APK execution is verified.
+
+
+## Host API closure audit — 2026-11-17
+
+The import pipeline now separates the native translation-layer host candidates from QEMU/mixed-host references. `HuskAudio.swift`, `HuskKeyboard.swift`, and `HuskLog.swift` are kept under `host-reference/`: their current implementations call QEMU guest audio/display/JIT functions, not the native translation-layer APIs. The six host candidates retained under `host-runtime/` are still reference material, not direct Strata target members.
+
+The generated host API audit maps 73 function calls from those Swift files to 73 declarations and 73 native definitions in the two translation-layer trees. One C struct initializer (`husk_unity_perf`) is classified separately. The audit strips C comments before matching, avoiding false declarations from comments. This is a textual source map, not an ABI, compiler, or linker test.
+
+The latest import workflow (run 43936567610) succeeded and committed the refreshed pinned snapshot as 9eb30d6a824ae0238203fed9bbf51d3c797f625f. The source-contract/APK archive test job (run 43936567412) passed. Swift parser type-check was queued at the last check.
+
+The snapshot still has 13 files without SPDX markers in the first 8 KiB and one unresolved include in audit-only `host-reference/HuskBridge.h` (`HuskRPPairing.h`). The latter belongs to the excluded pairing/JIT feature and should not be imported merely to make the reference header self-contained.
+
+**Current status:** both Husk C source trees are vendored and inventoried; 73 native host API calls are textually mapped; no native runtime target has been created or compiled, and no real APK execution is verified.
