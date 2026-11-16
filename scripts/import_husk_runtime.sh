@@ -93,8 +93,8 @@ NATIVE_COUNT="$(find "$STAGE/translation-layer-next" -type f | wc -l | tr -d ' '
 HOST_COUNT="$(find "$STAGE/host-runtime" -type f | wc -l | tr -d ' ')"
 [[ "$NATIVE_COUNT" -gt 0 && "$HOST_COUNT" -gt 0 ]] || { echo "Imported source groups are incomplete" >&2; exit 8; }
 
-# Replace only the paths owned by this importer. Preserve THIRD_PARTY_NOTICES.md
-# and any other INFINITY-owned files in Vendor/Husk.
+# Replace only importer-owned paths. Preserve INFINITY's
+# Vendor/Husk/THIRD_PARTY_NOTICES.md and any other INFINITY-owned vendor files.
 mkdir -p "$DEST"
 for path in translation-layer-next host-runtime build-support upstream-docs; do
   rm -rf "$DEST/$path"
