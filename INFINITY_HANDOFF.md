@@ -43,7 +43,7 @@ Status: complete.
 - Confirmed no Android runtime source is currently integrated.
 
 ### Phase 1 — Husk runtime and QEMU backend source/provenance migration
-Status: source inventory complete; integration not yet committed.
+Status: source inventory complete; architecture documented; isolated backend registry committed; engine integration not yet started.
 
 - Audited Husk upstream revision `29abb512d81bf8cc08babcbe7f7007cb557208ef` (2026-11-11).
 - Found 126 files / approximately 2.67 MiB under `src/translation-layer-next/`: 79 C, 41 headers, 4 Objective-C, and 2 include files. The selected runtime tree includes Dalvik/DEX, ELF loader, Bionic, JNI, Binder/service manager, EGL/GLES, audio, and engine-specific bridges.
@@ -100,9 +100,10 @@ Status: not started.
 
 ## Current batch report
 
-- Runtime changes: none yet.
-- UI/UX changes: none yet.
-- Extra features: none yet.
-- Tests: no build or runtime tests run in this audit.
-- Blockers: source migration/build integration requires complete per-component license/provenance review, QEMU/guest architecture decisions, and Xcode project integration. Existing Strata AGPL-3.0 and imported GPL/QEMU components need a documented compatibility review before combining or redistributing binaries.
-- Actual progress: Phase 0 complete; Phase 1 source inventory complete; source migration and Xcode integration remain incomplete.
+- Runtime changes: added an isolated backend registry contract for native translation and QEMU guest backends. Both default to Not integrated; selection cannot report a backend as ready until an implementation explicitly registers readiness.
+- UI/UX changes: none in this batch; no placeholder runtime UI was added.
+- Extra features: documented dual-backend architecture, optional QEMU guest handling, storage/performance implications, and integration boundaries.
+- Tests: source and repository structure inspected; no Xcode build, simulator run, device run, or APK execution test performed. IPA build/export remains unauthorized.
+- SideStore: protected paths, targets, entitlements, and workflows were not modified.
+- Blockers: full source/provenance and license review; actual engine source integration; QEMU build/guest/graphics/audio bridge; test access to a real device. Existing Strata AGPL-3.0 and imported GPL/QEMU components require documented compatibility review before combining or redistributing binaries.
+- Actual progress: Phase 0 complete. Phase 1 has source inventory, dual-backend design, and registry foundation committed; native and QEMU engine integration remain incomplete.
