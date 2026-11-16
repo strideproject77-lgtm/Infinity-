@@ -1,6 +1,6 @@
 # INFINITY Handoff
 
-Last updated: 2026-11-16
+Last updated: 2026-11-17
 
 ## Project direction
 
@@ -294,3 +294,18 @@ Status: not started.
 3. Audit generated Java runtime, Android system files, ANGLE and optional MoltenVK build products and their licences before any build recipe is run.
 4. Add the target only to Strata's app build graph after a target-by-target check proves SideStore source, target, entitlements, packaging, signing, installation and refresh remain unchanged.
 5. Run an Xcode compile/link CI job (not the IPA builder), then connect APK intake/lifecycle and validate real device launch/render/input/stability.
+
+
+## Native build-boundary audit — 2026-11-17
+
+- Reviewed the vendored upstream XcodeGen manifest and all four retained runtime build recipes. The upstream app compiles both `translation-layer/` and `translation-layer-next/`; the newer tree excludes `husk-tl-unity-app.h`. INFINITY currently vendors 96 native sources across both trees.
+- Added `docs/HUSK_NATIVE_BUILD_MATRIX.md` to separate native SDK dependency candidates from unrelated app/backend dependencies and generated runtime data.
+- Explicitly excluded QEMU guest/build/staging components, the current QEMU/virgl ANGLE path, optional MoltenVK, the separate PS4/FEX dylib, StikJIT/pairing helpers, and Husk's broad app UI from the first native translation target.
+- Classified generated data recipes: Android system fonts/certificates, Java APEX/libcore/ICU/Conscrypt/framework assets, Android NDK guest-side ART support libraries, and the ANGLE/WebKit build. None were executed; generated assets and third-party redistribution terms still require review.
+- The upstream framework list is a candidate set only. Actual target requirements must be established from compile/link evidence and deployment availability, not copied wholesale from Husk's app manifest.
+- Latest verified checks at this point: import workflow 43936567610 succeeded; source-contract/APK archive job in native-tests run 43936567412 passed. Its Swift parser type-check job was still queued when checked. No native C compile/link, Xcode runtime target, IPA build, device test or APK execution has occurred.
+- SideStore source, targets, entitlements, packaging, signing, installation and refresh flows remain untouched.
+
+### Immediate next implementation step
+
+Create a narrowly scoped INFINITY-owned native bridge and isolated compile target only after per-file source/flag review. Run its compile/link check in a separate CI workflow that does not invoke the existing IPA builder. Do not mark the runtime integrated until that compile passes; do not claim APK compatibility until real-device execution is verified.
