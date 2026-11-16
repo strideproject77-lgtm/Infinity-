@@ -181,3 +181,18 @@ Status: not started.
 - Manual GitHub Actions workflow: `.github/workflows/import-husk-runtime.yml` (Actions → Import Husk Runtime Sources → Run workflow on `main`, `refresh=false`).
 - This import workflow has not yet been dispatched or verified. Until it runs and its generated manifest/audit are reviewed, no Husk native source is present in the vendored tree and no runtime integration is claimed.
 - A separate `.github/workflows/infinity-tests.yml` was added for the original APK ZIP helper and Swift parser type-check. Its run result is not yet verified.
+
+
+## Husk-level native integration batch — 2026-11-16
+
+- Reconfirmed the latest upstream Husk revision is still 29abb512d81bf8cc08babcbe7f7007cb557208ef (2026-11-11); the Strata upstream remains at release 4.0 (2026-11-11).
+- Changed the integration target from a minimal staged runtime to preserving Husk's advanced translation-layer architecture inside Strata. Strata remains the host/UI; Husk's translation-layer-next remains the primary execution engine; Apple-specific work belongs in a separate adapter.
+- Expanded scripts/import_husk_runtime.sh to vendor the pinned 126-file native translation-layer-next tree plus selected host runtime files (TLUnityView.swift, TLAppSettings.swift, HuskGamepad.swift, HuskKeyboard.swift, HuskLog.swift and HuskFilePicker.swift), runtime build recipes and technical/licensing docs.
+- The importer remains isolated under Vendor/Husk and replaces only its owned groups. It explicitly preserves Vendor/Husk/THIRD_PARTY_NOTICES.md. It does not add files to Xcode targets or execute upstream build scripts.
+- Expanded scripts/audit_husk_runtime.py to inventory native and Swift source groups, SPDX identifiers, quoted includes, system headers and Swift module imports. Added tests/test_husk_import_pipeline.py and updated infinity-tests.yml to run the importer contract checks alongside existing APK archive tests.
+- Updated docs/HUSK_IMPORT_PIPELINE.md, docs/HUSK_RUNTIME_INTEGRATION.md and docs/INFINITY_RUNTIME_ARCHITECTURE.md to reflect the advanced Husk-as-runtime direction, the required Java/system/ANGLE assets, host callback dependencies, QEMU separation and protected Strata/SideStore boundaries.
+- Upstream review found TLUnityView.swift is the native-engine host surface and includes engine launch, touch/text input and performance hooks; the selected Swift host files have dependencies on Husk-specific models/orientation/windowing/file-picker APIs. They are vendored for reuse but are not yet compiled into Strata.
+- The Husk project.yml includes translation-layer-next but also links separately built ANGLE, MoltenVK, QEMU and helper libraries and runs guest staging. Its full Xcode project must not be copied into Strata. QEMU remains optional and separate.
+- No source import workflow has been dispatched yet; therefore the expanded vendor snapshot and generated audit are not present. No dedicated Xcode runtime target has been created, no compile/link test or real APK execution has been performed, and no compatibility percentage is claimed.
+- No IPA build/sign/export was run. SideStore source/targets/configuration/entitlements/signing/refresh/install systems and the existing IPA builder were not modified.
+- Next action: run Actions → Import Husk Runtime Sources on main with refresh=false, review the generated manifest/audit, then create the isolated Husk runtime target and Strata adapter as one dependency-complete integration batch.
