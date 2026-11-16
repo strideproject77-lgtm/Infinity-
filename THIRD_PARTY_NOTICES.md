@@ -22,3 +22,11 @@ Pinned revision: c6e5f49cb4eb1a466eca1c66e3bf200ebbdab9e9. MIT license, retained
 ## ryC0
 
 The App Switcher deck layout and gesture model in `LiveContainer/StrataGuestControls.m` are adapted from ryC0 (`LiveContainerSwiftUI/Home/Screen/AppSwitcherView.swift`), https://github.com/Sami-Wali/ryC0, licensed under the GNU Affero General Public License v3.0, the same licence as Strata.
+
+## Husk Android translation runtime — audited, not yet integrated
+
+- Upstream: [Leviidev/Husk](https://github.com/Leviidev/Husk), audited revision `29abb512d81bf8cc08babcbe7f7007cb557208ef`.
+- License: GPL-2.0-or-later. The upstream license text is preserved at [ThirdParty/Husk/LICENSE](ThirdParty/Husk/LICENSE).
+- Preserve every upstream SPDX/copyright header and provide complete corresponding source and notices if distributing Husk-derived binaries.
+- The native runtime has not yet been vendored or compiled into INFINITY. The current APK archive/manifest inspection implementation is original INFINITY code.
+- Upstream runtime dependencies and generated assets require a complete build/provenance audit before integration. See [ThirdParty/Husk/README.md](ThirdParty/Husk/README.md).
