@@ -41,6 +41,8 @@ struct INFINITYAPKInspection: Sendable {
     let archiveBytes: UInt64
     let entries: [Entry]
     let hasManifest: Bool
+    let manifest: INFINITYAPKManifest?
+    let manifestError: String?
     let dexFiles: [String]
     let nativeLibraries: [String]
     let detectedABIs: [String]
@@ -193,6 +195,16 @@ struct INFINITYAPKInspection: Sendable {
         }
 
         let manifest = parsed.contains { $0.path == "AndroidManifest.xml" }
+        var decodedManifest: INFINITYAPKManifest?
+        var decodedManifestError: String?
+        if manifest {
+            do {
+                let manifestBytes = try INFINITYAPKArchive.extractEntry(from: data, path: "AndroidManifest.xml")
+                decodedManifest = try INFINITYAPKManifest.decode(manifestBytes)
+            } catch {
+                decodedManifestError = error.localizedDescription
+            }
+        }
         let dex = parsed.map(\.path).filter {
             $0 == "classes.dex" || ($0.hasPrefix("classes") && $0.hasSuffix(".dex"))
         }.sorted()
@@ -209,6 +221,8 @@ struct INFINITYAPKInspection: Sendable {
             archiveBytes: UInt64(data.count),
             entries: parsed,
             hasManifest: manifest,
+            manifest: decodedManifest,
+            manifestError: decodedManifestError,
             dexFiles: dex,
             nativeLibraries: libraries,
             detectedABIs: abis,
