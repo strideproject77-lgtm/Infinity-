@@ -1,13 +1,14 @@
 # INFINITY Android Runtime Architecture
 
-Status: expanded Husk integration plan; source importer and audit pipeline updated 2026-11-16.
+Status: advanced Husk-native integration; dual translation-layer source and host dependency import prepared 2026-11-16.
 
 ## Target architecture
 
-INFINITY merges Strata's existing iOS host with Husk's advanced Android translation runtime. The target is to preserve the upstream runtime's architecture and implementation as-is wherever possible, not to create a reduced interpreter and gradually grow it.
+INFINITY merges Strata's existing iOS host with Husk's advanced Android translation runtime. The target is to preserve Husk's current implementation and architecture as-is wherever possible, not to create a reduced interpreter and gradually grow it.
 
-- Strata remains responsible for iOS UI, app/library management, IPA handling, lifecycle, settings and the existing host infrastructure.
+- Strata remains responsible for iOS UI, app/library management, IPA handling, lifecycle, settings and existing host infrastructure.
 - Husk's translation-layer-next is the primary Android execution engine.
+- Husk's legacy translation-layer is retained where the selected upstream host code still calls its attempt/check APIs. It must be audited as a dependency, not mistaken for the primary next-generation runtime.
 - INFINITY-owned adapters connect Husk's native runtime and host callbacks to Strata's app records, display surface, input, orientation, audio and diagnostics.
 - QEMU is a separate optional backend only if it adds meaningful compatibility. It is not the default path and does not replace the native translation layer.
 
@@ -15,7 +16,7 @@ INFINITY merges Strata's existing iOS host with Husk's advanced Android translat
 
 The integration should reuse Husk's existing:
 - DEX indexing and Dalvik execution.
-- ARM64/ARM32 translation, JIT/AOT and executable-memory handling.
+- ARM64/ARM32 code paths, AOT/JIT and executable-memory handling.
 - ELF loader, relocations, dependency resolution and symbol binding.
 - Bionic compatibility and system-library shims.
 - JNI and Android Java/native bridge.
@@ -30,17 +31,15 @@ Do not replace these with placeholders or claim support based only on APK inspec
 
 ## Source import boundary
 
-The pinned importer fetches Husk revision 29abb512d81bf8cc08babcbe7f7007cb557208ef. It imports:
-- src/translation-layer-next/
-- selected host-side Swift runtime sources
-- selected Java/Android-system/ANGLE/ART build recipes
-- relevant technical and licensing documentation
+The pinned importer fetches Husk revision 29abb512d81bf8cc08babcbe7f7007cb557208ef. It imports both src/translation-layer/ and src/translation-layer-next/, selected host runtime Swift files, HuskApp.swift as audit-only reference, the CA certificate resource, selected Java/Android-system/ANGLE/ART build recipes, and technical/licensing docs.
 
-The import remains under Vendor/Husk/, outside synchronized Xcode source groups. It is a source snapshot, not yet an Xcode target. Build recipes are for audit and controlled integration; the importer does not execute them or download runtime payloads.
+The import remains under Vendor/Husk/, outside synchronized Xcode source groups. It is a source snapshot, not yet an Xcode target. The legacy source tree is retained because current upstream host code still calls its attempt/check API. The full Husk app entry point and QEMU host/guest stack are not compiled into Strata.
 
 ## Host integration
 
 A dedicated runtime target/module must be created after the source and dependency audit. It must expose a stable Swift-facing API to Strata without pulling the entire Husk app or replacing Strata's Xcode project.
+
+The selected upstream host sources include engine launch/surface/input/performance code and supporting settings, audio, gamepad, keyboard, logging and file-picker code. They also depend on Husk-specific windowing, orientation, models and C bridge declarations. Extract only the required behavior into INFINITY-owned adapters; do not compile HuskApp.swift or the complete Husk UI.
 
 Host adapters should preserve upstream behavior and only bridge platform boundaries:
 - APK and split-APK paths into Husk's app/engine drivers.
@@ -49,8 +48,6 @@ Host adapters should preserve upstream behavior and only bridge platform boundar
 - Touch, keyboard, text and controller events.
 - Orientation, pause/resume, safe shutdown and per-app settings.
 - Native logs, crash diagnostics, FPS and frame timing.
-
-The selected Swift host sources are reference material until their Husk-specific dependencies have been mapped. Do not compile them into Strata's main synchronized source group directly.
 
 ## QEMU boundary
 
