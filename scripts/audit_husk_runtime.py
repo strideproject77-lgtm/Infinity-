@@ -27,6 +27,9 @@ HUSK_CALL_RE = re.compile(r"\b(husk_[A-Za-z0-9_]+)\s*\(")
 HUSK_DECL_RE = re.compile(r"\b(husk_[A-Za-z0-9_]+)\s*\([^;{}]*?\)\s*;", re.DOTALL)
 HUSK_DEF_RE = re.compile(r"\b(husk_[A-Za-z0-9_]+)\s*\([^;{}]*?\)\s*\{", re.DOTALL)
 
+HUSK_TYPE_RE = re.compile(r"\btypedef\s+struct\s+(husk_[A-Za-z0-9_]+)\b")
+C_COMMENTS_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
+
 ROOTS = ("translation-layer", "translation-layer-next", "host-runtime", "host-reference", "build-support", "upstream-docs", "resources")
 
 def classify(path: pathlib.Path) -> str:
