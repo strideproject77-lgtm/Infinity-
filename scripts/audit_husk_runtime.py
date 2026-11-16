@@ -71,6 +71,8 @@ def main() -> int:
     host_api_calls: dict[str, set[str]] = collections.defaultdict(set)
     native_api_declarations: dict[str, set[str]] = collections.defaultdict(set)
     native_api_definitions: dict[str, set[str]] = collections.defaultdict(set)
+    native_api_types: set[str] = set()
+    host_api_types: dict[str, set[str]] = collections.defaultdict(set)
 
     for path in files:
         rel = path.relative_to(root).as_posix()
@@ -99,16 +101,21 @@ def main() -> int:
         swift_imports.update(imports)
         system_includes.update(angle)
 
+        if rel.startswith(("translation-layer/", "translation-layer-next/")) and path.suffix in HEADER_SUFFIXES:
+            clean_content = C_COMMENTS_RE.sub(" ", content)
+            native_api_types.update(HUSK_TYPE_RE.findall(clean_content))
+            for symbol in HUSK_DECL_RE.findall(clean_content):
+                native_api_declarations[symbol].add(rel)
+        elif rel.startswith(("translation-layer/", "translation-layer-next/")) and path.suffix in C_SOURCE_SUFFIXES:
+            clean_content = C_COMMENTS_RE.sub(" ", content)
+            for symbol in HUSK_DEF_RE.findall(clean_content):
+                native_api_definitions[symbol].add(rel)
         if path.suffix == ".swift" and rel.startswith("host-runtime/"):
             for symbol in HUSK_CALL_RE.findall(content):
-                host_api_calls[symbol].add(rel)
-        if rel.startswith(("translation-layer/", "translation-layer-next/")):
-            if path.suffix in HEADER_SUFFIXES:
-                for symbol in HUSK_DECL_RE.findall(content):
-                    native_api_declarations[symbol].add(rel)
-            elif path.suffix in C_SOURCE_SUFFIXES:
-                for symbol in HUSK_DEF_RE.findall(content):
-                    native_api_definitions[symbol].add(rel)
+                if symbol in native_api_types:
+                    host_api_types[symbol].add(rel)
+                else:
+                    host_api_calls[symbol].add(rel)
 
         entries.append({
             "path": rel,
@@ -139,6 +146,7 @@ def main() -> int:
         "system_header_includes": dict(sorted(system_includes.items())),
         "files": entries,
         "host_api_calls": {name: sorted(paths) for name, paths in sorted(host_api_calls.items())},
+        "host_api_types": {name: sorted(paths) for name, paths in sorted(host_api_types.items())},
     }, indent=2) + "\n", encoding="utf-8")
 
     report = [
@@ -211,7 +219,8 @@ def main() -> int:
         "",
         "> Textual first-pass scan only. It does not replace Clang/Swift compilation or linker symbol inspection.",
         "",
-        f"- Husk API calls found in selected Swift host files: **{len(api_entries)}**",
+        f"- Husk function calls found in selected Swift host files: **{len(api_entries)}**",
+        f"- C struct initializers identified separately: **{len(host_api_types)}**",
         f"- Calls with a matching declaration in the two native header trees: **{len(api_entries) - len(unresolved_decl)}**",
         f"- Calls with a matching native source definition: **{len(api_entries) - len(unresolved_def)}**",
         f"- Calls without a matching declaration: **{len(unresolved_decl)}**",
@@ -223,6 +232,9 @@ def main() -> int:
     for item in api_entries:
         state = ("declared" if item["declared"] else "NO DECLARATION") + " / " + ("defined" if item["defined"] else "NO DEFINITION")
         api_report.append("- {} — {}; host: {}".format(item["symbol"], state, ", ".join(item["host_files"])))
+    api_report += ["", "## C struct initializers (not function symbols)", ""]
+    api_report += (["- {} — {}".format(name, ", ".join(paths)) for name, paths in sorted(host_api_types.items())]
+                   if host_api_types else ["None detected."])
     api_report += ["", "## Missing declarations", ""]
     api_report += (["- {} — {}".format(item["symbol"], ", ".join(item["host_files"])) for item in unresolved_decl]
                    if unresolved_decl else ["None detected by this textual scan."])
