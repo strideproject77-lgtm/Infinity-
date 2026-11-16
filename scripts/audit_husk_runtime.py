@@ -23,7 +23,7 @@ SWIFT_IMPORT_RE = re.compile(r'^\s*(?:@preconcurrency\s+)?import\s+([A-Za-z_][A-
 SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*([^\s*]+)")
 COPYRIGHT_RE = re.compile(r"SPDX-FileCopyrightText:|Copyright\s+(?:\(c\)\s*)?\d{4}", re.IGNORECASE)
 
-ROOTS = ("translation-layer-next", "host-runtime", "build-support", "upstream-docs")
+ROOTS = ("translation-layer", "translation-layer-next", "host-runtime", "host-reference", "build-support", "upstream-docs", "resources")
 
 def classify(path: pathlib.Path) -> str:
     suffix = path.suffix
@@ -160,10 +160,13 @@ def main() -> int:
         "## Integration gates",
         "",
         "- Keep the vendor snapshot outside Strata's synchronized Xcode source groups until a dedicated runtime target is reviewed.",
-        "- Do not import Husk's @main app entry point, QEMU guest orchestration, QEMU binaries, signing/refresh systems, or its complete XcodeGen project.",
+        "- host-reference/ is source-audit material only; never add HuskApp.swift or its @main entry point to Strata's target.",
+        "- Do not import QEMU guest orchestration, QEMU binaries, signing/refresh systems, or Husk's complete XcodeGen project.",
         "- Review every file's provenance and license, including embedded .inc data and generated assets; absence of an SPDX marker is not proof of an incompatible license.",
         "- Resolve all native symbols, framework/linker requirements, deployment-target constraints, Swift type dependencies, resources, and runtime data before adding target membership.",
+        "- The legacy translation-layer/ tree is included because the selected Swift host sources still reference its attempt/check APIs; do not assume translation-layer-next alone satisfies the host dependency graph.",
         "- The native runtime's ANGLE/GLES, Java runtime assets, system fonts/certificates, Vulkan/MoltenVK path, and engine-specific bridges are separate dependency groups; do not mark an engine ready until its required assets are present.",
+        "- Vendor inventory does not imply build membership: host-reference/, resources/, and all source groups remain outside Xcode targets until a separate reviewed integration step.",
         "- Preserve Strata and SideStore target memberships, entitlements, signing/refresh/install flows, and the existing IPA builder.",
         "",
     ]
