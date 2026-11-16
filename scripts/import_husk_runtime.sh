@@ -88,10 +88,15 @@ cp -R "$ARCHIVE/src/translation-layer/." "$STAGE/translation-layer/"
 cp -R "$ARCHIVE/src/translation-layer-next/." "$STAGE/translation-layer-next/"
 # These are source inputs for a later isolated Strata adapter, not Xcode target
 # membership. App entry-point code is kept in host-reference and never compiled.
-for file in TranslationLayer.swift TLUnityView.swift TLAppSettings.swift AppWindows.swift HuskGamepad.swift HuskKeyboard.swift HuskAudio.swift HuskLog.swift HuskFilePicker.swift; do
+for file in TranslationLayer.swift TLUnityView.swift TLAppSettings.swift AppWindows.swift HuskGamepad.swift HuskFilePicker.swift; do
   cp "$ARCHIVE/src/app/Husk/$file" "$STAGE/host-runtime/$file"
 done
 cp "$ARCHIVE/src/app/Husk/HuskApp.swift" "$STAGE/host-reference/HuskApp.swift"
+# QEMU guest audio, keyboard and mixed QEMU/JIT log helpers are references only;
+# they are not part of the native translation-layer host adapter.
+for file in HuskAudio.swift HuskKeyboard.swift HuskLog.swift; do
+  cp "$ARCHIVE/src/app/Husk/$file" "$STAGE/host-reference/$file"
+done
 # Audit-only: this bridge also declares QEMU/JIT APIs and references Husk-only pairing headers.
 # Strata must create its own translation-layer bridge rather than compile this wholesale.
 cp "$ARCHIVE/src/app/Husk/HuskBridge.h" "$STAGE/host-reference/HuskBridge.h"
@@ -109,7 +114,8 @@ cat > "$STAGE/UPSTREAM_REVISION.txt" <<EOF
 Repository: https://github.com/Leviidev/Husk
 Revision: $REVISION
 Native sources: src/translation-layer and src/translation-layer-next
-Host source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift
+Native host candidates (reference only until adapted): src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskFilePicker}.swift
+QEMU/mixed-host references only: src/app/Husk/{HuskAudio,HuskKeyboard,HuskLog}.swift
 Host app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift
 Original QEMU/JIT bridging header (reference only, never compile wholesale): src/app/Husk/HuskBridge.h
 Upstream XcodeGen build manifest (audit reference only): src/app/project.yml
