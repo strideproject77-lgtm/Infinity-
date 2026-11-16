@@ -2,14 +2,14 @@
 
 > Inventory only. This does not prove compilation, linking, complete license compatibility, or APK execution.
 
-- Total imported files: **167**
+- Total imported files: **169**
 - Native C/Objective-C/C++/assembly sources: **96**
 - Swift host-runtime sources: **10**
-- Headers/includes: **52**
+- Headers/includes: **53**
 - Build recipes: **4**
 - Technical/licensing documents: **4**
-- Files without SPDX identifier in first 8 KiB: **12**
-- Quoted includes with no matching local basename: **0**
+- Files without SPDX identifier in first 8 KiB: **13**
+- Quoted includes with no matching local basename: **1**
 
 ## Imported groups
 
@@ -98,9 +98,9 @@
 - sqlite3.h: 1
 - stdarg.h: 17
 - stdatomic.h: 33
-- stdbool.h: 62
+- stdbool.h: 63
 - stddef.h: 26
-- stdint.h: 60
+- stdint.h: 61
 - stdio.h: 72
 - stdlib.h: 85
 - string.h: 95
@@ -134,7 +134,7 @@
 
 ## Unresolved quoted includes
 
-None detected by this local-path scan.
+- host-reference/HuskBridge.h: HuskRPPairing.h
 
 ## Files without SPDX markers
 
@@ -142,6 +142,7 @@ None detected by this local-path scan.
 - build-support/build_angle_ios.sh
 - build-support/build_art_support.sh
 - build-support/build_java_runtime.sh
+- build-support/project.yml
 - resources/cacert.pem
 - translation-layer/stb_vorbis.inc
 - translation-layer-next/husk-console-abi.h
@@ -155,6 +156,8 @@ None detected by this local-path scan.
 
 - Keep the vendor snapshot outside Strata's synchronized Xcode source groups until a dedicated runtime target is reviewed.
 - host-reference/ is source-audit material only; never add HuskApp.swift or its @main entry point to Strata's target.
+- host-reference/HuskBridge.h is also audit-only: it declares QEMU/JIT interfaces and includes Husk-only pairing headers; create an INFINITY-owned translation-layer bridge instead.
+- build-support/project.yml records upstream source membership, frameworks and resource requirements; it is a reference, not a replacement for Strata project settings.
 - Do not import QEMU guest orchestration, QEMU binaries, signing/refresh systems, or Husk's complete XcodeGen project.
 - Review every file's provenance and license, including embedded .inc data and generated assets; absence of an SPDX marker is not proof of an incompatible license.
 - Resolve all native symbols, framework/linker requirements, deployment-target constraints, Swift type dependencies, resources, and runtime data before adding target membership.

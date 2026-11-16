@@ -1,6 +1,6 @@
 {
   "upstream": "https://github.com/Leviidev/Husk",
-  "revision_file": "Repository: https://github.com/Leviidev/Husk\nRevision: 29abb512d81bf8cc08babcbe7f7007cb557208ef\nNative sources: src/translation-layer and src/translation-layer-next\nHost source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift\nHost app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift\nRuntime resource: src/app/Husk/Resources/cacert.pem\nBuild recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh\nTechnical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md\nImport date: 2026-11-16\nMethod: git archive from the exact pinned commit",
+  "revision_file": "Repository: https://github.com/Leviidev/Husk\nRevision: 29abb512d81bf8cc08babcbe7f7007cb557208ef\nNative sources: src/translation-layer and src/translation-layer-next\nHost source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift\nHost app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift\nOriginal QEMU/JIT bridging header (reference only, never compile wholesale): src/app/Husk/HuskBridge.h\nUpstream XcodeGen build manifest (audit reference only): src/app/project.yml\nRuntime resource: src/app/Husk/Resources/cacert.pem\nBuild recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh\nTechnical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md\nImport date: 2026-11-16\nMethod: git archive from the exact pinned commit",
   "imported_groups": [
     "translation-layer",
     "translation-layer-next",
@@ -10,24 +10,25 @@
     "upstream-docs",
     "resources"
   ],
-  "file_count": 167,
+  "file_count": 169,
   "counts_by_kind": {
     "build-script": 4,
     "documentation": 4,
-    "header": 52,
+    "header": 53,
     "native-source": 96,
-    "other": 1,
+    "other": 2,
     "swift-host-source": 10
   },
   "counts_by_suffix": {
     ".c": 92,
-    ".h": 49,
+    ".h": 50,
     ".inc": 3,
     ".m": 4,
     ".md": 4,
     ".pem": 1,
     ".sh": 4,
-    ".swift": 10
+    ".swift": 10,
+    ".yml": 1
   },
   "swift_imports": {
     "AVFoundation": 2,
@@ -104,9 +105,9 @@
     "sqlite3.h": 1,
     "stdarg.h": 17,
     "stdatomic.h": 33,
-    "stdbool.h": 62,
+    "stdbool.h": 63,
     "stddef.h": 26,
-    "stdint.h": 60,
+    "stdint.h": 61,
     "stdio.h": 72,
     "stdlib.h": 85,
     "string.h": 95,
@@ -184,6 +185,17 @@
       "swift_imports": []
     },
     {
+      "path": "build-support/project.yml",
+      "kind": "other",
+      "suffix": ".yml",
+      "spdx": null,
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": []
+    },
+    {
       "path": "host-reference/HuskApp.swift",
       "kind": "swift-host-source",
       "suffix": ".swift",
@@ -195,6 +207,29 @@
       "swift_imports": [
         "SwiftUI"
       ]
+    },
+    {
+      "path": "host-reference/HuskBridge.h",
+      "kind": "header",
+      "suffix": ".h",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [
+        "HuskRPPairing.h",
+        "../../translation-layer/husk-tl.h",
+        "../../translation-layer-next/husk-tl-unity-app.h",
+        "../../translation-layer-next/husk-console-host.h",
+        "../../translation-layer-next/husk-tl-aot.h",
+        "../../translation-layer-next/husk-tl-codesign.h"
+      ],
+      "unresolved_quoted_includes": [
+        "HuskRPPairing.h"
+      ],
+      "system_includes": [
+        "stdbool.h",
+        "stdint.h"
+      ],
+      "swift_imports": []
     },
     {
       "path": "host-runtime/AppWindows.swift",
