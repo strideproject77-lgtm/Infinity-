@@ -40,8 +40,8 @@ class HuskImportContractTests(unittest.TestCase):
         script = IMPORTER.read_text(encoding="utf-8")
         self.assertIn('cp "$ARCHIVE/src/app/Husk/HuskApp.swift" "$STAGE/host-reference/HuskApp.swift"', script)
         self.assertIn('cp "$ARCHIVE/src/app/Husk/HuskBridge.h" "$STAGE/host-reference/HuskBridge.h"', script)
-        for qemu_reference in ("HuskAudio.swift", "HuskKeyboard.swift", "HuskLog.swift"):
-            self.assertIn(f'cp "$ARCHIVE/src/app/Husk/{qemu_reference}" "$STAGE/host-reference/{qemu_reference}"', script)
+        self.assertIn("for file in HuskAudio.swift HuskKeyboard.swift HuskLog.swift; do", script)
+        self.assertIn('cp "$ARCHIVE/src/app/Husk/$file" "$STAGE/host-reference/$file"', script)
         self.assertIn('cp "$ARCHIVE/src/app/project.yml" "$STAGE/build-support/project.yml"', script)
         self.assertIn("never compiled", script)
         forbidden_paths = (
