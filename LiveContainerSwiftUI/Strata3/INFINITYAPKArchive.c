@@ -101,7 +101,10 @@ int infinity_apk_extract_entry(const uint8_t *archive, size_t archive_length,
     uint16_t local_method = apk_u16(archive + local_offset + 8);
     uint16_t local_name = apk_u16(archive + local_offset + 26);
     uint16_t local_extra = apk_u16(archive + local_offset + 28);
-    if ((local_flags & 1u) || local_method != method) return 1;
+    if ((local_flags & 1u) || local_method != method ||
+        local_name != wanted_length ||
+        !apk_range(archive_length, (size_t)local_offset + 30u, local_name) ||
+        memcmp(archive + (size_t)local_offset + 30u, entry_name, wanted_length) != 0) return 1;
     size_t data_offset = (size_t)local_offset + 30u + local_name + local_extra;
     if (!apk_range(archive_length, data_offset, compressed_size)) return 1;
 
