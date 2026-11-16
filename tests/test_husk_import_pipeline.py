@@ -93,17 +93,17 @@ class HuskImportContractTests(unittest.TestCase):
                 (vendor / group).mkdir(parents=True)
             (vendor / "UPSTREAM_REVISION.txt").write_text("Revision: fixture\n", encoding="utf-8")
             (vendor / "translation-layer-next" / "engine.c").write_text(
-                '/* SPDX-License-Identifier: GPL-2.0-or-later */\n#include "engine.h"\n#include <pthread.h>\n',
+                '/* SPDX-License-Identifier: GPL-2.0-or-later */\n#include "engine.h"\n#include <pthread.h>\nvoid husk_fixture_start(void) { }\n',
                 encoding="utf-8",
             )
             (vendor / "translation-layer-next" / "engine.h").write_text(
-                "/* SPDX-License-Identifier: GPL-2.0-or-later */\n",
+                "/* SPDX-License-Identifier: GPL-2.0-or-later */\nvoid husk_fixture_start(void);\n",
                 encoding="utf-8",
             )
             (vendor / "host-reference" / "HuskBridge.h").write_text("#include \"qemu.h\"\\n", encoding="utf-8")
             (vendor / "build-support" / "project.yml").write_text("targets: {}\\n", encoding="utf-8")
             (vendor / "host-runtime" / "Host.swift").write_text(
-                "// SPDX-License-Identifier: GPL-2.0-or-later\nimport Foundation\nimport UIKit\n",
+                "// SPDX-License-Identifier: GPL-2.0-or-later\nimport Foundation\nimport UIKit\nfunc launch() { husk_fixture_start(); husk_missing_api() }\n",
                 encoding="utf-8",
             )
             (vendor / "build-support" / "build.sh").write_text("#!/bin/sh\n", encoding="utf-8")
@@ -124,6 +124,11 @@ class HuskImportContractTests(unittest.TestCase):
             self.assertIn("pthread.h", manifest["system_header_includes"])
             self.assertIn("legacy translation-layer/", report)
             self.assertIn("Husk source and host integration audit", report)
+            api_report = (output / "HUSK_HOST_API_AUDIT.md").read_text(encoding="utf-8")
+            api_manifest = json.loads((output / "HUSK_HOST_API_MANIFEST.json").read_text(encoding="utf-8"))
+            self.assertIn("husk_fixture_start — declared / defined", api_report)
+            self.assertIn("husk_missing_api", api_report)
+            self.assertEqual(len(api_manifest), 2)
 
 
 if __name__ == "__main__":
