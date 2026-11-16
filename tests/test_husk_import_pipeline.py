@@ -40,6 +40,8 @@ class HuskImportContractTests(unittest.TestCase):
         script = IMPORTER.read_text(encoding="utf-8")
         self.assertIn('cp "$ARCHIVE/src/app/Husk/HuskApp.swift" "$STAGE/host-reference/HuskApp.swift"', script)
         self.assertIn('cp "$ARCHIVE/src/app/Husk/HuskBridge.h" "$STAGE/host-reference/HuskBridge.h"', script)
+        for qemu_reference in ("HuskAudio.swift", "HuskKeyboard.swift", "HuskLog.swift"):
+            self.assertIn(f'cp "$ARCHIVE/src/app/Husk/{qemu_reference}" "$STAGE/host-reference/{qemu_reference}"', script)
         self.assertIn('cp "$ARCHIVE/src/app/project.yml" "$STAGE/build-support/project.yml"', script)
         self.assertIn("never compiled", script)
         forbidden_paths = (
@@ -97,13 +99,13 @@ class HuskImportContractTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (vendor / "translation-layer-next" / "engine.h").write_text(
-                "/* SPDX-License-Identifier: GPL-2.0-or-later */\nvoid husk_fixture_start(void);\n",
+                "/* SPDX-License-Identifier: GPL-2.0-or-later */\nvoid husk_fixture_start(void);\ntypedef struct husk_fixture_perf { double fps; } husk_fixture_perf;\n",
                 encoding="utf-8",
             )
             (vendor / "host-reference" / "HuskBridge.h").write_text("#include \"qemu.h\"\\n", encoding="utf-8")
             (vendor / "build-support" / "project.yml").write_text("targets: {}\\n", encoding="utf-8")
             (vendor / "host-runtime" / "Host.swift").write_text(
-                "// SPDX-License-Identifier: GPL-2.0-or-later\nimport Foundation\nimport UIKit\nfunc launch() { husk_fixture_start(); husk_missing_api() }\n",
+                "// SPDX-License-Identifier: GPL-2.0-or-later\nimport Foundation\nimport UIKit\nfunc launch() { husk_fixture_start(); husk_missing_api(); let _ = husk_fixture_perf() }\n",
                 encoding="utf-8",
             )
             (vendor / "build-support" / "build.sh").write_text("#!/bin/sh\n", encoding="utf-8")
@@ -129,6 +131,9 @@ class HuskImportContractTests(unittest.TestCase):
             self.assertIn("husk_fixture_start — declared / defined", api_report)
             self.assertIn("husk_missing_api", api_report)
             self.assertEqual(len(api_manifest), 2)
+            self.assertIn("husk_fixture_perf", json.loads((output / "HUSK_HOST_API_MANIFEST.json").read_text(encoding="utf-8"))[0]["symbol"] if False else api_report)
+            source_manifest = json.loads((output / "HUSK_SOURCE_MANIFEST.json").read_text(encoding="utf-8"))
+            self.assertIn("husk_fixture_perf", source_manifest["host_api_types"])
 
 
 if __name__ == "__main__":
