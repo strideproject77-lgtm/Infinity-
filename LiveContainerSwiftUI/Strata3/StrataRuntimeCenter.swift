@@ -8,6 +8,10 @@ struct StrataRuntimeCenter: View {
     let launch: (LCAppModel) -> Void
     let manage: (LCAppModel) -> Void
     @EnvironmentObject private var sharedModel: SharedModel
+    @State private var importingAPK = false
+    @State private var inspectingAPK = false
+    @State private var apkInspection: INFINITYAPKInspection?
+    @State private var apkInspectionError: String?
     private var guests: [LCAppModel] { apps.filter { !($0.appInfo is BuiltInSideStoreAppInfo) && (!($0.uiIsHidden) || sharedModel.isHiddenAppUnlocked) }.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending } }
     var body: some View {
         List {
@@ -31,6 +35,39 @@ struct StrataRuntimeCenter: View {
                     }.navigationTitle("HostJIT")
                 }
             }
+            Section("Android APK intake") {
+                Button {
+                    importingAPK = true
+                } label: {
+                    Label("Inspect APK", systemImage: "doc.zipper")
+                }
+                .disabled(inspectingAPK)
+
+                if inspectingAPK {
+                    ProgressView("Inspecting APK…")
+                }
+                if let report = apkInspection {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(report.fileName).font(.headline).lineLimit(1)
+                        Text(report.summary).font(.caption).foregroundStyle(.secondary)
+                        LabeledContent("Archive size", value: ByteCountFormatter.string(fromByteCount: Int64(clamping: report.archiveBytes), countStyle: .file))
+                        LabeledContent("ZIP entries", value: "\(report.entries.count)")
+                        LabeledContent("Native libraries", value: "\(report.nativeLibraries.count)")
+                        LabeledContent("Compression", value: "\(report.storedEntryCount) stored · \(report.deflatedEntryCount) deflated")
+                        Text(report.isStructurallyRecognizableAPK
+                             ? "APK structure recognized. Runtime support has not been tested."
+                             : "Incomplete APK structure: manifest or DEX files are missing.")
+                            .font(.caption)
+                            .foregroundStyle(report.isStructurallyRecognizableAPK ? .secondary : .orange)
+                    }
+                    .padding(.vertical, 4)
+                }
+                if let error = apkInspectionError {
+                    Text(error).font(.caption).foregroundStyle(.red)
+                }
+                Text("Read-only ZIP inventory. This does not extract, install or execute the APK, and does not yet decode its Android manifest.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Management") {
                 NavigationLink { StrataIdentitySettings() } label: { Label("LocalSigner · Signing Identity", systemImage: "signature") }
                 NavigationLink { StrataDiagnosticsView(apps: guests) } label: { Label("Runtime Diagnostics", systemImage: "waveform.path.ecg") }
@@ -43,7 +80,30 @@ struct StrataRuntimeCenter: View {
                 }
                 if guests.isEmpty { Text("Installed guest apps will appear here.").foregroundStyle(.secondary) }
             }
-        }.navigationTitle("Runtime Manager").navigationBarTitleDisplayMode(.inline)
+        }
+        .navigationTitle("Runtime Manager")
+        .navigationBarTitleDisplayMode(.inline)
+        .fileImporter(isPresented: $importingAPK, allowedContentTypes: [.data]) { result in
+            do {
+                let url = try result.get()
+                apkInspection = nil
+                apkInspectionError = nil
+                inspectingAPK = true
+                Task {
+                    defer { inspectingAPK = false }
+                    do {
+                        let report = try await Task.detached(priority: .userInitiated) {
+                            try INFINITYAPKInspection.inspect(url: url)
+                        }.value
+                        apkInspection = report
+                    } catch {
+                        apkInspectionError = error.localizedDescription
+                    }
+                }
+            } catch {
+                apkInspectionError = error.localizedDescription
+            }
+        }
     }
 }
 
