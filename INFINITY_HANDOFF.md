@@ -4,7 +4,7 @@ Last updated: 2026-11-16
 
 ## Project direction
 
-INFINITY combines the existing Strata iOS host/launcher with a QEMU-free Android APK runtime based on the compatible parts of Husk. APK and IPA imports must appear together in one Home Screen and unified Library; the runtime is selected internally when an app launches. Store/catalog work is planned for both IPA and APK apps.
+INFINITY combines the existing Strata iOS host/launcher with Husk-derived Android execution capabilities. The project owner has approved including QEMU if it improves coverage or avoids blocking work. The architecture will support two isolated Android backends: a native translation runtime for direct APK execution, and an optional QEMU Android-guest backend where required. APK and IPA imports must appear together in one Home Screen and unified Library; the runtime is selected internally when an app launches. Store/catalog work is planned for both IPA and APK apps.
 
 ## Repository safety
 
@@ -24,7 +24,7 @@ INFINITY combines the existing Strata iOS host/launcher with a QEMU-free Android
 - Strata 4.0 is present, including its launcher, app switcher, settings, runtime diagnostics, memory overlay, and existing LiveContainer/LiveExec32 paths.
 - The current runtime manager has no Android APK execution engine integrated.
 - No Husk translation-layer source directory is present in the INFINITY tree.
-- Husk's upstream repository is GPL-2.0-or-later. Its QEMU-linked application build is not the target; INFINITY is targeting a QEMU-free build.
+- Husk's upstream repository is GPL-2.0-or-later. The project owner approved evaluating and including QEMU. QEMU is an optional compatibility backend, not a presumed performance shortcut: it emulates a full Android guest on iOS devices without a usable hardware hypervisor and can require multi-gigabyte guest assets. Keep native translation and QEMU guest execution isolated so APKs can use the appropriate backend.
 - Husk's own translation-layer code and every third-party component must retain their applicable copyright notices and licenses. Android/ATL-derived, AOSP, ART/libcore, and platform-native components require per-component provenance and compatibility review before redistribution.
 - Husk's translation-layer documentation describes an experimental path; milestones and hardware evidence must be checked against current source before claiming APK execution support.
 
@@ -42,14 +42,16 @@ Status: complete.
 - Confirmed `main`, current baseline commit, existing Strata runtime entry points, third-party notices, and workflow inventory.
 - Confirmed no Android runtime source is currently integrated.
 
-### Phase 1 — QEMU-free Husk source/provenance migration
-Status: source inventory complete; migration not yet committed.
+### Phase 1 — Husk runtime and QEMU backend source/provenance migration
+Status: source inventory complete; integration not yet committed.
 
 - Audited Husk upstream revision `29abb512d81bf8cc08babcbe7f7007cb557208ef` (2026-11-11).
 - Found 126 files / approximately 2.67 MiB under `src/translation-layer-next/`: 79 C, 41 headers, 4 Objective-C, and 2 include files. The selected runtime tree includes Dalvik/DEX, ELF loader, Bionic, JNI, Binder/service manager, EGL/GLES, audio, and engine-specific bridges.
 - Sampled core runtime files (`husk-tl-dvm.c`, `husk-tl-ld.c`, `husk-tl-bionic.c`, `husk-tl-jni.c`, `husk-tl-egl.c`); each inspected file declares `GPL-2.0-or-later`. Full per-file provenance audit is still required before copying the whole tree.
 - Husk's XcodeGen project includes `translation-layer-next` in the Husk app target, but also links QEMU and runs a guest-image staging build phase. INFINITY must import the runtime sources and only their required iOS dependencies, not the Husk app target/build scripts/guest assets.
-- Exclude QEMU, LineageOS guest images, guest boot code, and QEMU-only build steps.
+- QEMU is now permitted as an optional backend. Audit its build, iOS threading, display/input/audio bridge, guest-image distribution, memory requirements, and shutdown lifecycle separately from the native translation runtime.
+- Do not make QEMU the default APK path or claim it improves speed. Benchmark native translation and guest emulation independently on supported devices.
+- Keep QEMU guest images optional and downloadable only with clear storage/network warnings; never bundle multi-gigabyte images by default.
 - Preserve upstream copyright headers, GPL notices, and all third-party licenses.
 - Do not import unlicensed wrappers or files with unclear provenance.
 - Integrate the selected source into the Xcode project/build system and document the pinned upstream revision.
@@ -102,5 +104,5 @@ Status: not started.
 - UI/UX changes: none yet.
 - Extra features: none yet.
 - Tests: no build or runtime tests run in this audit.
-- Blockers: source migration/build integration requires a verified QEMU-free source inventory, per-component license review, and Xcode project integration.
+- Blockers: source migration/build integration requires complete per-component license/provenance review, QEMU/guest architecture decisions, and Xcode project integration. Existing Strata AGPL-3.0 and imported GPL/QEMU components need a documented compatibility review before combining or redistributing binaries.
 - Actual progress: Phase 0 complete; Phase 1 source inventory complete; source migration and Xcode integration remain incomplete.
