@@ -1,0 +1,30 @@
+name: INFINITY Husk native source compile audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Vendor/Husk/translation-layer/**"
+      - "Vendor/Husk/translation-layer-next/**"
+      - "scripts/check_husk_native_sources.sh"
+      - ".github/workflows/infinity-husk-native-compile.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  iphoneos-source-compile:
+    name: Compile Husk translation sources (no app or IPA build)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Check out INFINITY main
+        uses: actions/checkout@v4
+      - name: Verify source trees and shell syntax
+        run: |
+          bash -n scripts/check_husk_native_sources.sh
+          test -d Vendor/Husk/translation-layer
+          test -d Vendor/Husk/translation-layer-next
+      - name: Compile every translation C and Objective-C source
+        run: bash scripts/check_husk_native_sources.sh
