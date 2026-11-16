@@ -48,6 +48,22 @@ class HuskImportContractTests(unittest.TestCase):
         for path in forbidden_paths:
             self.assertNotIn(path, script)
 
+    def test_importer_refuses_overwrite_of_any_owned_group_without_refresh(self):
+        script = IMPORTER.read_text(encoding="utf-8")
+        guard = script.split('if [[ "$REFRESH" -ne 1 ]] && {', 1)[1].split("}; then", 1)[0]
+        for owned_path in (
+            '"$DEST/translation-layer"',
+            '"$DEST/translation-layer-next"',
+            '"$DEST/host-runtime"',
+            '"$DEST/host-reference"',
+            '"$DEST/build-support"',
+            '"$DEST/upstream-docs"',
+            '"$DEST/resources"',
+            '"$DEST/HUSK-LICENSE"',
+            '"$DEST/UPSTREAM_REVISION.txt"',
+        ):
+            self.assertIn(owned_path, guard)
+
     def test_importer_replaces_only_owned_vendor_groups(self):
         script = IMPORTER.read_text(encoding="utf-8")
         self.assertIn(
