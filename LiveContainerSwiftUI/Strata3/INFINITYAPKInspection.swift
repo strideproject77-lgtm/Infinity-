@@ -61,8 +61,10 @@ struct INFINITYAPKInspection: Sendable {
     }
 
     static func inspect(url: URL) throws -> INFINITYAPKInspection {
+        #if os(iOS) || os(macOS)
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        #endif
 
         let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
         guard values?.isRegularFile == true,
@@ -150,6 +152,9 @@ struct INFINITYAPKInspection: Sendable {
             let method = u16(cursor + 10) ?? UInt16.max
             let compressed = UInt64(u32(cursor + 20) ?? UInt32.max)
             let uncompressed = UInt64(u32(cursor + 24) ?? UInt32.max)
+            guard compressed != UInt64(UInt32.max), uncompressed != UInt64(UInt32.max) else {
+                throw InspectionError.zip64NotSupported
+            }
             let nameLength = Int(u16(cursor + 28) ?? 0)
             let extraLength = Int(u16(cursor + 30) ?? 0)
             let commentLength = Int(u16(cursor + 32) ?? 0)
