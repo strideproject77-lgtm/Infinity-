@@ -1,0 +1,43 @@
+name: INFINITY native tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.c"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift"
+      - "tests/test_infinity_apk_archive.py"
+      - ".github/workflows/infinity-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk-archive-tests:
+    name: APK archive extraction tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run ZIP extraction regression tests
+        run: python -m unittest discover -s tests -p "test_infinity_apk_archive.py" -v
+
+  swift-typecheck:
+    name: Swift APK parser type-check
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Type-check APK inspection and manifest parser
+        run: |
+          swiftc -typecheck \
+            -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift
