@@ -99,7 +99,7 @@ class HuskImportContractTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (vendor / "translation-layer-next" / "engine.h").write_text(
-                "/* SPDX-License-Identifier: GPL-2.0-or-later */\nvoid husk_fixture_start(void);\ntypedef struct husk_fixture_perf { double fps; } husk_fixture_perf;\n",
+                "/* SPDX-License-Identifier: GPL-2.0-or-later */\n/* This comment mentions husk_missing_api(); but does not declare it. */\nvoid husk_fixture_start(void);\ntypedef struct husk_fixture_perf { double fps; } husk_fixture_perf;\n",
                 encoding="utf-8",
             )
             (vendor / "host-reference" / "HuskBridge.h").write_text("#include \"qemu.h\"\\n", encoding="utf-8")
@@ -131,6 +131,9 @@ class HuskImportContractTests(unittest.TestCase):
             self.assertIn("husk_fixture_start — declared / defined", api_report)
             self.assertIn("husk_missing_api", api_report)
             self.assertEqual(len(api_manifest), 2)
+            missing = next(item for item in api_manifest if item["symbol"] == "husk_missing_api")
+            self.assertFalse(missing["declared"])
+            self.assertFalse(missing["defined"])
             source_manifest = json.loads((output / "HUSK_SOURCE_MANIFEST.json").read_text(encoding="utf-8"))
             self.assertIn("husk_fixture_perf", source_manifest["host_api_types"])
 
