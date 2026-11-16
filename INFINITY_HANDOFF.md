@@ -309,3 +309,12 @@ Status: not started.
 ### Immediate next implementation step
 
 Create a narrowly scoped INFINITY-owned native bridge and isolated compile target only after per-file source/flag review. Run its compile/link check in a separate CI workflow that does not invoke the existing IPA builder. Do not mark the runtime integrated until that compile passes; do not claim APK compatibility until real-device execution is verified.
+
+## Swift-to-Husk bridge boundary — 2026-11-17
+
+- Added `LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h` as an isolated declaration boundary. It imports only Husk's app-facing `translation-layer-next/husk-tl-unity-app.h`; it deliberately does not import `HuskBridge.h` or its QEMU/JIT/pairing dependency surface.
+- Included that header from the existing `LiveContainerSwiftUI-Bridging-Header.h`, so the existing Strata Swift target can see the upstream C API declarations.
+- This is **declaration-level bridging only**. The Husk C implementation is still not part of an Xcode native target, no C symbols are linked, and Swift must not call these functions until the native source target and its dependency closure compile and link.
+- No `PRODUCT_BUNDLE_IDENTIFIER`, app target identity, signing setting, IPA builder, SideStore source/target/configuration, or install/refresh flow was changed.
+- No IPA build, signing, export, Xcode app build, or device test was run. This commit is not evidence of APK execution.
+- Next: finish source/flag/dependency closure, then add an isolated native runtime target and compile-only CI before connecting launch calls.
