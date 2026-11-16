@@ -35,7 +35,7 @@ jobs:
 
       - name: Import pinned Husk runtime sources
         run: |
-          if [ "${{ inputs.refresh }}" = "true" ]; then
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${{ inputs.refresh }}" = "true" ]; then
             bash scripts/import_husk_runtime.sh --refresh
           else
             bash scripts/import_husk_runtime.sh
