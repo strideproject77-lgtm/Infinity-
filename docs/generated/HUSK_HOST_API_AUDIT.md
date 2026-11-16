@@ -2,24 +2,21 @@
 
 > Textual first-pass scan only. It does not replace Clang/Swift compilation or linker symbol inspection.
 
-- Husk API calls found in selected Swift host files: **79**
-- Calls with a matching declaration in the two native header trees: **69**
+- Husk function calls found in selected Swift host files: **74**
+- C struct initializers identified separately: **0**
+- Calls with a matching declaration in the two native header trees: **73**
 - Calls with a matching native source definition: **73**
-- Calls without a matching declaration: **10**
-- Calls without a matching definition: **6**
+- Calls without a matching declaration: **1**
+- Calls without a matching definition: **1**
 
 ## API map
 
 - husk_apk_is_game — declared / defined; host: host-runtime/TranslationLayer.swift
 - husk_apk_orientation — declared / defined; host: host-runtime/TLUnityView.swift
-- husk_audio_frames_in — NO DECLARATION / NO DEFINITION; host: host-runtime/HuskAudio.swift
-- husk_audio_pull — NO DECLARATION / NO DEFINITION; host: host-runtime/HuskAudio.swift
-- husk_audio_underruns — NO DECLARATION / NO DEFINITION; host: host-runtime/HuskAudio.swift
 - husk_cocos_delete_backward — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_cocos_insert_text — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_cocos_launch — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_cocos_set_geode — declared / defined; host: host-runtime/TLUnityView.swift
-- husk_display_send_key — NO DECLARATION / NO DEFINITION; host: host-runtime/HuskKeyboard.swift
 - husk_flutter_back — declared / defined; host: host-runtime/AppWindows.swift, host-runtime/TLUnityView.swift
 - husk_flutter_delete_backward — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_flutter_insert_text — declared / defined; host: host-runtime/TLUnityView.swift
@@ -42,7 +39,6 @@
 - husk_gamepad_update — declared / defined; host: host-runtime/HuskGamepad.swift
 - husk_godot_launch — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_gta_launch — declared / defined; host: host-runtime/TLUnityView.swift
-- husk_ios_jit_log_footprint — NO DECLARATION / NO DEFINITION; host: host-runtime/HuskLog.swift
 - husk_java_back — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_java_delete_backward — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_java_documents_picked — declared / defined; host: host-runtime/TLUnityView.swift
@@ -70,12 +66,12 @@
 - husk_tl_attempt_done — declared / defined; host: host-runtime/TranslationLayer.swift
 - husk_tl_attempt_frames — declared / defined; host: host-runtime/TranslationLayer.swift
 - husk_tl_attempt_log — declared / defined; host: host-runtime/TLUnityView.swift, host-runtime/TranslationLayer.swift
-- husk_tl_attempt_start — NO DECLARATION / defined; host: host-runtime/TranslationLayer.swift
+- husk_tl_attempt_start — declared / defined; host: host-runtime/TranslationLayer.swift
 - husk_tl_attempt_stop — declared / defined; host: host-runtime/TranslationLayer.swift
 - husk_tl_free — declared / defined; host: host-runtime/TranslationLayer.swift
-- husk_tl_read_entry — NO DECLARATION / defined; host: host-runtime/TranslationLayer.swift
-- husk_tl_run_checks — NO DECLARATION / defined; host: host-runtime/TranslationLayer.swift
-- husk_tl_scan — NO DECLARATION / defined; host: host-runtime/TranslationLayer.swift
+- husk_tl_read_entry — declared / defined; host: host-runtime/TranslationLayer.swift
+- husk_tl_run_checks — declared / defined; host: host-runtime/TranslationLayer.swift
+- husk_tl_scan — declared / defined; host: host-runtime/TranslationLayer.swift
 - husk_ue4_launch — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_ue4_set_vulkan — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_unity_delete_backward — declared / defined; host: host-runtime/TLUnityView.swift
@@ -90,26 +86,16 @@
 - husk_unity_text — declared / defined; host: host-runtime/TLUnityView.swift
 - husk_unity_touch — declared / defined; host: host-runtime/TLUnityView.swift
 
+## C struct initializers (not function symbols)
+
+None detected.
+
 ## Missing declarations
 
-- husk_audio_frames_in — host-runtime/HuskAudio.swift
-- husk_audio_pull — host-runtime/HuskAudio.swift
-- husk_audio_underruns — host-runtime/HuskAudio.swift
-- husk_display_send_key — host-runtime/HuskKeyboard.swift
-- husk_ios_jit_log_footprint — host-runtime/HuskLog.swift
-- husk_tl_attempt_start — host-runtime/TranslationLayer.swift
-- husk_tl_read_entry — host-runtime/TranslationLayer.swift
-- husk_tl_run_checks — host-runtime/TranslationLayer.swift
-- husk_tl_scan — host-runtime/TranslationLayer.swift
 - husk_unity_perf — host-runtime/TLUnityView.swift
 
 ## Missing native definitions
 
-- husk_audio_frames_in — host-runtime/HuskAudio.swift
-- husk_audio_pull — host-runtime/HuskAudio.swift
-- husk_audio_underruns — host-runtime/HuskAudio.swift
-- husk_display_send_key — host-runtime/HuskKeyboard.swift
-- husk_ios_jit_log_footprint — host-runtime/HuskLog.swift
 - husk_unity_perf — host-runtime/TLUnityView.swift
 
 ## Integration notes

@@ -28,36 +28,6 @@
     ]
   },
   {
-    "symbol": "husk_audio_frames_in",
-    "host_files": [
-      "host-runtime/HuskAudio.swift"
-    ],
-    "declared": false,
-    "defined": false,
-    "declaration_files": [],
-    "definition_files": []
-  },
-  {
-    "symbol": "husk_audio_pull",
-    "host_files": [
-      "host-runtime/HuskAudio.swift"
-    ],
-    "declared": false,
-    "defined": false,
-    "declaration_files": [],
-    "definition_files": []
-  },
-  {
-    "symbol": "husk_audio_underruns",
-    "host_files": [
-      "host-runtime/HuskAudio.swift"
-    ],
-    "declared": false,
-    "defined": false,
-    "declaration_files": [],
-    "definition_files": []
-  },
-  {
     "symbol": "husk_cocos_delete_backward",
     "host_files": [
       "host-runtime/TLUnityView.swift"
@@ -112,16 +82,6 @@
     "definition_files": [
       "translation-layer-next/husk-tl-unity-app.c"
     ]
-  },
-  {
-    "symbol": "husk_display_send_key",
-    "host_files": [
-      "host-runtime/HuskKeyboard.swift"
-    ],
-    "declared": false,
-    "defined": false,
-    "declaration_files": [],
-    "definition_files": []
   },
   {
     "symbol": "husk_flutter_back",
@@ -431,16 +391,6 @@
     "definition_files": [
       "translation-layer-next/husk-tl-unity-app.c"
     ]
-  },
-  {
-    "symbol": "husk_ios_jit_log_footprint",
-    "host_files": [
-      "host-runtime/HuskLog.swift"
-    ],
-    "declared": false,
-    "defined": false,
-    "declaration_files": [],
-    "definition_files": []
   },
   {
     "symbol": "husk_java_back",
@@ -828,9 +778,11 @@
     "host_files": [
       "host-runtime/TranslationLayer.swift"
     ],
-    "declared": false,
+    "declared": true,
     "defined": true,
-    "declaration_files": [],
+    "declaration_files": [
+      "translation-layer/husk-tl.h"
+    ],
     "definition_files": [
       "translation-layer/husk-tl-load.c"
     ]
@@ -868,9 +820,11 @@
     "host_files": [
       "host-runtime/TranslationLayer.swift"
     ],
-    "declared": false,
+    "declared": true,
     "defined": true,
-    "declaration_files": [],
+    "declaration_files": [
+      "translation-layer/husk-tl.h"
+    ],
     "definition_files": [
       "translation-layer/husk-tl-scan.c"
     ]
@@ -880,9 +834,11 @@
     "host_files": [
       "host-runtime/TranslationLayer.swift"
     ],
-    "declared": false,
+    "declared": true,
     "defined": true,
-    "declaration_files": [],
+    "declaration_files": [
+      "translation-layer/husk-tl.h"
+    ],
     "definition_files": [
       "translation-layer/husk-tl-probe.c"
     ]
@@ -892,9 +848,11 @@
     "host_files": [
       "host-runtime/TranslationLayer.swift"
     ],
-    "declared": false,
+    "declared": true,
     "defined": true,
-    "declaration_files": [],
+    "declaration_files": [
+      "translation-layer/husk-tl.h"
+    ],
     "definition_files": [
       "translation-layer/husk-tl-scan.c"
     ]

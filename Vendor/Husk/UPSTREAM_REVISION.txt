@@ -1,7 +1,8 @@
 Repository: https://github.com/Leviidev/Husk
 Revision: 29abb512d81bf8cc08babcbe7f7007cb557208ef
 Native sources: src/translation-layer and src/translation-layer-next
-Host source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift
+Native host candidates (reference only until adapted): src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskFilePicker}.swift
+QEMU/mixed-host references only: src/app/Husk/{HuskAudio,HuskKeyboard,HuskLog}.swift
 Host app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift
 Original QEMU/JIT bridging header (reference only, never compile wholesale): src/app/Husk/HuskBridge.h
 Upstream XcodeGen build manifest (audit reference only): src/app/project.yml

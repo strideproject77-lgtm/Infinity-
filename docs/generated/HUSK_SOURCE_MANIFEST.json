@@ -1,6 +1,6 @@
 {
   "upstream": "https://github.com/Leviidev/Husk",
-  "revision_file": "Repository: https://github.com/Leviidev/Husk\nRevision: 29abb512d81bf8cc08babcbe7f7007cb557208ef\nNative sources: src/translation-layer and src/translation-layer-next\nHost source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift\nHost app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift\nOriginal QEMU/JIT bridging header (reference only, never compile wholesale): src/app/Husk/HuskBridge.h\nUpstream XcodeGen build manifest (audit reference only): src/app/project.yml\nRuntime resource: src/app/Husk/Resources/cacert.pem\nBuild recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh\nTechnical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md\nImport date: 2026-11-16\nMethod: git archive from the exact pinned commit",
+  "revision_file": "Repository: https://github.com/Leviidev/Husk\nRevision: 29abb512d81bf8cc08babcbe7f7007cb557208ef\nNative sources: src/translation-layer and src/translation-layer-next\nNative host candidates (reference only until adapted): src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskFilePicker}.swift\nQEMU/mixed-host references only: src/app/Husk/{HuskAudio,HuskKeyboard,HuskLog}.swift\nHost app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift\nOriginal QEMU/JIT bridging header (reference only, never compile wholesale): src/app/Husk/HuskBridge.h\nUpstream XcodeGen build manifest (audit reference only): src/app/project.yml\nRuntime resource: src/app/Husk/Resources/cacert.pem\nBuild recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh\nTechnical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md\nImport date: 2026-11-16\nMethod: git archive from the exact pinned commit",
   "imported_groups": [
     "translation-layer",
     "translation-layer-next",
@@ -209,6 +209,19 @@
       ]
     },
     {
+      "path": "host-reference/HuskAudio.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "AVFoundation"
+      ]
+    },
+    {
       "path": "host-reference/HuskBridge.h",
       "kind": "header",
       "suffix": ".h",
@@ -232,7 +245,7 @@
       "swift_imports": []
     },
     {
-      "path": "host-runtime/AppWindows.swift",
+      "path": "host-reference/HuskKeyboard.swift",
       "kind": "swift-host-source",
       "suffix": ".swift",
       "spdx": "GPL-2.0-or-later",
@@ -246,7 +259,7 @@
       ]
     },
     {
-      "path": "host-runtime/HuskAudio.swift",
+      "path": "host-reference/HuskLog.swift",
       "kind": "swift-host-source",
       "suffix": ".swift",
       "spdx": "GPL-2.0-or-later",
@@ -255,7 +268,24 @@
       "unresolved_quoted_includes": [],
       "system_includes": [],
       "swift_imports": [
-        "AVFoundation"
+        "Foundation",
+        "Darwin",
+        "UIKit",
+        "os"
+      ]
+    },
+    {
+      "path": "host-runtime/AppWindows.swift",
+      "kind": "swift-host-source",
+      "suffix": ".swift",
+      "spdx": "GPL-2.0-or-later",
+      "has_copyright_marker": false,
+      "quoted_includes": [],
+      "unresolved_quoted_includes": [],
+      "system_includes": [],
+      "swift_imports": [
+        "SwiftUI",
+        "UIKit"
       ]
     },
     {
@@ -285,36 +315,6 @@
       "swift_imports": [
         "Foundation",
         "GameController"
-      ]
-    },
-    {
-      "path": "host-runtime/HuskKeyboard.swift",
-      "kind": "swift-host-source",
-      "suffix": ".swift",
-      "spdx": "GPL-2.0-or-later",
-      "has_copyright_marker": false,
-      "quoted_includes": [],
-      "unresolved_quoted_includes": [],
-      "system_includes": [],
-      "swift_imports": [
-        "SwiftUI",
-        "UIKit"
-      ]
-    },
-    {
-      "path": "host-runtime/HuskLog.swift",
-      "kind": "swift-host-source",
-      "suffix": ".swift",
-      "spdx": "GPL-2.0-or-later",
-      "has_copyright_marker": false,
-      "quoted_includes": [],
-      "unresolved_quoted_includes": [],
-      "system_includes": [],
-      "swift_imports": [
-        "Foundation",
-        "Darwin",
-        "UIKit",
-        "os"
       ]
     },
     {
@@ -3525,15 +3525,6 @@
     "husk_apk_orientation": [
       "host-runtime/TLUnityView.swift"
     ],
-    "husk_audio_frames_in": [
-      "host-runtime/HuskAudio.swift"
-    ],
-    "husk_audio_pull": [
-      "host-runtime/HuskAudio.swift"
-    ],
-    "husk_audio_underruns": [
-      "host-runtime/HuskAudio.swift"
-    ],
     "husk_cocos_delete_backward": [
       "host-runtime/TLUnityView.swift"
     ],
@@ -3545,9 +3536,6 @@
     ],
     "husk_cocos_set_geode": [
       "host-runtime/TLUnityView.swift"
-    ],
-    "husk_display_send_key": [
-      "host-runtime/HuskKeyboard.swift"
     ],
     "husk_flutter_back": [
       "host-runtime/AppWindows.swift",
@@ -3615,9 +3603,6 @@
     ],
     "husk_gta_launch": [
       "host-runtime/TLUnityView.swift"
-    ],
-    "husk_ios_jit_log_footprint": [
-      "host-runtime/HuskLog.swift"
     ],
     "husk_java_back": [
       "host-runtime/TLUnityView.swift"
@@ -3759,5 +3744,6 @@
     "husk_unity_touch": [
       "host-runtime/TLUnityView.swift"
     ]
-  }
+  },
+  "host_api_types": {}
 }
