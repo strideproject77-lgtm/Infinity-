@@ -196,3 +196,24 @@ Status: not started.
 - No source import workflow has been dispatched yet; therefore the expanded vendor snapshot and generated audit are not present. No dedicated Xcode runtime target has been created, no compile/link test or real APK execution has been performed, and no compatibility percentage is claimed.
 - No IPA build/sign/export was run. SideStore source/targets/configuration/entitlements/signing/refresh/install systems and the existing IPA builder were not modified.
 - Next action: run Actions → Import Husk Runtime Sources on main with refresh=false, review the generated manifest/audit, then create the isolated Husk runtime target and Strata adapter as one dependency-complete integration batch.
+
+
+## Husk host dependency closure — 2026-11-16
+
+- Updated `scripts/import_husk_runtime.sh` to stage both upstream C source trees: `src/translation-layer-next/` (primary native runtime) and `src/translation-layer/` (legacy host API dependency).
+- Reason: the pinned Husk `TranslationLayer.swift` still calls legacy `husk_tl_attempt_*` and APK scan/check APIs. Importing only `translation-layer-next` would leave unresolved host-side C symbols and an incomplete source snapshot.
+- Expanded the isolated vendor snapshot to include the selected host source set: `TranslationLayer.swift`, `TLUnityView.swift`, `TLAppSettings.swift`, `AppWindows.swift`, `HuskGamepad.swift`, `HuskKeyboard.swift`, `HuskAudio.swift`, `HuskLog.swift`, and `HuskFilePicker.swift`. The upstream `HuskApp.swift` is kept in `host-reference/` only because it contains the `@main` app entry point; it must never be compiled into Strata.
+- Added the upstream CA certificate resource and retained the existing build recipes and technical/licensing documents as references.
+- Expanded `scripts/audit_husk_runtime.py` to inventory both native trees, host-runtime sources, host-reference files, resources, build recipes and documentation.
+- Reviewed the pinned Husk project manifest and host source references. `TLUnityView.swift` also depends on `TLWindowHost` (currently declared in broad `AppWindows.swift`) and `HuskOrientation` (currently declared beside Husk's `@main` entry point). These must be extracted/adapted before selective compilation; do not add the upstream app entry point or full app UI to Strata.
+- The upstream project declares conditional link dependencies including zlib, libresolv, sqlite3, AudioToolbox, CoreText, CoreGraphics, ImageIO, WebKit, VideoToolbox, CoreMedia, CoreVideo, Accelerate and Security. No global linker flags were changed; actual symbol requirements must be resolved in the isolated runtime target.
+- Commits on `main`: importer expansion `5336d69`; audit expansion `15eb544`; integration dependency documentation `b1bcb1a`.
+- Verification status: GitHub accepted all three commits. The manual import workflow has not been dispatched, so the vendor source files and generated audit have not yet been materialized. No compile, IPA build, device test, or APK execution was run. SideStore, Xcode target membership, the IPA builder and signing/refresh flows were not changed.
+
+### Next integration batch
+
+1. Run the manual source import workflow from GitHub Actions on `main`, then inspect the generated complete manifest.
+2. Resolve the full native source dependency closure, generated headers, runtime data and per-file provenance before selecting target membership.
+3. Extract the minimal window/orientation adapters from Husk's host UI without importing its `@main` app or unrelated screens.
+4. Build an isolated runtime target and stable Strata bridge; keep all SideStore paths and settings unchanged.
+5. Only after the target builds, connect APK intake and lifecycle, then validate real APK launch/render/input on device.
