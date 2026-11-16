@@ -17,7 +17,17 @@ elif [[ $# -gt 0 ]]; then
   exit 2
 fi
 
-if [[ -e "$DEST/translation-layer-next" && "$REFRESH" -ne 1 ]]; then
+if [[ "$REFRESH" -ne 1 ]] && {
+  [[ -e "$DEST/translation-layer" ]] ||
+  [[ -e "$DEST/translation-layer-next" ]] ||
+  [[ -e "$DEST/host-runtime" ]] ||
+  [[ -e "$DEST/host-reference" ]] ||
+  [[ -e "$DEST/build-support" ]] ||
+  [[ -e "$DEST/upstream-docs" ]] ||
+  [[ -e "$DEST/resources" ]] ||
+  [[ -e "$DEST/HUSK-LICENSE" ]] ||
+  [[ -e "$DEST/UPSTREAM_REVISION.txt" ]]
+}; then
   echo "Husk sources already exist. Review the diff, then rerun with --refresh." >&2
   exit 3
 fi
