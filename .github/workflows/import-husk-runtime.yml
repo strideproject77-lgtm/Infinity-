@@ -48,10 +48,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add Vendor/Husk docs/generated/HUSK_SOURCE_MANIFEST.json docs/generated/HUSK_SOURCE_AUDIT.md
+          git add Vendor/Husk docs/generated/HUSK_SOURCE_MANIFEST.json docs/generated/HUSK_SOURCE_AUDIT.md docs/generated/HUSK_HOST_API_MANIFEST.json docs/generated/HUSK_HOST_API_AUDIT.md
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
           git commit -m "Vendor pinned Husk runtime sources and audit dependencies"
-          git push origin HEAD:main
+          # Rebase the generated vendor commit if main advanced while the audit ran.
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+            if git push origin HEAD:main; then exit 0; fi
+          done
+          echo "Could not push vendor snapshot after three fast-forward attempts." >&2
+          exit 1
