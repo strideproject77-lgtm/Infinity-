@@ -304,6 +304,6 @@ enum INFINITYAPKArchive {
             default: throw ExtractionError.invalidArchive
             }
         }
-        return Data(bytes: output, count: outputLength)
+        return Data(bytes: UnsafeRawPointer(output), count: outputLength)
     }
 }
