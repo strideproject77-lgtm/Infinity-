@@ -31,16 +31,19 @@ class HuskImportContractTests(unittest.TestCase):
             "build_angle_ios.sh",
             "build_art_support.sh",
             "cacert.pem",
+            "HuskBridge.h",
+            "project.yml",
         ):
             self.assertIn(name, script)
 
     def test_app_entry_point_is_audit_only_and_qemu_side_store_are_excluded(self):
         script = IMPORTER.read_text(encoding="utf-8")
         self.assertIn('cp "$ARCHIVE/src/app/Husk/HuskApp.swift" "$STAGE/host-reference/HuskApp.swift"', script)
+        self.assertIn('cp "$ARCHIVE/src/app/Husk/HuskBridge.h" "$STAGE/host-reference/HuskBridge.h"', script)
+        self.assertIn('cp "$ARCHIVE/src/app/project.yml" "$STAGE/build-support/project.yml"', script)
         self.assertIn("never compiled", script)
         forbidden_paths = (
             "src/app/Husk/QemuRunner.swift",
-            "src/app/Husk/HuskBridge.h",
             "src/app/Husk.xcodeproj",
             "SideStoreSupport/",
             ".github/workflows/build.yml",
@@ -97,6 +100,8 @@ class HuskImportContractTests(unittest.TestCase):
                 "/* SPDX-License-Identifier: GPL-2.0-or-later */\n",
                 encoding="utf-8",
             )
+            (vendor / "host-reference" / "HuskBridge.h").write_text("#include \"qemu.h\"\\n", encoding="utf-8")
+            (vendor / "build-support" / "project.yml").write_text("targets: {}\\n", encoding="utf-8")
             (vendor / "host-runtime" / "Host.swift").write_text(
                 "// SPDX-License-Identifier: GPL-2.0-or-later\nimport Foundation\nimport UIKit\n",
                 encoding="utf-8",
@@ -112,7 +117,7 @@ class HuskImportContractTests(unittest.TestCase):
             )
             manifest = json.loads((output / "HUSK_SOURCE_MANIFEST.json").read_text(encoding="utf-8"))
             report = (output / "HUSK_SOURCE_AUDIT.md").read_text(encoding="utf-8")
-            self.assertEqual(manifest["file_count"], 5)
+            self.assertEqual(manifest["file_count"], 7)
             self.assertEqual(manifest["counts_by_kind"]["native-source"], 1)
             self.assertEqual(manifest["counts_by_kind"]["swift-host-source"], 1)
             self.assertEqual(manifest["swift_imports"]["UIKit"], 1)
