@@ -156,7 +156,7 @@ Status: not started.
 - Implemented bounded ZIP entry extraction in C using the iOS SDK zlib library. Stored and raw-DEFLATE entries are supported; output is capped at 16 MiB and validated against the local header, central-directory name, and CRC.
 - Implemented Android binary XML manifest decoding in Swift, including UTF-8/UTF-16 string pools, package ID, versionName/versionCode, application label, icon resource ID, and MAIN/LAUNCHER activity resolution.
 - Connected manifest metadata to the Runtime Manager APK inspection report.
-- Added a host-side Python regression test harness. It is committed but not executed; no test pass is claimed.
+- Added a host-side Python regression test harness and a separate GitHub Actions test workflow for C ZIP-extraction tests plus Swift parser type-checking. The workflow has been committed but no run result has been verified; no test pass is claimed. This workflow does not build, sign, or export an IPA.
 - Added the exact Husk upstream GPL-2 license text and provenance record at `ThirdParty/Husk/`. Husk native runtime source is still not vendored or compiled. The current APK inspection code is original INFINITY code.
 - Modified only the LiveContainerSwiftUI bridging header and its Debug/Release linker flags to expose the archive helper and link zlib. SideStore source, target, signing, install/refresh logic, and packaging workflow were not modified.
 - No IPA build/sign/export was run. No Xcode build, iOS device test, or real APK execution was performed.
