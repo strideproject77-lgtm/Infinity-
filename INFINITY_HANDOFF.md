@@ -15,6 +15,10 @@ INFINITY combines the existing Strata iOS host/launcher with a QEMU-free Android
 - Do not force-push or reset `main`.
 - Do not build, sign, or export an IPA without explicit permission.
 
+## Protected components
+
+- **Built-in SideStore is protected and must remain untouched.** Do not edit, refactor, rename, move, replace, relink, or change entitlements/configuration for anything under `SideStoreSupport/`, `LiveProcess/SideStoreLiveProcessHandler.m`, SideStore build targets, SideStore framework embedding, refresh/signing/installation flows, or their dependencies. Do not change SideStore-related project settings. Keep Android runtime code isolated from SideStore. If an integration appears to require a SideStore change, stop and report the conflict before editing.
+
 ## Current verified baseline
 
 - Strata 4.0 is present, including its launcher, app switcher, settings, runtime diagnostics, memory overlay, and existing LiveContainer/LiveExec32 paths.
@@ -39,9 +43,12 @@ Status: complete.
 - Confirmed no Android runtime source is currently integrated.
 
 ### Phase 1 — QEMU-free Husk source/provenance migration
-Status: not started.
+Status: source inventory complete; migration not yet committed.
 
-- Identify the current Husk source revision and exact QEMU-free source set.
+- Audited Husk upstream revision `29abb512d81bf8cc08babcbe7f7007cb557208ef` (2026-11-11).
+- Found 126 files / approximately 2.67 MiB under `src/translation-layer-next/`: 79 C, 41 headers, 4 Objective-C, and 2 include files. The selected runtime tree includes Dalvik/DEX, ELF loader, Bionic, JNI, Binder/service manager, EGL/GLES, audio, and engine-specific bridges.
+- Sampled core runtime files (`husk-tl-dvm.c`, `husk-tl-ld.c`, `husk-tl-bionic.c`, `husk-tl-jni.c`, `husk-tl-egl.c`); each inspected file declares `GPL-2.0-or-later`. Full per-file provenance audit is still required before copying the whole tree.
+- Husk's XcodeGen project includes `translation-layer-next` in the Husk app target, but also links QEMU and runs a guest-image staging build phase. INFINITY must import the runtime sources and only their required iOS dependencies, not the Husk app target/build scripts/guest assets.
 - Exclude QEMU, LineageOS guest images, guest boot code, and QEMU-only build steps.
 - Preserve upstream copyright headers, GPL notices, and all third-party licenses.
 - Do not import unlicensed wrappers or files with unclear provenance.
@@ -96,4 +103,4 @@ Status: not started.
 - Extra features: none yet.
 - Tests: no build or runtime tests run in this audit.
 - Blockers: source migration/build integration requires a verified QEMU-free source inventory, per-component license review, and Xcode project integration.
-- Actual progress: Phase 0 audit complete; Phase 1 has not started.
+- Actual progress: Phase 0 complete; Phase 1 source inventory complete; source migration and Xcode integration remain incomplete.
