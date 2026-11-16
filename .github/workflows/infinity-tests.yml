@@ -8,6 +8,8 @@ on:
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
+      - "LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h"
       - "scripts/import_husk_runtime.sh"
       - "scripts/audit_husk_runtime.py"
       - "tests/test_infinity_apk_archive.py"
@@ -35,6 +37,24 @@ jobs:
         run: python -m unittest discover -s tests -p "test_*.py" -v
       - name: Validate audit script syntax
         run: python -m py_compile scripts/audit_husk_runtime.py
+
+
+  husk-bridge-header-check:
+    name: Swift to Husk bridge header check
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Type-check imported Husk C API declarations
+        run: |
+          cat > /tmp/INFINITYHuskBridgeSmoke.swift <<'SWIFT'
+          import Foundation
+          let _ = HUSK_UNITY_IDLE
+          let _ = HUSK_UNITY_RUNNING
+          SWIFT
+          swiftc -typecheck \
+            -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
+            /tmp/INFINITYHuskBridgeSmoke.swift
 
   swift-typecheck:
     name: Swift APK parser type-check
