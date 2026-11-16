@@ -255,3 +255,22 @@ Status: not started.
 3. Define a dedicated INFINITY-owned runtime target and stable Swift bridge. Include the native source trees and only the proven iOS dependencies; keep QEMU optional and separate.
 4. Add the target to Strata's app path only after verifying project membership does not alter SideStore targets, packaging, signing, refresh, or installation.
 5. Compile the runtime target in Xcode CI (not an IPA build), then connect APK lifecycle and run real-device tests.
+
+
+## Host bridge and build-manifest audit extension — 2026-11-17
+
+- Expanded the pinned importer to include upstream `src/app/Husk/HuskBridge.h` under `Vendor/Husk/host-reference/` only, and `src/app/project.yml` under `Vendor/Husk/build-support/`. Both are audit references, not target members.
+- The upstream bridge header is not safe to compile wholesale: it declares QEMU and JIT interfaces and includes `HuskRPPairing.h`, which belongs to Husk's separate pairing/JIT feature. INFINITY needs its own narrow C/Swift bridge for the native translation layer.
+- Updated the import workflow so pushes to main that change the pinned importer/auditor/workflow refresh the vendor snapshot; manual dispatch remains available. Push refresh uses `--refresh`, while manual dispatch preserves the explicit refresh choice.
+- Import run 43935561028 completed successfully and refreshed the source snapshot. Latest vendor commit: 3d76ba91deed9da67bed6fe6517ba637733fb028.
+- Latest manifest: 169 files — 96 native sources, 10 Swift host references, 53 headers/includes, 4 build recipes, 4 docs, 1 resource, and 1 build manifest. Audit reports 13 files without SPDX markers and 1 unresolved quoted include: `host-reference/HuskBridge.h -> HuskRPPairing.h`. This unresolved reference is expected because the entire header is audit-only and its pairing/JIT dependency is intentionally excluded. Do not silence it by importing unrelated JIT code.
+- The updated source-contract/ZIP test job for run 43935582154 passed, including shell syntax and audit-script syntax checks. Swift APK parser type-check remained queued at the last check.
+- A first overlapping push-triggered import run failed only at the final git push because another main commit landed after checkout; the subsequent serialized import run checked out current main and succeeded. No force-push or reset was used.
+- Still not done: no runtime Xcode target, no Husk C compilation/link, no iOS app build, no IPA build/sign/export, no device launch, and no real APK execution. SideStore remains untouched.
+
+### Next batch
+
+1. Map all Swift host calls to the exact native C declarations/definitions, including legacy scanner/attempt functions and next-generation engine lifecycle/input/performance functions.
+2. Determine the smallest coherent source target that still preserves Husk's full native architecture; identify generated assets and linker/framework requirements from the upstream build manifest and recipes.
+3. Review the 13 no-SPDX items for provenance and transitive licensing; do not treat missing SPDX text as proof of incompatibility.
+4. Add a Strata-owned narrow bridge and isolated runtime target only after the symbol/dependency map is complete. Keep SideStore and IPA workflows untouched.
