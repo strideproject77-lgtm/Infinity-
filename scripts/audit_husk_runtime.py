@@ -23,6 +23,10 @@ SWIFT_IMPORT_RE = re.compile(r'^\s*(?:@preconcurrency\s+)?import\s+([A-Za-z_][A-
 SPDX_RE = re.compile(r"SPDX-License-Identifier:\s*([^\s*]+)")
 COPYRIGHT_RE = re.compile(r"SPDX-FileCopyrightText:|Copyright\s+(?:\(c\)\s*)?\d{4}", re.IGNORECASE)
 
+HUSK_CALL_RE = re.compile(r"\b(husk_[A-Za-z0-9_]+)\s*\(")
+HUSK_DECL_RE = re.compile(r"\b(husk_[A-Za-z0-9_]+)\s*\([^;{}]*?\)\s*;", re.DOTALL)
+HUSK_DEF_RE = re.compile(r"\b(husk_[A-Za-z0-9_]+)\s*\([^;{}]*?\)\s*\{", re.DOTALL)
+
 ROOTS = ("translation-layer", "translation-layer-next", "host-runtime", "host-reference", "build-support", "upstream-docs", "resources")
 
 def classify(path: pathlib.Path) -> str:
@@ -64,6 +68,9 @@ def main() -> int:
     no_spdx = []
     swift_imports = collections.Counter()
     system_includes = collections.Counter()
+    host_api_calls: dict[str, set[str]] = collections.defaultdict(set)
+    native_api_declarations: dict[str, set[str]] = collections.defaultdict(set)
+    native_api_definitions: dict[str, set[str]] = collections.defaultdict(set)
 
     for path in files:
         rel = path.relative_to(root).as_posix()
@@ -91,6 +98,17 @@ def main() -> int:
         imports = SWIFT_IMPORT_RE.findall(content) if path.suffix == ".swift" else []
         swift_imports.update(imports)
         system_includes.update(angle)
+
+        if path.suffix == ".swift" and rel.startswith("host-runtime/"):
+            for symbol in HUSK_CALL_RE.findall(content):
+                host_api_calls[symbol].add(rel)
+        if rel.startswith(("translation-layer/", "translation-layer-next/")):
+            if path.suffix in HEADER_SUFFIXES:
+                for symbol in HUSK_DECL_RE.findall(content):
+                    native_api_declarations[symbol].add(rel)
+            elif path.suffix in C_SOURCE_SUFFIXES:
+                for symbol in HUSK_DEF_RE.findall(content):
+                    native_api_definitions[symbol].add(rel)
 
         entries.append({
             "path": rel,
@@ -120,6 +138,7 @@ def main() -> int:
         "swift_imports": dict(sorted(swift_imports.items())),
         "system_header_includes": dict(sorted(system_includes.items())),
         "files": entries,
+        "host_api_calls": {name: sorted(paths) for name, paths in sorted(host_api_calls.items())},
     }, indent=2) + "\n", encoding="utf-8")
 
     report = [
@@ -173,6 +192,53 @@ def main() -> int:
         "",
     ]
     report_path.write_text("\n".join(report), encoding="utf-8")
+    api_entries = []
+    for symbol, host_paths in sorted(host_api_calls.items()):
+        api_entries.append({
+            "symbol": symbol,
+            "host_files": sorted(host_paths),
+            "declared": symbol in native_api_declarations,
+            "defined": symbol in native_api_definitions,
+            "declaration_files": sorted(native_api_declarations.get(symbol, set())),
+            "definition_files": sorted(native_api_definitions.get(symbol, set())),
+        })
+    api_manifest_path = output / "HUSK_HOST_API_MANIFEST.json"
+    api_manifest_path.write_text(json.dumps(api_entries, indent=2) + "\n", encoding="utf-8")
+    unresolved_decl = [item for item in api_entries if not item["declared"]]
+    unresolved_def = [item for item in api_entries if not item["defined"]]
+    api_report = [
+        "# Husk Swift host-to-native API map",
+        "",
+        "> Textual first-pass scan only. It does not replace Clang/Swift compilation or linker symbol inspection.",
+        "",
+        f"- Husk API calls found in selected Swift host files: **{len(api_entries)}**",
+        f"- Calls with a matching declaration in the two native header trees: **{len(api_entries) - len(unresolved_decl)}**",
+        f"- Calls with a matching native source definition: **{len(api_entries) - len(unresolved_def)}**",
+        f"- Calls without a matching declaration: **{len(unresolved_decl)}**",
+        f"- Calls without a matching definition: **{len(unresolved_def)}**",
+        "",
+        "## API map",
+        "",
+    ]
+    for item in api_entries:
+        state = ("declared" if item["declared"] else "NO DECLARATION") + " / " + ("defined" if item["defined"] else "NO DEFINITION")
+        api_report.append("- {} — {}; host: {}".format(item["symbol"], state, ", ".join(item["host_files"])))
+    api_report += ["", "## Missing declarations", ""]
+    api_report += (["- {} — {}".format(item["symbol"], ", ".join(item["host_files"])) for item in unresolved_decl]
+                   if unresolved_decl else ["None detected by this textual scan."])
+    api_report += ["", "## Missing native definitions", ""]
+    api_report += (["- {} — {}".format(item["symbol"], ", ".join(item["host_files"])) for item in unresolved_def]
+                   if unresolved_def else ["None detected by this textual scan."])
+    api_report += [
+        "",
+        "## Integration notes",
+        "",
+        "- The upstream HuskBridge.h is audit-only and intentionally excluded from the native declaration scan because it also declares QEMU/JIT APIs and imports Husk-only pairing headers.",
+        "- Unresolved names may be supplied by excluded host/QEMU code or generated headers; resolve each against the intended native translation-layer interface before compiling.",
+        "- A text match is not proof of ABI compatibility, correct calling convention, or a successful link.",
+        "",
+    ]
+    (output / "HUSK_HOST_API_AUDIT.md").write_text("\n".join(api_report), encoding="utf-8")
     print(f"Audited {len(files)} imported files")
     print(f"Wrote {manifest_path} and {report_path}")
     return 0
