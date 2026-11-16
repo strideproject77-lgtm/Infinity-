@@ -42,13 +42,19 @@ ACTUAL="$(git -C "$TMP/repo" rev-parse FETCH_HEAD)"
 ARCHIVE="$TMP/archive"
 mkdir -p "$ARCHIVE"
 git -C "$TMP/repo" archive --format=tar "$REVISION" \
+  src/translation-layer \
   src/translation-layer-next \
+  src/app/Husk/TranslationLayer.swift \
   src/app/Husk/TLUnityView.swift \
   src/app/Husk/TLAppSettings.swift \
+  src/app/Husk/AppWindows.swift \
   src/app/Husk/HuskGamepad.swift \
   src/app/Husk/HuskKeyboard.swift \
+  src/app/Husk/HuskAudio.swift \
   src/app/Husk/HuskLog.swift \
   src/app/Husk/HuskFilePicker.swift \
+  src/app/Husk/HuskApp.swift \
+  src/app/Husk/Resources/cacert.pem \
   scripts/build_java_runtime.sh \
   scripts/build_android_system.sh \
   scripts/build_angle_ios.sh \
@@ -59,17 +65,22 @@ git -C "$TMP/repo" archive --format=tar "$REVISION" \
   docs/05-translation-layer-milestone2-handoff.md \
   LICENSE | tar -xf - -C "$ARCHIVE"
 
-[[ -d "$ARCHIVE/src/translation-layer-next" ]] || { echo "Pinned native runtime source tree missing" >&2; exit 6; }
+[[ -d "$ARCHIVE/src/translation-layer-next" && -d "$ARCHIVE/src/translation-layer" ]] || { echo "Pinned translation-layer source trees missing" >&2; exit 6; }
 [[ -f "$ARCHIVE/LICENSE" && -f "$ARCHIVE/docs/01-licensing.md" ]] || {
   echo "Required upstream license material missing" >&2; exit 7;
 }
 
 STAGE="$TMP/stage"
-mkdir -p "$STAGE/translation-layer-next" "$STAGE/host-runtime" "$STAGE/build-support" "$STAGE/upstream-docs"
+mkdir -p "$STAGE/translation-layer" "$STAGE/translation-layer-next" "$STAGE/host-runtime" "$STAGE/host-reference" "$STAGE/build-support" "$STAGE/upstream-docs" "$STAGE/resources"
+cp -R "$ARCHIVE/src/translation-layer/." "$STAGE/translation-layer/"
 cp -R "$ARCHIVE/src/translation-layer-next/." "$STAGE/translation-layer-next/"
-for file in TLUnityView.swift TLAppSettings.swift HuskGamepad.swift HuskKeyboard.swift HuskLog.swift HuskFilePicker.swift; do
+# These are source inputs for a later isolated Strata adapter, not Xcode target
+# membership. App entry-point code is kept in host-reference and never compiled.
+for file in TranslationLayer.swift TLUnityView.swift TLAppSettings.swift AppWindows.swift HuskGamepad.swift HuskKeyboard.swift HuskAudio.swift HuskLog.swift HuskFilePicker.swift; do
   cp "$ARCHIVE/src/app/Husk/$file" "$STAGE/host-runtime/$file"
 done
+cp "$ARCHIVE/src/app/Husk/HuskApp.swift" "$STAGE/host-reference/HuskApp.swift"
+cp "$ARCHIVE/src/app/Husk/Resources/cacert.pem" "$STAGE/resources/cacert.pem"
 for file in build_java_runtime.sh build_android_system.sh build_angle_ios.sh build_art_support.sh; do
   cp "$ARCHIVE/scripts/$file" "$STAGE/build-support/$file"
 done
@@ -81,27 +92,30 @@ cp "$ARCHIVE/LICENSE" "$STAGE/HUSK-LICENSE"
 cat > "$STAGE/UPSTREAM_REVISION.txt" <<EOF
 Repository: https://github.com/Leviidev/Husk
 Revision: $REVISION
-Native source: src/translation-layer-next
-Selected host runtime: src/app/Husk/{TLUnityView,TLAppSettings,HuskGamepad,HuskKeyboard,HuskLog,HuskFilePicker}.swift
+Native sources: src/translation-layer and src/translation-layer-next
+Host source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift
+Host app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift
+Runtime resource: src/app/Husk/Resources/cacert.pem
 Build recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh
 Technical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md
 Import date: $(date -u +%Y-%m-%d)
 Method: git archive from the exact pinned commit
 EOF
 
+LEGACY_COUNT="$(find "$STAGE/translation-layer" -type f | wc -l | tr -d ' ')"
 NATIVE_COUNT="$(find "$STAGE/translation-layer-next" -type f | wc -l | tr -d ' ')"
 HOST_COUNT="$(find "$STAGE/host-runtime" -type f | wc -l | tr -d ' ')"
-[[ "$NATIVE_COUNT" -gt 0 && "$HOST_COUNT" -gt 0 ]] || { echo "Imported source groups are incomplete" >&2; exit 8; }
+[[ "$LEGACY_COUNT" -gt 0 && "$NATIVE_COUNT" -gt 0 && "$HOST_COUNT" -gt 0 ]] || { echo "Imported source groups are incomplete" >&2; exit 8; }
 
 # Replace only importer-owned paths. Preserve INFINITY's
 # Vendor/Husk/THIRD_PARTY_NOTICES.md and any other INFINITY-owned vendor files.
 mkdir -p "$DEST"
-for path in translation-layer-next host-runtime build-support upstream-docs; do
+for path in translation-layer translation-layer-next host-runtime host-reference build-support upstream-docs resources; do
   rm -rf "$DEST/$path"
   cp -R "$STAGE/$path" "$DEST/$path"
 done
 cp "$STAGE/HUSK-LICENSE" "$DEST/HUSK-LICENSE"
 cp "$STAGE/UPSTREAM_REVISION.txt" "$DEST/UPSTREAM_REVISION.txt"
 
-echo "[done] Imported $NATIVE_COUNT native files and $HOST_COUNT host-runtime Swift files from Husk $REVISION"
+echo "[done] Imported $LEGACY_COUNT legacy-layer, $NATIVE_COUNT native-layer and $HOST_COUNT host-runtime files from Husk $REVISION"
 echo "No Xcode target was changed. Complete dependency, licensing, and host-API review before compiling."
