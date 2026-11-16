@@ -59,7 +59,7 @@ int infinity_apk_extract_entry(const uint8_t *archive, size_t archive_length,
     size_t cursor = directory_offset;
     size_t directory_end = cursor + directory_size;
     size_t wanted_length = strlen(entry_name);
-    uint32_t local_offset = 0, compressed_size = 0, uncompressed_size = 0;
+    uint32_t local_offset = 0, compressed_size = 0, uncompressed_size = 0, expected_crc = 0;
     uint16_t method = 0, flags = 0;
     int found = 0;
 
@@ -84,6 +84,7 @@ int infinity_apk_extract_entry(const uint8_t *archive, size_t archive_length,
             method = candidate_method;
             compressed_size = candidate_compressed;
             uncompressed_size = candidate_uncompressed;
+            expected_crc = apk_u32(archive + cursor + 16);
             local_offset = apk_u32(archive + cursor + 42);
             found = 1;
             break;
@@ -96,8 +97,11 @@ int infinity_apk_extract_entry(const uint8_t *archive, size_t archive_length,
     if (!apk_range(archive_length, local_offset, 30) ||
         apk_u32(archive + local_offset) != APK_LOCAL_SIGNATURE) return 1;
 
+    uint16_t local_flags = apk_u16(archive + local_offset + 6);
+    uint16_t local_method = apk_u16(archive + local_offset + 8);
     uint16_t local_name = apk_u16(archive + local_offset + 26);
     uint16_t local_extra = apk_u16(archive + local_offset + 28);
+    if ((local_flags & 1u) || local_method != method) return 1;
     size_t data_offset = (size_t)local_offset + 30u + local_name + local_extra;
     if (!apk_range(archive_length, data_offset, compressed_size)) return 1;
 
@@ -123,6 +127,10 @@ int infinity_apk_extract_entry(const uint8_t *archive, size_t archive_length,
     } else {
         free(result);
         return 9;
+    }
+    if ((uint32_t)crc32(0L, result, (uInt)uncompressed_size) != expected_crc) {
+        free(result);
+        return 8;
     }
     *output = result;
     *output_length = uncompressed_size;
