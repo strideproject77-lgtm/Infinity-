@@ -64,6 +64,8 @@ git -C "$TMP/repo" archive --format=tar "$REVISION" \
   src/app/Husk/HuskLog.swift \
   src/app/Husk/HuskFilePicker.swift \
   src/app/Husk/HuskApp.swift \
+  src/app/Husk/HuskBridge.h \
+  src/app/project.yml \
   src/app/Husk/Resources/cacert.pem \
   scripts/build_java_runtime.sh \
   scripts/build_android_system.sh \
@@ -90,6 +92,10 @@ for file in TranslationLayer.swift TLUnityView.swift TLAppSettings.swift AppWind
   cp "$ARCHIVE/src/app/Husk/$file" "$STAGE/host-runtime/$file"
 done
 cp "$ARCHIVE/src/app/Husk/HuskApp.swift" "$STAGE/host-reference/HuskApp.swift"
+# Audit-only: this bridge also declares QEMU/JIT APIs and references Husk-only pairing headers.
+# Strata must create its own translation-layer bridge rather than compile this wholesale.
+cp "$ARCHIVE/src/app/Husk/HuskBridge.h" "$STAGE/host-reference/HuskBridge.h"
+cp "$ARCHIVE/src/app/project.yml" "$STAGE/build-support/project.yml"
 cp "$ARCHIVE/src/app/Husk/Resources/cacert.pem" "$STAGE/resources/cacert.pem"
 for file in build_java_runtime.sh build_android_system.sh build_angle_ios.sh build_art_support.sh; do
   cp "$ARCHIVE/scripts/$file" "$STAGE/build-support/$file"
@@ -105,6 +111,8 @@ Revision: $REVISION
 Native sources: src/translation-layer and src/translation-layer-next
 Host source references: src/app/Husk/{TranslationLayer,TLUnityView,TLAppSettings,AppWindows,HuskGamepad,HuskKeyboard,HuskAudio,HuskLog,HuskFilePicker}.swift
 Host app entry point (reference only, never compile into Strata): src/app/Husk/HuskApp.swift
+Original QEMU/JIT bridging header (reference only, never compile wholesale): src/app/Husk/HuskBridge.h
+Upstream XcodeGen build manifest (audit reference only): src/app/project.yml
 Runtime resource: src/app/Husk/Resources/cacert.pem
 Build recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh
 Technical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md
