@@ -234,3 +234,24 @@ Status: not started.
 - Synchronized the import-pipeline and runtime-architecture docs with the actual dual-layer import scope.
 - The native test workflow now runs shell syntax validation, all Python unit tests, audit-script syntax validation and the existing Swift parser type-check. The workflow run result has not yet been verified.
 - No importer workflow dispatch, vendor materialization, Xcode runtime target build, IPA build, or real APK execution has occurred. SideStore and IPA packaging remain untouched.
+
+
+## Husk source materialization — 2026-11-17
+
+- The import workflow was changed to run on pushes to main that modify only the pinned importer, audit generator, or import workflow; manual dispatch remains available. This allowed the already-reviewed import pipeline to run without touching the IPA builder.
+- GitHub Actions run 43935128347 completed successfully. It checked out main, fetched the exact pinned Husk revision, imported both C source trees and selected host references, generated the source manifest/audit, and committed the result.
+- Verified vendor commit: 7895c7dc03b66f49598081bd4e5a19c9cc93513d — `Vendor pinned Husk runtime sources and audit dependencies`.
+- Materialized snapshot: 167 files total: 96 native C/Objective-C/C++/assembly sources, 10 Swift host-reference/runtime files, 52 headers/includes, 4 build recipes, 4 technical/licensing documents, and 1 resource.
+- Static audit: 0 unresolved quoted includes by the current local-path/basename scan; 12 files have no SPDX identifier in the first 8 KiB. This is not a complete compiler or provenance check. The 12 items include build scripts, certificate data, embedded .inc files, and upstream documentation; each still needs provenance review.
+- Upstream `src/app/project.yml` confirms both `translation-layer` and `translation-layer-next` are compiled into Husk's app. It also identifies native dependencies: zlib, libresolv, sqlite3, AudioToolbox, CoreText, CoreGraphics, ImageIO, WebKit, VideoToolbox, CoreMedia, CoreVideo, Accelerate, Security, ANGLE, MoltenVK, Java runtime assets, and Android system data. QEMU guest staging is separate and is not required for the native translation target.
+- Host Swift files are not drop-in Strata code. `TranslationLayer.swift` references legacy scan/attempt APIs and Husk-specific app models/services; `TLUnityView.swift` expects Husk's C entry points, window/orientation behavior, and engine callbacks. Do not compile these references wholesale.
+- The latest source-contract test jobs report success for the most recent importer guard commits. Earlier runs failed on stale importer contract assertions before the latest test updates; the Swift parser type-check jobs were still queued at the time of inspection.
+- No Xcode runtime target, native compile/link, iOS build, IPA build/sign/export, device test, or real APK execution has occurred. SideStore and the existing IPA builder remain untouched.
+
+### Next integration batch
+
+1. Build a complete host-to-C API map for the imported Swift references and native headers; resolve legacy/next ownership and required exported symbols.
+2. Review the 12 no-SPDX files and embedded third-party data, plus the build recipes' generated artifacts and transitive licenses.
+3. Define a dedicated INFINITY-owned runtime target and stable Swift bridge. Include the native source trees and only the proven iOS dependencies; keep QEMU optional and separate.
+4. Add the target to Strata's app path only after verifying project membership does not alter SideStore targets, packaging, signing, refresh, or installation.
+5. Compile the runtime target in Xcode CI (not an IPA build), then connect APK lifecycle and run real-device tests.
