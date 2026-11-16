@@ -20,7 +20,7 @@ CLANG="$(xcrun --sdk iphoneos --find clang)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-find "$OLD" "$NEXT" -type f \\( -name '*.c' -o -name '*.m' \\) -print | LC_ALL=C sort > "$TMP/sources.txt"
+find "$OLD" "$NEXT" -type f \( -name '*.c' -o -name '*.m' \) -print | LC_ALL=C sort > "$TMP/sources.txt"
 COUNT="$(wc -l < "$TMP/sources.txt" | tr -d ' ')"
 if [[ "$COUNT" -lt 1 ]]; then
   echo "error: no native translation sources found" >&2
