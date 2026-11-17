@@ -31,6 +31,22 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("INFINITYAPKStore.hasEmbeddedMoltenVK", view)
         self.assertIn("not embedded and signed", view)
 
+    def test_runtime_data_install_is_staged_and_rollback_safe(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        self.assertIn("installRuntimeAssets(from source: URL)", store)
+        self.assertIn(".runtime-stage-", store)
+        self.assertIn(".runtime-backup-", store)
+        self.assertIn("hasJavaRuntimeAssets(at: stage)", store)
+        self.assertIn("ANGLE remains an app-bundled, code-signed dependency", store)
+
+    def test_unsigned_runtime_folder_dylibs_are_not_accepted_as_graphics_engines(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
+        self.assertIn("isANGLEEmbeddedAndReadable", store)
+        self.assertIn("privateFrameworksURL", store)
+        self.assertIn("angleLibrary.standardizedFileURL == embeddedANGLE", runtime)
+        self.assertIn("moltenVKLibrary.standardizedFileURL == embeddedMoltenVK", runtime)
+
     def test_runtime_launch_surface_requires_a_sized_metal_drawable(self):
         view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
         self.assertIn("layer.drawableSize.width > 0", view)
