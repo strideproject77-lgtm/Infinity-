@@ -64,6 +64,18 @@ class HuskJITLessContractTests(unittest.TestCase):
         self.assertIn("requires a separate guest process", swift)
         self.assertIn("not connected to this APK runtime", swift)
 
+    def test_tar_aot_coverage_counts_one_top_level_bundle_and_fails_closed(self):
+        aot = self.read("Vendor/Husk/translation-layer-next/husk-tl-aot.c")
+        prepare_tar = aot.split("static int prepare_tar(", 1)[1].split(
+            "\nint husk_aot_prepare(", 1
+        )[0]
+        self.assertIn("bool conversion_failed = false;", prepare_tar)
+        self.assertIn("conversion_failed = true;", prepare_tar)
+        self.assertIn("if (conversion_failed) return -1;", prepare_tar)
+        self.assertIn("truncated tar member", prepare_tar)
+        self.assertIn("return 1;", prepare_tar)
+        self.assertIn("Count one APK-level bundle, not each inner .so", prepare_tar)
+
     def test_launch_uses_a_fresh_husk_log_and_resets_jitless_after_stop(self):
         launch = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
         runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
