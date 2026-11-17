@@ -13,7 +13,7 @@ import pathlib
 import re
 import sys
 
-SOURCE_SUFFIXES = {".c", ".m", ".mm", ".cc", ".cpp", ".cxx", ".S", ".s", ".swift"}
+SOURCE_SUFFIXES = {".c", ".m", ".mm", ".cc", ".cpp", ".cxx", ".S", ".s", ".swift", ".java"}
 C_SOURCE_SUFFIXES = {".c", ".m", ".mm", ".cc", ".cpp", ".cxx", ".S", ".s"}
 HEADER_SUFFIXES = {".h", ".hh", ".hpp", ".hxx", ".inc", ".def"}
 SCRIPT_SUFFIXES = {".sh", ".py"}
@@ -30,7 +30,7 @@ HUSK_DEF_RE = re.compile(r"\b(husk_[A-Za-z0-9_]+)\s*\([^;{}]*?\)\s*\{", re.DOTAL
 HUSK_TYPE_RE = re.compile(r"\btypedef\s+struct\s+(husk_[A-Za-z0-9_]+)\b")
 C_COMMENTS_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 
-ROOTS = ("translation-layer", "translation-layer-next", "host-runtime", "host-reference", "build-support", "upstream-docs", "resources")
+ROOTS = ("translation-layer", "translation-layer-next", "host-runtime", "host-reference", "build-support", "upstream-docs", "resources", "src/java-framework", "src/art-support", "tools", "scripts")
 
 def classify(path: pathlib.Path) -> str:
     suffix = path.suffix
@@ -38,6 +38,10 @@ def classify(path: pathlib.Path) -> str:
         return "native-source"
     if suffix == ".swift":
         return "swift-host-source"
+    if suffix == ".java":
+        if path.as_posix().replace("\\", "/").startswith("src/java-framework/gen-src/"):
+            return "generated-java-platform-stub"
+        return "java-source"
     if suffix in HEADER_SUFFIXES:
         return "header"
     if suffix in SCRIPT_SUFFIXES:
@@ -69,6 +73,7 @@ def main() -> int:
     entries = []
     unresolved_includes = []
     no_spdx = []
+    generated_platform_stubs_without_spdx = []
     swift_imports = collections.Counter()
     system_includes = collections.Counter()
     host_api_calls: dict[str, set[str]] = collections.defaultdict(set)
@@ -89,7 +94,13 @@ def main() -> int:
 
         spdx = SPDX_RE.search(content[:8192])
         if not spdx:
-            no_spdx.append(rel)
+            if rel.startswith("src/java-framework/gen-src/"):
+                # These files are generated signature/constant stubs from Android's
+                # framework.jar, not copied framework implementations. Their origin
+                # is recorded separately below rather than mistaken for Husk source.
+                generated_platform_stubs_without_spdx.append(rel)
+            else:
+                no_spdx.append(rel)
         quoted = INCLUDE_RE.findall(content)
         unresolved = []
         for include in quoted:
@@ -125,6 +136,8 @@ def main() -> int:
             "kind": kind,
             "suffix": path.suffix,
             "spdx": spdx.group(1) if spdx else None,
+            "provenance_note": ("Generated signatures/constants only from Android platform framework.jar; no method implementations"
+                                if rel.startswith("src/java-framework/gen-src/") else None),
             "has_copyright_marker": bool(COPYRIGHT_RE.search(content[:8192])),
             "quoted_includes": quoted,
             "unresolved_quoted_includes": unresolved,
@@ -167,8 +180,11 @@ def main() -> int:
         f"- Swift host-runtime sources: **{by_kind['swift-host-source']}**",
         f"- Headers/includes: **{by_kind['header']}**",
         f"- Build recipes: **{by_kind['build-script']}**",
+        f"- Java framework sources: **{by_kind['java-source']}**",
+        f"- Generated Android platform signature stubs: **{by_kind['generated-java-platform-stub']}**",
         f"- Technical/licensing documents: **{by_kind['documentation']}**",
-        f"- Files without SPDX identifier in first 8 KiB: **{len(no_spdx)}**",
+        f"- Files without SPDX identifier in first 8 KiB (excluding generated platform stubs): **{len(no_spdx)}**",
+        f"- Generated platform stubs without SPDX markers: **{len(generated_platform_stubs_without_spdx)}**",
         f"- Quoted includes with no matching local basename: **{len(unresolved_includes)}**",
         "",
         "## Imported groups",
@@ -202,6 +218,8 @@ def main() -> int:
         "- Review every file's provenance and license, including embedded .inc data and generated assets; absence of an SPDX marker is not proof of an incompatible license.",
         "- Resolve all native symbols, framework/linker requirements, deployment-target constraints, Swift type dependencies, resources, and runtime data before adding target membership.",
         "- The legacy translation-layer/ tree is included because the selected Swift host sources still reference its attempt/check APIs; do not assume translation-layer-next alone satisfies the host dependency graph.",
+        "- src/java-framework/src/ contains Husk-authored Java framework implementations; src/java-framework/gen-src/ contains generated Android framework signatures/constants only and does not provide the platform's real method implementations.",
+        "- Generated gen-src stubs originate from the Android platform framework.jar; preserve that provenance and verify the applicable Android/AOSP notices before redistribution.",
         "- The native runtime's ANGLE/GLES, Java runtime assets, system fonts/certificates, Vulkan/MoltenVK path, and engine-specific bridges are separate dependency groups; do not mark an engine ready until its required assets are present.",
         "- Vendor inventory does not imply build membership: host-reference/, resources/, and all source groups remain outside Xcode targets until a separate reviewed integration step.",
         "- Preserve Strata and SideStore target memberships, entitlements, signing/refresh/install flows, and the existing IPA builder.",
