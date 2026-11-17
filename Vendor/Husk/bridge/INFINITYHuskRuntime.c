@@ -44,6 +44,25 @@ static bool runtime_directory(const char *root, const char *relative)
            stat(path, &st) == 0 && S_ISDIR(st.st_mode) && access(path, R_OK) == 0;
 }
 
+bool infinity_husk_prepare_native(const char *system_certificates_dir,
+                                  const char *system_fonts_root,
+                                  const char *extra_fonts_dir,
+                                  const char *shared_storage_dir)
+{
+    if (!readable_directory(system_certificates_dir) ||
+        !readable_directory(system_fonts_root) ||
+        !runtime_directory(system_fonts_root, "fonts") ||
+        !runtime_file(system_fonts_root, "etc/fonts.xml") ||
+        !runtime_file(system_fonts_root, "etc/font_fallback.xml"))
+        return false;
+
+    husk_native_set_system_files(system_certificates_dir, system_fonts_root);
+    if (extra_fonts_dir && extra_fonts_dir[0])
+        husk_native_set_extra_fonts(extra_fonts_dir);
+    husk_native_set_shared_storage(shared_storage_dir && shared_storage_dir[0] ? shared_storage_dir : NULL);
+    return true;
+}
+
 bool infinity_husk_prepare_java(const char *runtime_root, float density,
                                 const char *system_certificates_dir,
                                 const char *system_fonts_root,
@@ -82,18 +101,13 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
 
     /* build_android_system.sh emits one root with fonts/, etc/ and cacerts/.
        The fonts root is the Android-system root, not the fonts/ subdirectory. */
-    if (!readable_directory(system_certificates_dir) ||
-        !readable_directory(system_fonts_root) ||
-        !runtime_directory(system_fonts_root, "fonts") ||
-        !runtime_file(system_fonts_root, "etc/fonts.xml") ||
-        !runtime_file(system_fonts_root, "etc/font_fallback.xml"))
-        { atomic_store(&g_java_runtime_ready, false); return false; }
+    if (!infinity_husk_prepare_native(system_certificates_dir, system_fonts_root,
+                                      extra_fonts_dir, shared_storage_dir)) {
+        atomic_store(&g_java_runtime_ready, false);
+        return false;
+    }
 
     husk_java_set_runtime(runtime_root, density);
-    husk_native_set_system_files(system_certificates_dir, system_fonts_root);
-    if (extra_fonts_dir && extra_fonts_dir[0])
-        husk_native_set_extra_fonts(extra_fonts_dir);
-    husk_native_set_shared_storage(shared_storage_dir && shared_storage_dir[0] ? shared_storage_dir : NULL);
     husk_java_set_night_mode(night_mode ? 1 : 0);
     atomic_store(&g_java_runtime_ready, true);
     return true;
