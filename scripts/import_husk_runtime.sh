@@ -156,6 +156,7 @@ JAVA_COUNT="$(find "$STAGE/src/java-framework" -type f | wc -l | tr -d ' ')"
 mkdir -p "$DEST"
 for path in translation-layer translation-layer-next host-runtime host-reference build-support upstream-docs resources src/java-framework src/art-support tools scripts; do
   rm -rf "$DEST/$path"
+  mkdir -p "$(dirname "$DEST/$path")"
   cp -R "$STAGE/$path" "$DEST/$path"
 done
 cp "$STAGE/HUSK-LICENSE" "$DEST/HUSK-LICENSE"
