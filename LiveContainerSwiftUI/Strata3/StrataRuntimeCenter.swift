@@ -12,6 +12,8 @@ struct StrataRuntimeCenter: View {
     @State private var inspectingAPK = false
     @State private var apkInspection: INFINITYAPKInspection?
     @State private var apkInspectionError: String?
+    @State private var installedAPKs: [INFINITYAPKInstalledApp] = []
+    @State private var apkStoreError: String?
     private var guests: [LCAppModel] { apps.filter { !($0.appInfo is BuiltInSideStoreAppInfo) && (!($0.uiIsHidden) || sharedModel.isHiddenAppUnlocked) }.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending } }
     var body: some View {
         List {
@@ -39,12 +41,12 @@ struct StrataRuntimeCenter: View {
                 Button {
                     importingAPK = true
                 } label: {
-                    Label("Inspect APK", systemImage: "doc.zipper")
+                    Label("Import APK", systemImage: "square.and.arrow.down")
                 }
                 .disabled(inspectingAPK)
 
                 if inspectingAPK {
-                    ProgressView("Inspecting APK…")
+                    ProgressView("Installing APK…")
                 }
                 if let report = apkInspection {
                     VStack(alignment: .leading, spacing: 5) {
@@ -84,8 +86,30 @@ struct StrataRuntimeCenter: View {
                 if let error = apkInspectionError {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }
-                Text("Inspects APK ZIP entries and decodes binary Android manifest metadata. It does not install or execute the APK.")
+                Text("Imports a private copy of the APK and records its package metadata. Launch is enabled only when the matching native runtime assets are present.")
                     .font(.caption).foregroundStyle(.secondary)
+                if let apkStoreError {
+                    Text(apkStoreError).font(.caption).foregroundStyle(.red)
+                }
+            }
+            Section("Installed Android apps") {
+                if installedAPKs.isEmpty {
+                    Text("Imported Android apps will appear here.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(installedAPKs) { app in
+                        NavigationLink {
+                            INFINITYAPKInstalledAppDetail(app: app)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(app.displayName).font(.headline).lineLimit(1)
+                                Text(app.packageName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                Text(app.detectedEngine.map { "Engine: " + $0 } ?? "Engine not identified")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
             }
             Section("Management") {
                 NavigationLink { StrataIdentitySettings() } label: { Label("LocalSigner · Signing Identity", systemImage: "signature") }
@@ -102,6 +126,7 @@ struct StrataRuntimeCenter: View {
         }
         .navigationTitle("Runtime Manager")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { installedAPKs = (try? INFINITYAPKStore.installedApps()) ?? [] }
         .fileImporter(isPresented: $importingAPK, allowedContentTypes: [.data]) { result in
             do {
                 let url = try result.get()
@@ -111,12 +136,18 @@ struct StrataRuntimeCenter: View {
                 Task {
                     defer { inspectingAPK = false }
                     do {
-                        let report = try await Task.detached(priority: .userInitiated) {
-                            try INFINITYAPKInspection.inspect(url: url)
+                        let result = try await Task.detached(priority: .userInitiated) {
+                            let installed = try INFINITYAPKStore.install(from: url)
+                            let storedAPK = INFINITYAPKStore.apkURL(for: installed)
+                            let report = try INFINITYAPKInspection.inspect(url: storedAPK)
+                            return (installed, report)
                         }.value
-                        apkInspection = report
+                        installedAPKs = (try? INFINITYAPKStore.installedApps()) ?? []
+                        apkInspection = result.1
+                        apkStoreError = nil
                     } catch {
                         apkInspectionError = error.localizedDescription
+                        apkStoreError = error.localizedDescription
                     }
                 }
             } catch {
