@@ -25,7 +25,7 @@ enum INFINITYJITLess {
             case .certificateTeamMismatch:
                 return "The imported certificate belongs to a different Apple signing team than INFINITY. JIT-less signing was skipped."
             case .incompleteAOT(let expected, let prepared):
-                return "Husk prepared (prepared) of (expected) required ARM64 libraries. JIT-less mode was not enabled."
+                return "Husk prepared \\(prepared) of \\(expected) required ARM64 libraries. JIT-less mode was not enabled."
             case .pathAllocation:
                 return "Could not prepare the APK paths for native conversion."
             case .nativeFailure(let message):
