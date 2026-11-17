@@ -706,3 +706,10 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - CI-only mitigation committed in `0dacb5b5b684dfb4e11d6dea224628e59f350725`: archive now passes `-jobs 1 SWIFT_COMPILATION_MODE=singlefile SWIFT_OPTIMIZATION_LEVEL=-O`. This retains Release optimization while avoiding whole-module compilation's peak memory profile. No app source, SideStore code/configuration, signing, install, or refresh flow was changed.
 - Verification pending: the workflow is configured to run on the `.github/workflows/build.yml` change. Wait for the new run, inspect archive logs and artifacts, and only call the IPA ready if archive, packaging, and artifact upload all succeed.
 - JIT source remains inherited from Strata and has not been independently device-tested as part of this build-fix batch.
+
+
+## Swift compiler regression and toolchain change — 2026-11-17
+
+- Retrieved the raw Xcode archive log from run `44066434456` (commit `0dacb5b`). The archive reached compilation of the `SideStoreSupport` target and Swift frontend aborted with malformed LLVM IR around the underscored runtime lookup `_getTypeByMangledNameInContext` used by the existing `SideStoreClient.swift`. This is a Swift compiler internal failure, not a normal source diagnostic. No SideStore source or signing/installation/refresh configuration was edited.
+- To avoid changing protected SideStore code, changed only the CI toolchain selection in `.github/workflows/build.yml` (commit `45ceb79d2ab9e5728a007a05fb78cceff52ce80d`): use the standard `macos-15` runner with Xcode 26.4 instead of the Xcode 27.2 runner. This keeps the current project SDK generation while testing whether the archive failure is specific to the newer Swift compiler.
+- New builder run `44067722061` was queued from that workflow commit. No IPA is available until this run completes Archive, IPA packaging, and artifact upload. If Xcode 26.4 exposes a source or dependency compatibility issue, diagnose it from the next raw log rather than changing SideStore sources.
