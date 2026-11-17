@@ -102,5 +102,38 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("F10000000000000000000002", sidestore.group(1))
 
 
+    def test_apk_store_persists_private_apk_and_separate_data(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        self.assertIn("copyItem(at: source, to: finalAPK)", store)
+        self.assertIn('appendingPathComponent("Data"', store)
+        self.assertIn("isValidPackageName", store)
+        self.assertIn("options: .atomic", store)
+        self.assertIn("rollback-", store)
+
+    def test_launch_surface_uses_metal_and_native_engine_dispatch(self):
+        view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn("CAMetalLayer", view)
+        self.assertIn("MTLCreateSystemDefaultDevice()", view)
+        self.assertIn("runtime.launch(engine:", view)
+        self.assertIn("runtime.sendTouch(", view)
+        self.assertIn("layer.drawableSize.width > 0", view)
+        self.assertIn("Runtime assets required", view)
+        self.assertNotIn("Hello from Stride", view)
+
+    def test_runtime_asset_builder_is_data_only_and_vendor_scoped(self):
+        builder = self.read("scripts/build_infinity_runtime_assets.sh")
+        self.assertIn('tar -C "$ROOT/Vendor/Husk"', builder)
+        self.assertIn("HUSK_D8", builder)
+        self.assertIn("qemu_guest_included", builder)
+        self.assertIn('"ipa_included": False', builder)
+        self.assertNotIn("build_github.sh", builder)
+
+    def test_angle_build_is_pinned_and_keeps_bsd_notice(self):
+        script = self.read("Vendor/Husk/build-support/build_angle_ios.sh")
+        self.assertIn("WEBKIT_REVISION=", script)
+        self.assertIn("LICENSE-ANGLE.txt", script)
+        self.assertIn("install_name_tool -id", script)
+
+
 if __name__ == "__main__":
     unittest.main()
