@@ -45,7 +45,6 @@ jobs:
 
       - name: Build Android runtime assets
         env:
-          HUSK_JDK: ${{ env.JAVA_HOME }}
           HUSK_D8: ${{ runner.temp }}/r8-8.5.35.jar
         run: |
           bash -n scripts/build_infinity_runtime_assets.sh
