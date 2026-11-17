@@ -1,0 +1,104 @@
+# Independent macOS backup builder for INFINITY.
+# GitHub Actions remains the primary builder. This workflow produces the same
+# unsigned IPA artifacts through the repository's existing packaging script.
+workflows:
+  infinity-ipa-backup:
+    name: INFINITY IPA (Codemagic backup)
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+
+    environment:
+      xcode: latest
+      vars:
+        scheme: LiveContainer
+        archive_path: archive
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+      cancel_previous_builds: true
+
+    when:
+      changeset:
+        includes:
+          - codemagic.yaml
+          - .github/workflows/build.yml
+          - .github/build_github.sh
+          - LiveContainerSwiftUI/**
+          - LiveContainer/**
+          - LiveProcess/**
+          - ShareExtension/**
+          - LaunchAppExtension/**
+          - MultitaskSupport/**
+          - SideStoreSupport/**
+          - ZSign/**
+          - FrameGeneration/**
+          - Resources/**
+          - LiveContainer.xcodeproj/**
+          - Scripts/embed-jit-helper.py
+          - Vendor/StikJIT/**
+          - scripts/prepare_stikjit_idevice.sh
+
+    scripts:
+      - name: Restore Git submodules
+        script: |
+          set -euo pipefail
+          git submodule update --init --recursive
+
+      - name: Provision pinned StikJIT idevice FFI archive
+        script: |
+          set -euo pipefail
+          bash scripts/prepare_stikjit_idevice.sh
+
+      - name: Resolve Xcode packages
+        script: |
+          set -euo pipefail
+          PROJECT=$(find . -maxdepth 1 -name '*.xcodeproj' -print -quit)
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
+          if [ -n "$WORKSPACE" ]; then
+            xcodebuild -resolvePackageDependencies -workspace "$WORKSPACE" -scheme "$scheme"
+          elif [ -n "$PROJECT" ]; then
+            xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme "$scheme"
+          else
+            echo "No Xcode project or workspace found" >&2
+            exit 1
+          fi
+
+      - name: Archive INFINITY
+        script: |
+          set -euo pipefail
+          PROJECT=$(find . -maxdepth 1 -name '*.xcodeproj' -print -quit)
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
+          if [ -n "$WORKSPACE" ]; then
+            XCODE_CONTAINER=(-workspace "$WORKSPACE")
+          elif [ -n "$PROJECT" ]; then
+            XCODE_CONTAINER=(-project "$PROJECT")
+          else
+            echo "No Xcode project or workspace found" >&2
+            exit 1
+          fi
+          xcodebuild archive \
+            -archivePath "$archive_path" \
+            -scheme "$scheme" \
+            "${XCODE_CONTAINER[@]}" \
+            -sdk iphoneos \
+            -arch arm64 \
+            -configuration Release \
+            -jobs 1 \
+            SWIFT_COMPILATION_MODE=singlefile \
+            SWIFT_OPTIMIZATION_LEVEL=-O \
+            2>&1 | tee /tmp/xcodebuild-archive.log
+
+      - name: Package IPA using the existing repository script
+        script: |
+          set -euo pipefail
+          sh .github/build_github.sh
+
+    artifacts:
+      - LiveContainer.ipa
+      - LiveContainer+SideStore.ipa
+      - archive.xcarchive
+      - /tmp/xcodebuild-archive.log
