@@ -74,7 +74,7 @@ with open(raw, "rb") as disk:
     with open(output, "wb") as out:
         for index in range(part_count):
             entry = table[part_offset + part_size * index:part_offset + part_size * (index + 1)]
-            name = entry[:36].split(b"\\0", 1)[0].decode("utf-8", "replace")
+            name = entry[:36].split(b"\0", 1)[0].decode("utf-8", "replace")
             _, first_extent, extent_count_for_partition, _ = struct.unpack_from("<IIII", entry, 36)
             if name != "system":
                 continue
