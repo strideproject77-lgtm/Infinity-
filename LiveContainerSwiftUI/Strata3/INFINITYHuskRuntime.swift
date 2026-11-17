@@ -1,0 +1,216 @@
+import Foundation
+import Combine
+import QuartzCore
+
+/// Main-thread owner for the native Husk session embedded in Strata.
+/// This class only calls the INFINITY-owned C bridge; it never launches a demo surface.
+@MainActor
+final class INFINITYHuskRuntime: ObservableObject {
+    enum State: Int32 {
+        case idle = 0
+        case starting = 1
+        case running = 2
+        case failed = 3
+        case ended = 4
+    }
+
+    enum RuntimeError: LocalizedError {
+        case javaRuntimeNotPrepared
+        case rejectedLaunch
+        case invalidSurface
+
+        var errorDescription: String? {
+            switch self {
+            case .javaRuntimeNotPrepared:
+                return "Android Java runtime assets are not prepared."
+            case .rejectedLaunch:
+                return "Husk rejected the launch request. Check the APK, data folder and runtime assets."
+            case .invalidSurface:
+                return "The Android surface has an invalid size."
+            }
+        }
+    }
+
+    @Published private(set) var state: State = .idle
+    @Published private(set) var frameCount: UInt = 0
+    @Published private(set) var loadedAPK: String?
+    @Published private(set) var lastError: String?
+
+    private var javaRuntimePrepared = false
+    private var pollingTask: Task<Void, Never>?
+
+    var isRunning: Bool { state == .running || state == .starting }
+
+    func prepareJava(runtimeRoot: URL,
+                     density: Float,
+                     certificatesDirectory: URL? = nil,
+                     systemFontsDirectory: URL? = nil,
+                     extraFontsDirectory: URL? = nil,
+                     sharedStorageDirectory: URL? = nil,
+                     nightMode: Bool) throws {
+        let prepared = runtimeRoot.path.withCString { root in
+            withOptionalCString(certificatesDirectory?.path) { certificates in
+                withOptionalCString(systemFontsDirectory?.path) { fonts in
+                    withOptionalCString(extraFontsDirectory?.path) { extraFonts in
+                        withOptionalCString(sharedStorageDirectory?.path) { shared in
+                            infinity_husk_prepare_java(root, density, certificates, fonts,
+                                                       extraFonts, shared, nightMode)
+                        }
+                    }
+                }
+            }
+        }
+        guard prepared else {
+            javaRuntimePrepared = false
+            throw RuntimeError.javaRuntimeNotPrepared
+        }
+        javaRuntimePrepared = true
+        lastError = nil
+    }
+
+    func launchJava(apk: URL,
+                    dataDirectory: URL,
+                    metalLayer: CAMetalLayer?,
+                    width: Int,
+                    height: Int,
+                    angleLibrary: URL? = nil,
+                    certificateBundle: URL? = nil) throws {
+        guard javaRuntimePrepared else { throw RuntimeError.javaRuntimeNotPrepared }
+        guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
+
+        let layer = metalLayer.map { Unmanaged.passUnretained($0).toOpaque() }
+        let accepted = apk.path.withCString { apkPath in
+            dataDirectory.path.withCString { dataPath in
+                withOptionalCString(angleLibrary?.path) { angle in
+                    withOptionalCString(certificateBundle?.path) { certificates in
+                        infinity_husk_launch_java(apkPath, dataPath, layer,
+                                                  Int32(width), Int32(height), angle, certificates)
+                    }
+                }
+            }
+        }
+        guard accepted else { throw RuntimeError.rejectedLaunch }
+        lastError = nil
+        beginPolling()
+    }
+
+    func launchUnity(apk: URL,
+                     dataDirectory: URL,
+                     metalLayer: CAMetalLayer?,
+                     width: Int,
+                     height: Int,
+                     angleLibrary: URL? = nil,
+                     certificateBundle: URL? = nil) throws {
+        guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
+
+        let layer = metalLayer.map { Unmanaged.passUnretained($0).toOpaque() }
+        let accepted = apk.path.withCString { apkPath in
+            dataDirectory.path.withCString { dataPath in
+                withOptionalCString(angleLibrary?.path) { angle in
+                    withOptionalCString(certificateBundle?.path) { certificates in
+                        infinity_husk_launch_unity(apkPath, dataPath, layer,
+                                                   Int32(width), Int32(height), angle, certificates)
+                    }
+                }
+            }
+        }
+        guard accepted else { throw RuntimeError.rejectedLaunch }
+        lastError = nil
+        beginPolling()
+    }
+
+    func setJavaInsets(left: Int, top: Int, right: Int, bottom: Int, keyboardBottom: Int) {
+        infinity_husk_java_set_insets(Int32(left), Int32(top), Int32(right),
+                                      Int32(bottom), Int32(keyboardBottom))
+    }
+
+    func sendJavaTouch(phase: Int, pointerID: Int, x: Float, y: Float) {
+        infinity_husk_java_touch(Int32(phase), Int32(pointerID), x, y)
+    }
+
+    func sendUnityTouch(phase: Int, pointerID: Int, x: Float, y: Float) {
+        infinity_husk_unity_touch(Int32(phase), Int32(pointerID), x, y)
+    }
+
+    func sendJavaKey(androidKeyCode: Int, down: Bool) {
+        infinity_husk_java_key(Int32(androidKeyCode), down)
+    }
+
+    func sendJavaText(_ text: String) {
+        text.withCString { infinity_husk_java_insert_text($0) }
+    }
+
+    func deleteJavaBackward() {
+        infinity_husk_java_delete_backward()
+    }
+
+    func performJavaTextAction() {
+        infinity_husk_java_text_action()
+    }
+
+    func javaBack() {
+        infinity_husk_java_back()
+    }
+
+    func setJavaPaused(_ paused: Bool) {
+        infinity_husk_java_set_paused(paused)
+    }
+
+    func setUnityPaused(_ paused: Bool) {
+        infinity_husk_unity_set_paused(paused)
+    }
+
+    func stop() {
+        pollingTask?.cancel()
+        pollingTask = nil
+        infinity_husk_stop()
+        refreshState()
+        frameCount = 0
+        loadedAPK = nil
+    }
+
+    func refreshState() {
+        state = State(rawValue: Int32(infinity_husk_get_state().rawValue)) ?? .failed
+        frameCount = infinity_husk_frames()
+        if let path = infinity_husk_loaded_apk() {
+            loadedAPK = String(cString: path)
+        } else {
+            loadedAPK = nil
+        }
+        if state == .failed {
+            lastError = "The native Android runtime reported a launch or execution failure. Check the session log."
+        }
+    }
+
+    func apkOrientation(_ apk: URL) -> Int {
+        apk.path.withCString { Int(infinity_husk_apk_orientation($0)) }
+    }
+
+    func apkIsGame(_ apk: URL) -> Bool {
+        apk.path.withCString { infinity_husk_apk_is_game($0) }
+    }
+
+    func apkRequiresSplits(_ apk: URL) -> Bool {
+        apk.path.withCString { infinity_husk_apk_requires_splits($0) }
+    }
+
+    private func beginPolling() {
+        pollingTask?.cancel()
+        pollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                self.refreshState()
+                if self.state == .failed || self.state == .ended || self.state == .idle {
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+        }
+    }
+
+    private func withOptionalCString<T>(_ value: String?,
+                                       _ body: (UnsafePointer<CChar>?) -> T) -> T {
+        guard let value, !value.isEmpty else { return body(nil) }
+        return value.withCString { body($0) }
+    }
+}
