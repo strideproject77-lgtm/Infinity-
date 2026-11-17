@@ -47,7 +47,8 @@ bool tl_aot_make_dylib(const char *name, const uint8_t *file, size_t flen, const
  * (husk-tl-codesign.h). A dylib already there is only signed again when cert_tag (any string naming the certificate) differs from
  * the one it was signed with, which is kept beside it in <dylib>.signer. progress (optional) is called before each library.
  * An entry of apks ending in .so is a library file itself (the Java runtime's own natives).
- * Returns how many libraries are ready, or -1 with a reason in err.
+ * Returns how many unique top-level APK/runtime library entries are covered (a tar bundle counts once),
+ * or -1 with a reason in err. A tar bundle is covered only when every ARM64 ELF member converts successfully.
  */
 typedef void (*tl_aot_progress_fn)(void *user, int index, int total, const char *library);
 int husk_aot_prepare(const char *const *apks, int napks, const char *cache_dir, const uint8_t *p12, size_t p12_len,
