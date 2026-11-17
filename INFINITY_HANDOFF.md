@@ -756,3 +756,12 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Setup still required by the owner: create/sign in to Codemagic, add this GitHub repository, select the `main` branch and the `infinity-ipa-backup` workflow, and enable the repository webhook. No Codemagic account connection or webhook can be created from this repository commit.
 - The Codemagic workflow has not yet been run. Its YAML and macOS build behavior are therefore **configured but unverified**; no IPA success or device compatibility is claimed. Codemagic-hosted artifacts are separate from GitHub Actions artifacts/releases unless a later authenticated publishing integration is configured.
 - GitHub Actions remains the primary builder. No GitHub workflow, SideStore source/configuration/signing/installation/refresh path, or IPA signing configuration was changed by this backup addition. No IPA build, signing, export, or device installation was initiated.
+
+
+## Codemagic submodule network retry — 2026-11-17
+
+- User-provided Codemagic logs show repository checkout succeeded, then recursive submodule checkout failed while resolving github.com for the LiveContainer/litehook repository (Could not resolve host: github.com). This is a runner DNS/network failure during dependency checkout; the log does not show an invalid litehook URL or a source/compiler failure.
+- Updated codemagic.yaml on main to synchronize declared submodule URLs and retry the exact superproject-pinned recursive submodule checkout up to five times, with increasing waits and conservative Git HTTP settings. Added .gitmodules to the backup workflow changeset triggers.
+- The workflow verifies that all submodules finish at their pinned revisions before proceeding. It does not rewrite submodule URLs or update pinned commits.
+- This is a retry mitigation, not a DNS repair: if Codemagic cannot resolve github.com for all attempts, the workflow will still fail clearly at dependency checkout. The next Codemagic run is required to verify whether the runner-side failure was transient.
+- No IPA build was manually triggered. No IPA was built, signed, exported, or installed by this change. GitHub's existing primary builder and all SideStore source/configuration/signing/installation/refresh systems remain untouched.
