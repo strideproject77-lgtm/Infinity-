@@ -599,3 +599,13 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Latest observed CI after these changes: native test run `44057689157` queued; native test run `44057638064` queued; runtime asset build run `44057637895` queued; SwiftUI framework build run `44057630057` in progress. These are not yet verified passes.
 - The previous framework build `44008452278` fetched recursive submodules successfully but failed while compiling the existing `swift-srp` dependency target. It did not report the old missing `litehook.h` checkout problem. The next step is to inspect the complete SRP compiler diagnostic and distinguish an upstream/toolchain issue from an INFINITY integration issue; do not modify SideStore or unrelated dependencies to mask it.
 - No IPA build, signing, export, simulator/device test, or real APK execution was performed. The 2048 and Hill Climb Racing compatibility status remains untested.
+
+
+## Fast continuation — framework CI stabilization (2026-11-17)
+
+- Audited failed framework run `44008452278` job `133789370977` at full diagnostic level. Root failure was not a Swift source error: Xcode explicit-module dependency scanning could not find the generated `CBigNumBoringSSL.modulemap` inside the `swift-srp` package build tree, causing cascading Foundation/BigNum/Crypto module-resolution failures.
+- Updated only the INFINITY framework CI workflow in commit `23a9f7dbb86d1d208dac29aa970ec6eff42cdd73`: disable Swift explicit module scanning for this CI build and limit Xcode build parallelism to 2 jobs to avoid the missing generated-module-map race. No package source, SideStore source/configuration, signing, or IPA workflow was changed.
+- New framework workflow run `44058032729` was queued after the change. It must complete before calling the framework build fixed.
+- Latest source-contract job for native tests run `44057695911` is **success**; its Swift bridge header and APK parser jobs were still queued at last inspection.
+- Android runtime asset build run `44057637895` was queued at last inspection; no generated runtime ZIP is claimed.
+- Next: inspect run `44058032729`, complete native test jobs and runtime asset job, then review the runtime ZIP/manifest and only then proceed to ANGLE app-bundle embedding. No IPA build/sign/export and no real APK execution.
