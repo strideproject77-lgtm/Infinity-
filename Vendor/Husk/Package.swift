@@ -36,6 +36,9 @@ let package = Package(
             publicHeadersPath: "include",
             cSettings: [
                 .define("_DARWIN_C_SOURCE"),
+                .headerSearchPath("translation-layer"),
+                .headerSearchPath("translation-layer-next"),
+                .headerSearchPath("include"),
                 .unsafeFlags(["-fblocks", "-fobjc-arc"])
             ],
             linkerSettings: [
