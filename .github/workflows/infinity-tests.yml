@@ -15,10 +15,13 @@ on:
       - "Vendor/Husk/Package.swift"
       - "LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h"
       - "scripts/import_husk_runtime.sh"
+      - "scripts/build_infinity_runtime_assets.sh"
+      - ".github/workflows/infinity-runtime-assets.yml"
       - "scripts/audit_husk_runtime.py"
       - "tests/test_infinity_apk_archive.py"
       - "tests/test_husk_import_pipeline.py"
       - "tests/test_husk_runtime_bridge.py"
+      - "tests/test_runtime_assets_builder.py"
       - ".github/workflows/infinity-tests.yml"
   workflow_dispatch:
 
