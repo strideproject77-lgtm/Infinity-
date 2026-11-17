@@ -187,11 +187,7 @@ struct INFINITYAPKLaunchView: View {
                     launchIfReady(on: layer)
                 },
                 onTouch: { phase, pointer, x, y in
-                    if app.detectedEngine == "java" {
-                        runtime.sendJavaTouch(phase: phase, pointerID: pointer, x: x, y: y)
-                    } else {
-                        runtime.sendUnityTouch(phase: phase, pointerID: pointer, x: x, y: y)
-                    }
+                    runtime.sendTouch(phase: phase, pointerID: pointer, x: x, y: y)
                 }
             )
             .ignoresSafeArea()
@@ -227,11 +223,7 @@ struct INFINITYAPKLaunchView: View {
         .onChange(of: scenePhase) { phase in
             guard launchAttempted else { return }
             let paused = phase != .active
-            if app.detectedEngine == "java" {
-                runtime.setJavaPaused(paused)
-            } else {
-                runtime.setUnityPaused(paused)
-            }
+            runtime.setPaused(paused)
         }
         .onDisappear { runtime.stop() }
     }
@@ -287,7 +279,7 @@ struct INFINITYAPKLaunchView: View {
         case "sdl": return .sdl
         case "unreal": return .unreal
         case "godot": return .godot
-        case "gta": return .grandTheftAuto
+        case "gta": return .gta
         case "flutter": return .flutter
         case "gameMaker": return .gameMaker
         default: return nil
