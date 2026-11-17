@@ -804,3 +804,13 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - No Xcode build, IPA build/sign/export, device test, or real APK execution was started by this correction. SideStore source, configuration, signing, installation, refresh, and packaging paths remain untouched.
 
 - CI trigger note: the source-file push automatically queued the existing `.github/workflows/build.yml` run `44123107395` (event: `push`; workflow name: `Xcode - Build`). That workflow includes IPA packaging. It was not manually dispatched; its current state was queued when checked. No archive/IPA result is verified. The source push path filters are already configured upstream to run this builder for `LiveContainerSwiftUI/**` changes.\n
+
+### Husk AOT tar-bundle coverage fix — 2026-11-17
+
+- Found a correctness mismatch between the Swift completeness gate and Husk's AOT converter: Swift counts unique top-level ARM64 `.so` entries, while `prepare_tar` previously returned the number of inner ELF libraries. A single Python-for-Android tar bundle could therefore prepare successfully but still fail the Swift equality check.
+- Updated `Vendor/Husk/translation-layer-next/husk-tl-aot.c` so a valid tar bundle counts as one covered top-level entry, regardless of how many ARM64 inner libraries it contains. A valid bundle with no ARM64 members is counted as processed because it requires no ARM64 AOT output.
+- If any ARM64 member conversion fails, the bundle now fails closed rather than reporting partial success. Truncated member data/padding is also rejected.
+- Added a regression contract test in `tests/test_husk_jitless.py` and added `Vendor/Husk/translation-layer-next/**` to the native-test workflow path filters.
+- Commits: `784f355`, `3e654b8`, `2b593ee`, `27258c8`.
+- This is source-level work only. The native workflow must complete before claiming tests pass; no device test or real APK compatibility claim is made. Changes are confined to Husk AOT source, regression tests, CI test paths, and this handoff; Strata host and SideStore systems are untouched.
+\n
