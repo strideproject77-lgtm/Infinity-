@@ -1,15 +1,12 @@
 /*
- * INFINITY's Swift-to-Husk C declaration boundary.
+ * INFINITY-owned Swift-to-C boundary.
  *
- * This deliberately exposes only Husk's public app-facing translation-layer API.
- * It does not import HuskBridge.h (which pulls in QEMU/JIT pairing dependencies),
- * and it does not claim that the native engine is linked into the app target yet.
- *
- * Keep the upstream header and its GPL-2.0-or-later notice intact.
+ * The public surface is intentionally smaller than Husk's app bridge: no QEMU,
+ * JIT helper, pairing, or Husk application UI declarations are imported here.
  */
 #ifndef INFINITY_HUSK_RUNTIME_BRIDGE_H
 #define INFINITY_HUSK_RUNTIME_BRIDGE_H
 
-#include "../../Vendor/Husk/translation-layer-next/husk-tl-unity-app.h"
+#include "../../Vendor/Husk/include/INFINITYHuskRuntime.h"
 
-#endif /* INFINITY_HUSK_RUNTIME_BRIDGE_H */
+#endif
