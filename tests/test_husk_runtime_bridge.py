@@ -150,6 +150,25 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("LICENSE-ANGLE.txt", script)
         self.assertIn("install_name_tool -id", script)
 
+    def test_angle_is_embedded_only_in_the_strata_app_and_code_signed(self):
+        project = self.read("LiveContainer.xcodeproj/project.pbxproj")
+        self.assertIn("Vendor/Husk/Prebuilt/ANGLE/ios-arm64/lib/libANGLE-shared.dylib", project)
+        self.assertIn("libANGLE-shared.dylib in Embed Frameworks", project)
+        self.assertIn("ATTRIBUTES = (CodeSignOnCopy, );", project)
+        app = re.search(
+            r"17DCE99C2C7067EC00731D42 /\\* LiveContainer \\*/ = \\{(.*?)\\n\\t\\t\\};",
+            project,
+            re.S
+        )
+        self.assertIsNotNone(app)
+        self.assertIn("17413FC12D9C0BAE00F3F928", app.group(1))
+        self.assertIn("INFINITYAPKStore.isANGLEEmbeddedAndReadable", self.read(
+            "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
+        ))
+        self.assertIn("INFINITYAPKStore.runtimeDataReady()", self.read(
+            "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
+        ))
+
 
 if __name__ == "__main__":
     unittest.main()
