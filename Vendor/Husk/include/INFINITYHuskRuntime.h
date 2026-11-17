@@ -95,6 +95,7 @@ unsigned long infinity_husk_frames(void);
 void infinity_husk_unity_touch(int phase, int pointer_id, float x, float y);
 void infinity_husk_unity_set_paused(bool paused);
 void infinity_husk_unity_performance(infinity_husk_performance *out);
+void infinity_husk_performance_snapshot(double *fps, double *mean_ms, double *max_ms);
 int infinity_husk_apk_orientation(const char *apk_path);
 bool infinity_husk_apk_is_game(const char *apk_path);
 bool infinity_husk_apk_requires_splits(const char *apk_path);
