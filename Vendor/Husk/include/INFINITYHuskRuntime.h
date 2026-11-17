@@ -36,6 +36,26 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
                                 const char *shared_storage_dir,
                                 bool night_mode);
 
+typedef enum infinity_husk_engine {
+    INFINITY_HUSK_ENGINE_UNITY = 0,
+    INFINITY_HUSK_ENGINE_JAVA = 1,
+    INFINITY_HUSK_ENGINE_COCOS = 2,
+    INFINITY_HUSK_ENGINE_GAME_ACTIVITY = 3,
+    INFINITY_HUSK_ENGINE_SDL = 4,
+    INFINITY_HUSK_ENGINE_UNREAL = 5,
+    INFINITY_HUSK_ENGINE_GODOT = 6,
+    INFINITY_HUSK_ENGINE_GTA = 7,
+    INFINITY_HUSK_ENGINE_FLUTTER = 8,
+    INFINITY_HUSK_ENGINE_GAMEMAKER = 9
+} infinity_husk_engine;
+
+/* Explicit backend dispatch. ANGLE is required by Husk's launch contract. */
+bool infinity_husk_launch_engine(infinity_husk_engine engine,
+                                 const char *apk_path, const char *data_dir,
+                                 void *metal_layer, int width, int height,
+                                 const char *angle_dylib, const char *ca_bundle,
+                                 const char *moltenvk_dylib);
+
 /* Start is asynchronous. Paths must remain valid for the duration of the session.
    The surface is a host CAMetalLayer (or NULL for a headless diagnostic session). */
 bool infinity_husk_launch_java(const char *apk_path, const char *data_dir,
