@@ -778,3 +778,10 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Added source-contract regressions for SideStore identity reuse, complete AOT-set gating, strict error classification, fresh logs, and shutdown reset.
 - Validation in this batch: source changes and test assertions added; no Xcode build, iOS device run, actual AOT conversion, or real APK execution has yet been performed. The GitHub Actions test workflow is expected to run from the source changes; no pass is claimed until its result is inspected.
 - No IPA build/sign/export was initiated. SideStore implementation, entitlements, signing, installation, refresh, and packaging systems were not changed.
+
+
+### JIT-less CI correction — 2026-11-17
+
+- The first source-contract run found one brittle assertion that expected a fully qualified Swift enum case instead of Swift's valid shorthand `.other`. The same review caught a missing Swift interpolation escape in the incomplete-AOT diagnostic; that message is now interpolated correctly.
+- Java runtime AOT enumeration is restricted to `lib64` directories so 32-bit or non-runtime .so files cannot incorrectly prevent complete ARM64 coverage.
+- The launch HUD no longer reports the total global cache count as if it were the current app's library count.
