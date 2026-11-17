@@ -785,3 +785,11 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - The first source-contract run found one brittle assertion that expected a fully qualified Swift enum case instead of Swift's valid shorthand `.other`. The same review caught a missing Swift interpolation escape in the incomplete-AOT diagnostic; that message is now interpolated correctly.
 - Java runtime AOT enumeration is restricted to `lib64` directories so 32-bit or non-runtime .so files cannot incorrectly prevent complete ARM64 coverage.
 - The launch HUD no longer reports the total global cache count as if it were the current app's library count.
+
+
+### JIT-less source-test evidence and CI queue note — 2026-11-17
+
+- Latest source-contract test run: GitHub Actions run `44122467300`, tested source commit `b7c1571fd10d3e82230112cfa2fe33eb500846bd`. The source-contract/ZIP regression job passed all 43 tests, including the new certificate reuse, complete-AOT gating, and strict JIT-diagnostic tests.
+- At the time of this handoff update, the same run's Swift bridge and APK parser type-check jobs were still queued; the separate Strata SwiftUI framework compile was also queued. No successful Xcode compile or device validation is claimed.
+- The existing `Xcode - Build` workflow is push-triggered for `LiveContainerSwiftUI/**` and contains the IPA archive/export steps. The implementation commits therefore queued several automatic Xcode - Build runs (not manually dispatched). The connected GitHub toolset exposed no workflow-cancel action. The user should cancel those queued `Xcode - Build` runs in GitHub Actions if IPA export is not currently authorized.
+- No manual IPA build/export was initiated by the assistant. SideStore and signing/installation/refresh source paths remain unchanged.
