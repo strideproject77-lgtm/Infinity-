@@ -34,6 +34,13 @@ struct INFINITYAPKInstalledApp: Codable, Hashable, Identifiable, Sendable {
     var id: String { packageName }
 }
 
+struct INFINITYAPKNativeRuntimeBundle: Sendable {
+    let systemRoot: URL
+    let certificatesDirectory: URL
+    let angleLibrary: URL
+    let certificateBundle: URL
+}
+
 struct INFINITYAPKRuntimeBundle: Sendable {
     let javaRoot: URL
     let systemRoot: URL
@@ -196,12 +203,30 @@ enum INFINITYAPKStore {
         return directory
     }
 
-    static func runtimeBundle() -> INFINITYAPKRuntimeBundle? {
-        let java = runtimeRoot.appendingPathComponent("java-runtime", isDirectory: true)
+    static func nativeRuntimeBundle() -> INFINITYAPKNativeRuntimeBundle? {
         let system = runtimeRoot.appendingPathComponent("android-system", isDirectory: true)
         let certificates = system.appendingPathComponent("cacerts", isDirectory: true)
         let angle = angleLibraryURL
         let caBundle = runtimeRoot.appendingPathComponent("cacert.pem")
+        let fontFiles = system.appendingPathComponent("fonts", isDirectory: true)
+        guard fileManager.fileExists(atPath: certificates.path),
+              (try? fileManager.contentsOfDirectory(at: certificates, includingPropertiesForKeys: nil).isEmpty) == false,
+              fileManager.fileExists(atPath: fontFiles.path),
+              fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/fonts.xml").path),
+              fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/font_fallback.xml").path),
+              fileManager.isReadableFile(atPath: angle.path),
+              fileManager.isReadableFile(atPath: caBundle.path) else {
+            return nil
+        }
+        return INFINITYAPKNativeRuntimeBundle(systemRoot: system,
+                                              certificatesDirectory: certificates,
+                                              angleLibrary: angle,
+                                              certificateBundle: caBundle)
+    }
+
+    static func runtimeBundle() -> INFINITYAPKRuntimeBundle? {
+        guard let native = nativeRuntimeBundle() else { return nil }
+        let java = runtimeRoot.appendingPathComponent("java-runtime", isDirectory: true)
         let required = [
             "com.android.art/javalib/core-oj.jar",
             "com.android.art/javalib/core-libart.jar",
@@ -226,17 +251,15 @@ enum INFINITYAPKStore {
             "framework-res.apk"
         ]
         guard required.allSatisfy({ fileManager.isReadableFile(atPath: java.appendingPathComponent($0).path) }),
-              fileManager.isReadableFile(atPath: angle.path),
-              fileManager.fileExists(atPath: certificates.path),
-              fileManager.fileExists(atPath: system.appendingPathComponent("fonts").path),
-              fileManager.fileExists(atPath: system.appendingPathComponent("etc/fonts.xml").path),
-              fileManager.fileExists(atPath: system.appendingPathComponent("etc/font_fallback.xml").path),
-              fileManager.isReadableFile(atPath: caBundle.path) else {
+              fileManager.fileExists(atPath: java.appendingPathComponent("com.android.i18n/etc/icu").path),
+              fileManager.fileExists(atPath: java.appendingPathComponent("com.android.tzdata/etc").path) else {
             return nil
         }
-        return INFINITYAPKRuntimeBundle(javaRoot: java, systemRoot: system,
-                                        certificatesDirectory: certificates,
-                                        angleLibrary: angle, certificateBundle: caBundle)
+        return INFINITYAPKRuntimeBundle(javaRoot: java,
+                                        systemRoot: native.systemRoot,
+                                        certificatesDirectory: native.certificatesDirectory,
+                                        angleLibrary: native.angleLibrary,
+                                        certificateBundle: native.certificateBundle)
     }
 
     private static func ensureRoot() throws {
