@@ -70,6 +70,8 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     private var javaRuntimePrepared = false
     private var pollingTask: Task<Void, Never>?
+    private var diagnosticLogURL: URL?
+    private var jitlessModeEnabled = false
 
     var isRunning: Bool { state == .running || state == .starting }
 
@@ -125,7 +127,9 @@ final class INFINITYHuskRuntime: ObservableObject {
                 height: Int,
                 angleLibrary: URL,
                 certificateBundle: URL? = nil,
-                moltenVKLibrary: URL? = nil) throws {
+                moltenVKLibrary: URL? = nil,
+                jitlessEnabled: Bool = false,
+                diagnosticLogURL: URL? = nil) throws {
         if engine == .java && !javaRuntimePrepared {
             throw RuntimeError.javaRuntimeNotPrepared
         }
@@ -163,6 +167,8 @@ final class INFINITYHuskRuntime: ObservableObject {
         }
         guard accepted else { throw RuntimeError.rejectedLaunch }
         selectedEngine = engine
+        self.jitlessModeEnabled = jitlessEnabled
+        self.diagnosticLogURL = diagnosticLogURL
         lastError = nil
         beginPolling()
     }
@@ -243,6 +249,7 @@ final class INFINITYHuskRuntime: ObservableObject {
         Task { [weak self] in
             await Task.detached(priority: .userInitiated) {
                 infinity_husk_stop()
+                try? INFINITYJITLess.configure(enabled: false)
             }.value
             guard let self else { return }
             self.refreshState()
@@ -268,8 +275,9 @@ final class INFINITYHuskRuntime: ObservableObject {
         } else {
             loadedAPK = nil
         }
-        if state == .failed {
-            lastError = "The native Android runtime reported a launch or execution failure. Check the session log."
+        if state == .failed && lastError == nil {
+            lastError = INFINITYJITLess.failureMessage(logURL: diagnosticLogURL,
+                                                       jitlessEnabled: jitlessModeEnabled)
         }
     }
 
@@ -312,6 +320,8 @@ final class INFINITYHuskRuntime: ObservableObject {
         maxFrameMilliseconds = 0
         loadedAPK = nil
         selectedEngine = nil
+        diagnosticLogURL = nil
+        jitlessModeEnabled = false
     }
 
     private func withOptionalCString<T>(_ value: String?,
