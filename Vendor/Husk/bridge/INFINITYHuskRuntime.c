@@ -15,6 +15,7 @@
 enum { INFINITY_ENGINE_NONE = -1 };
 static atomic_int g_infinity_engine = ATOMIC_VAR_INIT(INFINITY_ENGINE_NONE);
 static atomic_bool g_java_runtime_ready = ATOMIC_VAR_INIT(false);
+static atomic_bool g_native_runtime_ready = ATOMIC_VAR_INIT(false);
 
 static bool readable_directory(const char *path)
 {
@@ -49,17 +50,21 @@ bool infinity_husk_prepare_native(const char *system_certificates_dir,
                                   const char *extra_fonts_dir,
                                   const char *shared_storage_dir)
 {
+    atomic_store(&g_native_runtime_ready, false);
     if (!readable_directory(system_certificates_dir) ||
         !readable_directory(system_fonts_root) ||
         !runtime_directory(system_fonts_root, "fonts") ||
         !runtime_file(system_fonts_root, "etc/fonts.xml") ||
-        !runtime_file(system_fonts_root, "etc/font_fallback.xml"))
+        !runtime_file(system_fonts_root, "etc/font_fallback.xml") ||
+        (extra_fonts_dir && extra_fonts_dir[0] && !readable_directory(extra_fonts_dir)) ||
+        (shared_storage_dir && shared_storage_dir[0] && !readable_directory(shared_storage_dir)))
         return false;
 
     husk_native_set_system_files(system_certificates_dir, system_fonts_root);
     if (extra_fonts_dir && extra_fonts_dir[0])
         husk_native_set_extra_fonts(extra_fonts_dir);
     husk_native_set_shared_storage(shared_storage_dir && shared_storage_dir[0] ? shared_storage_dir : NULL);
+    atomic_store(&g_native_runtime_ready, true);
     return true;
 }
 
@@ -127,7 +132,8 @@ bool infinity_husk_launch_engine(int engine,
         (ca_bundle && ca_bundle[0] && !readable_file(ca_bundle)))
         return false;
 
-        if (engine == INFINITY_HUSK_ENGINE_JAVA && !atomic_load(&g_java_runtime_ready)) return false;
+    if (!atomic_load(&g_native_runtime_ready)) return false;
+    if (engine == INFINITY_HUSK_ENGINE_JAVA && !atomic_load(&g_java_runtime_ready)) return false;
 
     if (engine == INFINITY_HUSK_ENGINE_UNREAL) {
         if (!readable_file(moltenvk_dylib)) return false;
