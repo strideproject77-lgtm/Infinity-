@@ -39,6 +39,7 @@
 		A15000000000000000000011 /* StosSign_Auth in Frameworks */ = {isa = PBXBuildFile; productRef = A15000000000000000000021 /* StosSign_Auth */; };
 		A15000000000000000000012 /* StosSign_Anisette in Frameworks */ = {isa = PBXBuildFile; productRef = A15000000000000000000022 /* StosSign_Anisette */; };
 		A15000000000000000000013 /* StosSign_Common in Frameworks */ = {isa = PBXBuildFile; productRef = A15000000000000000000023 /* StosSign_Common */; };
+		F10000000000000000000001 /* INFINITYHuskRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000002 /* INFINITYHuskRuntime */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -357,6 +358,7 @@
 				E1946AD83041BFF8005CBEDD /* IOKit.framework in Frameworks */,
 				E16D95752E1CD2B90068EB63 /* LiveContainerShared.framework in Frameworks */,
 				174140D62D9C176F00F3F928 /* libarchive.tbd in Frameworks */,
+				F10000000000000000000001 /* INFINITYHuskRuntime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -594,6 +596,7 @@
 				A15000000000000000000022 /* StosSign_Anisette */,
 				A15000000000000000000021 /* StosSign_Auth */,
 				A15000000000000000000020 /* StosSign_API */,
+				F10000000000000000000002 /* INFINITYHuskRuntime */,
 			);
 			productName = LiveContainerSwiftUI;
 			productReference = 17413FB52D9C0BAE00F3F928 /* LiveContainerSwiftUI.framework */;
@@ -874,6 +877,7 @@
 			mainGroup = 17DCE9942C7067EC00731D42;
 			packageReferences = (
 				A15000000000000000000000 /* StosSign */,
+				F10000000000000000000003 /* INFINITYHuskRuntime local package */,
 			);
 			preferredProjectObjectVersion = 56;
 			productRefGroup = 17DCE99E2C7067EC00731D42 /* Products */;
@@ -1099,12 +1103,14 @@
 
 /* Begin XCLocalSwiftPackageReference section */
         A15000000000000000000000 /* StosSign */ = {isa = XCLocalSwiftPackageReference; relativePath = Vendor/StosSign; };
+		F10000000000000000000003 /* INFINITYHuskRuntime local package */ = {isa = XCLocalSwiftPackageReference; relativePath = Vendor/Husk; };
 /* End XCLocalSwiftPackageReference section */
 /* Begin XCSwiftPackageProductDependency section */
 		A15000000000000000000020 /* StosSign_API */ = {isa = XCSwiftPackageProductDependency; package = A15000000000000000000000; productName = StosSign_API; };
 		A15000000000000000000021 /* StosSign_Auth */ = {isa = XCSwiftPackageProductDependency; package = A15000000000000000000000; productName = StosSign_Auth; };
 		A15000000000000000000022 /* StosSign_Anisette */ = {isa = XCSwiftPackageProductDependency; package = A15000000000000000000000; productName = StosSign_Anisette; };
 		A15000000000000000000023 /* StosSign_Common */ = {isa = XCSwiftPackageProductDependency; package = A15000000000000000000000; productName = StosSign_Common; };
+		F10000000000000000000002 /* INFINITYHuskRuntime */ = {isa = XCSwiftPackageProductDependency; package = F10000000000000000000003 /* INFINITYHuskRuntime local package */; productName = INFINITYHuskRuntime; };
 /* End XCSwiftPackageProductDependency section */
 
 /* Begin XCBuildConfiguration section */
