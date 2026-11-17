@@ -17,6 +17,28 @@ struct INFINITYAPKInstalledApp: Codable, Hashable, Identifiable, Sendable {
         case archiveBytes, nativeLibraries, detectedEngine, requiresSplits, installedAt
     }
 
+    init(packageName: String,
+         displayName: String,
+         versionName: String?,
+         versionCode: UInt64?,
+         launchActivity: String?,
+         archiveBytes: UInt64,
+         nativeLibraries: [String],
+         detectedEngine: String?,
+         requiresSplits: Bool,
+         installedAt: Date) {
+        self.packageName = packageName
+        self.displayName = displayName
+        self.versionName = versionName
+        self.versionCode = versionCode
+        self.launchActivity = launchActivity
+        self.archiveBytes = archiveBytes
+        self.nativeLibraries = nativeLibraries
+        self.detectedEngine = detectedEngine
+        self.requiresSplits = requiresSplits
+        self.installedAt = installedAt
+    }
+
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         packageName = try values.decode(String.self, forKey: .packageName)
