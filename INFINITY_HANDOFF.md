@@ -677,3 +677,15 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Therefore, external StikDebug can only authorize JIT-capable native code in the INFINITY process where a component actually requests executable memory. It does not convert Husk's current DEX interpreter into ART JIT and must not be presented as a Java/DEX performance fix.
 - Keep StikDebug as the temporary device-side JIT authorization tool for any future component that genuinely needs it, but measure whether the current native translation path uses JIT before making it a launch prerequisite. The 2048 test must first establish whether interpreter-only Java execution is sufficient.
 - No ART JIT, DEX JIT compiler, or JIT acceleration is currently claimed as implemented in INFINITY.
+
+
+
+## Build diagnostics and JIT audit follow-up — 2026-11-17
+
+- JIT strategy and DEX execution audit were committed on main: `5e84ce1` and `cd8b3e4`. The temporary device test path is external StikDebug + LocalDevVPN, but the vendored Husk Java path is currently a DEX interpreter, not ART JIT. StikDebug does not add a DEX JIT compiler.
+- Framework-only Xcode run `44062566018` completed **failure** under Xcode 27.2. The captured diagnostic is still the BigNum dependency module-map issue: `swift-srp` cannot find `CBigNumBoringSSL.modulemap`, followed by `no such module 'BigNum'`. This is in the existing Swift package dependency graph; it is not evidence of an INFINITY runtime source compile failure.
+- IPA builder run `44062302063` completed **failure** at Archive. Its xcpretty output did not preserve the compiler's actionable diagnostic. The StikJIT idevice FFI restore step succeeded. No IPA artifact was produced.
+- Updated the existing IPA builder workflow in commit `2716e0a` to tee the raw `xcodebuild archive` output to the runner temp directory and upload that log even when Archive fails. The existing main/path trigger will run the builder on this workflow-only commit. The commit does not contain the `[nightly]` marker, so the nightly-release job remains gated off.
+- Native test run `44062302243`: source-contract/APK archive tests and shell/audit syntax checks **passed**; Swift APK parser type-check and Swift-to-Husk bridge-header check were still queued at the last inspection.
+- No successful framework build, IPA, signed ANGLE embedding, Android runtime-data bundle, or real APK execution is claimed. SideStore source/configuration/signing/installation/refresh remains untouched.
+- Next: use the newly retained raw Xcode log to isolate the actual Archive failure; separately resolve the reproducible BigNum module-map issue in the framework-only build. Do not change dependency versions or package sources without a targeted compatibility check.
