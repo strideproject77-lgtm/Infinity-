@@ -817,3 +817,11 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 
 - Follow-up contract clarification: `husk-tl-aot.h` now defines the return value as the number of unique top-level APK/runtime entries covered; tar bundles count once and only when all ARM64 ELF members convert. Regression tests also assert this documented API contract. Commits: `f860531`, `73e1fea`.
 - CI queue note: this repository has separate native source compile, static Husk runtime, Strata framework, and Python/source-contract workflows. Changes to `translation-layer-next/**` automatically queued the native compile/static runtime/framework checks; no IPA packaging workflow is involved in those three jobs. The newest native tests run is `44126055387`; it was queued at the last check, so no pass is claimed.\n
+
+## Canonical INFINITY app icon — 2026-11-17
+
+- Added one repository-owned vector master at `Branding/INFINITY-AppIcon.svg`; it is the single source of truth for the INFINITY app icon.
+- Added `scripts/prepare_infinity_app_icon.sh` to render the same master deterministically into the three existing iOS AppIcon appearance slots and validate every output is exactly 1024x1024. No AI image generation or user-supplied command is needed during builds; the build only rasterizes the committed vector asset.
+- Wired the same preparation script into both GitHub Actions and Codemagic before Xcode archive, so the regular IPA and SideStore-packaged variant inherit the same primary app icon.
+- Changed the IPA workflows to manual-only triggers so ordinary source commits and icon changes do not repeatedly launch expensive IPA builds. Codemagic remains manually startable from its dashboard; GitHub Actions remains available through workflow_dispatch.
+- This change does not run or package an IPA. Renderer availability and final on-device icon appearance still require the eventual consolidated build verification.

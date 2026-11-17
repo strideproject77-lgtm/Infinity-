@@ -13,13 +13,6 @@ workflows:
         scheme: LiveContainer
         archive_path: archive
 
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-      cancel_previous_builds: true
 
     when:
       changeset:
@@ -42,6 +35,8 @@ workflows:
           - Scripts/embed-jit-helper.py
           - Vendor/StikJIT/**
           - scripts/prepare_stikjit_idevice.sh
+          - scripts/prepare_infinity_app_icon.sh
+          - Branding/INFINITY-AppIcon.svg
 
     scripts:
       - name: Restore Git submodules (retry transient network failures)
@@ -84,6 +79,11 @@ workflows:
         script: |
           set -euo pipefail
           bash scripts/prepare_stikjit_idevice.sh
+
+      - name: Render canonical INFINITY app icon
+        script: |
+          set -euo pipefail
+          bash scripts/prepare_infinity_app_icon.sh
 
       - name: Resolve Xcode packages
         script: |
