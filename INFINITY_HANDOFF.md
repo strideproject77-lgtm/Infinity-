@@ -725,3 +725,12 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - No Xcode compile, IPA build, device test, or real APK JIT-less launch was run in this batch. Do not claim JIT-less compatibility until the native compile audit and real-device 2048/Hill Climb Racing tests pass.
 - IPA builder is deliberately not started by this batch; development continues independently of its queued runner.
 - SideStore source, targets, entitlements, packaging, signing, installation and refresh paths were not modified.
+
+
+### JIT-less follow-up — 2026-11-17
+
+- The C adapter now includes the standard environment declarations required for `setenv`/`unsetenv`; mode disable also clears the loader's AOT directory rather than leaving a stale search path.
+- Native package CI now checks that both `infinity_husk_prepare_jitless` and `infinity_husk_configure_jitless` are exported from the arm64 static runtime object.
+- Native tests CI now includes `tests/test_husk_jitless.py` and type-checks the new Swift facade against the INFINITY-owned bridge header.
+- Latest source commit at handoff update: `d57330d1655b45600dda092007acb481e41f1e58`; the handoff update itself follows this commit.
+- Verification state: native package, Strata runtime integration, and contract/type-check workflows were created by the relevant path triggers but remain queued on GitHub-hosted runners. No test pass is claimed. The separate IPA builder has not been triggered by the JIT-less commits.
