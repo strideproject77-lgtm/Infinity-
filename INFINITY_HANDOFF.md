@@ -609,3 +609,15 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Latest source-contract job for native tests run `44057695911` is **success**; its Swift bridge header and APK parser jobs were still queued at last inspection.
 - Android runtime asset build run `44057637895` was queued at last inspection; no generated runtime ZIP is claimed.
 - Next: inspect run `44058032729`, complete native test jobs and runtime asset job, then review the runtime ZIP/manifest and only then proceed to ANGLE app-bundle embedding. No IPA build/sign/export and no real APK execution.
+
+
+## Native launch-safety batch — 2026-11-17
+
+- Hardened the INFINITY-owned C adapter against concurrent APK launch requests. Previously, two callers could both observe the global Husk engine as idle before either upstream launch returned, allowing overlapping attempts to use the same process-global runtime and Metal surface.
+- Added an atomic NONE → STARTING compare-and-swap reservation before calling any upstream engine entrypoint. The selected engine ID is published only after Husk accepts the launch; rejected launches release the reservation back to NONE. Unsupported engine IDs are rejected before dispatch.
+- Added finite-coordinate validation to generic and Java touch entrypoints so NaN/Infinity values cannot be forwarded into the native input layer.
+- Updated tests/test_husk_runtime_bridge.py to assert the reservation state, compare-and-swap, successful publication/rejection rollback expression, and coordinate validation.
+- Commits on main: C adapter 30378141619c57ab71276e752c3ad024f6adbcde; regression test d821a45559bcd0b723a1361653c7eeea8e559288.
+- This is a source-level correctness improvement, not evidence of APK execution or a successful native rebuild. CI for this batch must complete before marking it compiled/tested.
+- Current Actions state before this batch: framework build 44058032729 queued; native test 44057695911 source-contract job succeeded while remaining jobs were pending; runtime-data build 44057637895 queued. The new commits will trigger/queue their own checks.
+- No IPA build/sign/export was run or authorized. SideStore code/configuration/signing/install/refresh remains untouched. 2048 and Hill Climb Racing remain untested.
