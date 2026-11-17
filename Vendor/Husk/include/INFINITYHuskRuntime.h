@@ -92,6 +92,25 @@ void infinity_husk_gamepad_disconnect(int slot);
 void infinity_husk_gamepad_update(int slot, unsigned buttons, float lx, float ly,
                                   float rx, float ry, float left_trigger, float right_trigger);
 
+/*
+ * Husk JIT-less AOT preparation. Converts arm64-v8a native libraries in the
+ * supplied APKs to signed Mach-O dylibs. The caller must supply a PKCS#12
+ * developer certificate belonging to the same signing team as this app.
+ * Returns the number of prepared libraries, or -1 on error.
+ */
+int infinity_husk_prepare_jitless(const char *const *apk_paths, int apk_count,
+                                  const char *cache_dir,
+                                  const uint8_t *p12, size_t p12_len,
+                                  const char *password, const char *certificate_tag,
+                                  const char *signing_identifier,
+                                  const char *app_executable_path,
+                                  char *error, size_t error_capacity);
+/* Configure the loader before launch. JIT-less mode forbids runtime executable
+   memory and searches the bundled and per-user AOT dylib directories. */
+bool infinity_husk_configure_jitless(bool enabled, const char *cache_dir,
+                                     const char *bundled_frameworks_dir);
+
+
 /* Runtime control and diagnostics. */
 void infinity_husk_stop(void);
 infinity_husk_state infinity_husk_get_state(void);
