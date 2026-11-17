@@ -470,3 +470,11 @@ This section supersedes earlier phase/status statements above where they still s
 - Overall implementation progress is approximately **20%**. This is a rough engineering estimate for source/runtime integration, not a compatibility percentage.
 - Verified Java DEX generation is complete. Native static-library compilation, full SwiftUI integration compilation, ANGLE packaging, Android system asset generation, and real-device execution remain gates.
 - Next: finish the native static build and full SwiftUI framework compile from actual CI diagnostics; validate the ANGLE artifact; prepare the Android runtime-data bundle from a matching image; embed/code-sign ANGLE through an approved app build path without changing SideStore; then install and test 2048 on-device before attempting Hill Climb Racing.
+
+## Runtime gating and lifecycle follow-up — 2026-11-17
+
+- Split-APK requirements are now recorded in the persistent APK index. Older index entries decode with a safe false default for the new field. The Launch screen blocks apps declaring required splits because only a single base APK is installed; it explains the limitation instead of attempting a known-incomplete launch.
+- Shared Android system assets are now a separate native-runtime preparation step, required before every engine launch. Java additionally requires the Dalvik/DEX runtime. The launch view validates these assets before calling the C bridge.
+- Fixed the Android super-partition name parser to split GPT names on an actual NUL byte, and added a regression assertion for that parsing detail.
+- Native shutdown now always reaches the C adapter even if SwiftUI has not yet received its first state poll; the C stop operation is idempotent when no session exists.
+- Latest source-contract/APK archive tests passed before these final follow-up commits. New split-store and native-preparation assertions have been added; their Actions runs are queued. Current Swift-to-C checks, full Strata framework compile, and static runtime compile are still pending. ANGLE's iOS build remains in progress.
