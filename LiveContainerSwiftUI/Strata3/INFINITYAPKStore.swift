@@ -9,7 +9,27 @@ struct INFINITYAPKInstalledApp: Codable, Hashable, Identifiable, Sendable {
     let archiveBytes: UInt64
     let nativeLibraries: [String]
     let detectedEngine: String?
+    let requiresSplits: Bool
     let installedAt: Date
+
+    private enum CodingKeys: String, CodingKey {
+        case packageName, displayName, versionName, versionCode, launchActivity
+        case archiveBytes, nativeLibraries, detectedEngine, requiresSplits, installedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        packageName = try values.decode(String.self, forKey: .packageName)
+        displayName = try values.decode(String.self, forKey: .displayName)
+        versionName = try values.decodeIfPresent(String.self, forKey: .versionName)
+        versionCode = try values.decodeIfPresent(UInt64.self, forKey: .versionCode)
+        launchActivity = try values.decodeIfPresent(String.self, forKey: .launchActivity)
+        archiveBytes = try values.decode(UInt64.self, forKey: .archiveBytes)
+        nativeLibraries = try values.decode([String].self, forKey: .nativeLibraries)
+        detectedEngine = try values.decodeIfPresent(String.self, forKey: .detectedEngine)
+        requiresSplits = try values.decodeIfPresent(Bool.self, forKey: .requiresSplits) ?? false
+        installedAt = try values.decode(Date.self, forKey: .installedAt)
+    }
 
     var id: String { packageName }
 }
@@ -97,6 +117,7 @@ enum INFINITYAPKStore {
             guard let manifest = inspection.manifest else { throw StoreError.invalidManifest }
             guard Self.isValidPackageName(manifest.packageName) else { throw StoreError.invalidPackageName }
             let engine = Self.detectEngine(inspection)
+            let requiresSplits = finalAPK.path.withCString { infinity_husk_apk_requires_splits($0) }
             let record = INFINITYAPKInstalledApp(
                 packageName: manifest.packageName,
                 displayName: manifest.applicationLabel?.isEmpty == false
@@ -108,6 +129,7 @@ enum INFINITYAPKStore {
                 archiveBytes: inspection.archiveBytes,
                 nativeLibraries: inspection.nativeLibraries,
                 detectedEngine: engine,
+                requiresSplits: requiresSplits,
                 installedAt: Date()
             )
 
