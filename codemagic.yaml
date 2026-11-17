@@ -92,6 +92,13 @@ workflows:
             SWIFT_OPTIMIZATION_LEVEL=-O \
             2>&1 | tee /tmp/xcodebuild-archive.log
 
+      - name: Install wget required by the existing packaging script
+        script: |
+          set -euo pipefail
+          if ! command -v wget >/dev/null 2>&1; then
+            brew install wget
+          fi
+
       - name: Package IPA using the existing repository script
         script: |
           set -euo pipefail
