@@ -50,7 +50,9 @@ bool infinity_husk_prepare_native(const char *system_certificates_dir,
                                   const char *extra_fonts_dir,
                                   const char *shared_storage_dir)
 {
+    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE) return false;
     atomic_store(&g_native_runtime_ready, false);
+    atomic_store(&g_java_runtime_ready, false);
     if (!readable_directory(system_certificates_dir) ||
         !readable_directory(system_fonts_root) ||
         !runtime_directory(system_fonts_root, "fonts") ||
