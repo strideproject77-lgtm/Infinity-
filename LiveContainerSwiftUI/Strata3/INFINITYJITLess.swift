@@ -1,29 +1,43 @@
 import Foundation
 import Darwin
+import CryptoKit
 
-/// Thin Swift facade for Husk's ahead-of-time native-library conversion.
-/// This does not grant JIT or execute DEX; it prepares signed ARM64 Mach-O
-/// dylibs so the native loader can run supported Android .so files without
-/// allocating executable memory at runtime.
+/// Husk 3.2 AOT preparation for running supported ARM64 Android libraries
+/// without asking iOS for executable memory at runtime.
 enum INFINITYJITLess {
     enum PreparationError: LocalizedError {
         case noAPKPaths
+        case certificateUnavailable
         case invalidCertificate
+        case certificateTeamMismatch
+        case incompleteAOT(expected: Int, prepared: Int)
         case pathAllocation
         case nativeFailure(String)
 
         var errorDescription: String? {
             switch self {
             case .noAPKPaths:
-                return "Add at least one APK or Android runtime library before preparing JIT-less mode."
+                return "No APK or Android runtime libraries were supplied for JIT-less preparation."
+            case .certificateUnavailable:
+                return "The SideStore/LiveContainer JIT-less signing certificate or its password is not available. Normal execution will be attempted."
             case .invalidCertificate:
-                return "A valid developer PKCS#12 certificate and password are required for JIT-less library signing."
+                return "The imported JIT-less certificate could not be validated. Normal execution will be attempted."
+            case .certificateTeamMismatch:
+                return "The imported certificate belongs to a different Apple signing team than INFINITY. JIT-less signing was skipped."
+            case .incompleteAOT(let expected, let prepared):
+                return "Husk prepared (prepared) of (expected) required ARM64 libraries. JIT-less mode was not enabled."
             case .pathAllocation:
                 return "Could not prepare the APK paths for native conversion."
             case .nativeFailure(let message):
                 return message
             }
         }
+    }
+
+    enum FailureClassification: Equatable {
+        case confirmedJITRequired
+        case jitlessAOTUnavailable
+        case other
     }
 
     static var cacheDirectory: URL {
@@ -36,9 +50,57 @@ enum INFINITYJITLess {
         return names.filter { $0.hasPrefix("aot-v") && $0.hasSuffix(".dylib") }.count
     }
 
-    /// Convert all arm64-v8a libraries found in the supplied APKs and any
-    /// explicitly supplied Java-runtime .so files. Original APKs stay intact.
-    /// The PKCS#12 must belong to the same Apple signing team as this app.
+    /// Reads the existing SideStore/LiveContainer identity supplied by the host.
+    /// The caller passes it in so this narrow facade remains independently type-checkable.
+    /// JIT-less is enabled only when every unique ARM64 library has a matching AOT dylib.
+    @discardableResult
+    static func prepareForLaunch(apk: URL,
+                                 nativeLibraryPaths: [String],
+                                 runtimeLibraries: [URL] = [],
+                                 certificateP12: Data?,
+                                 certificatePassword: String?,
+                                 certificateTeamID: String?,
+                                 appTeamID: String?) throws -> Bool {
+        try configure(enabled: false)
+
+        let apkLibraries = nativeLibraryPaths.filter {
+            $0.hasPrefix("lib/arm64-v8a/") || $0.hasPrefix("lib/arm64/")
+        }.map { URL(fileURLWithPath: $0).lastPathComponent }
+        let runtimeNames = runtimeLibraries.map { $0.lastPathComponent }
+        let requiredNames = Set((apkLibraries + runtimeNames).filter { $0.hasSuffix(".so") })
+        guard !requiredNames.isEmpty else { return false }
+
+        guard let certificateP12, !certificateP12.isEmpty,
+              let certificatePassword else {
+            throw PreparationError.certificateUnavailable
+        }
+        guard let certificateTeamID, !certificateTeamID.isEmpty,
+              !certificateTeamID.isEmpty else {
+            throw PreparationError.invalidCertificate
+        }
+        guard let appTeamID, !appTeamID.isEmpty,
+              certificateTeamID == appTeamID else {
+            throw PreparationError.certificateTeamMismatch
+        }
+
+        let tag = SHA256.hash(data: certificateP12)
+            .map { String(format: "%02x", $0) }.joined()
+        let paths = [apk] + runtimeLibraries
+        let prepared = try prepare(apksAndRuntimeLibraries: paths,
+                                   certificateP12: certificateP12,
+                                   certificatePassword: certificatePassword,
+                                   certificateTag: tag,
+                                   signingIdentifier: Bundle.main.bundleIdentifier ?? "")
+        guard prepared == requiredNames.count else {
+            throw PreparationError.incompleteAOT(expected: requiredNames.count, prepared: prepared)
+        }
+
+        try configure(enabled: true)
+        return true
+    }
+
+    /// Convert ARM64 libraries found in the supplied APKs and explicitly supplied
+    /// Android runtime .so files. Original APKs are never modified.
     @discardableResult
     static func prepare(apksAndRuntimeLibraries: [URL],
                         certificateP12: Data,
@@ -101,8 +163,8 @@ enum INFINITYJITLess {
         return Int(result)
     }
 
-    /// Must be called before launching an APK. JIT-less mode is only useful
-    /// after every required native library has a matching signed AOT dylib.
+    /// Configure the loader before launch. AOT directories are only activated after
+    /// the required library set has been completely prepared and signed.
     static func configure(enabled: Bool,
                           bundledFrameworks: URL? = Bundle.main.privateFrameworksURL) throws {
         try FileManager.default.createDirectory(at: cacheDirectory,
@@ -121,6 +183,37 @@ enum INFINITYJITLess {
                     ? "JIT-less mode could not be enabled. Confirm the AOT cache and bundled frameworks are readable."
                     : "JIT-less mode could not be disabled while a runtime session is active."
             )
+        }
+    }
+
+    /// Classify only Husk's explicit executable-memory denial messages. Generic
+    /// loader, graphics, DEX, ELF, memory, and crash messages are never JIT errors.
+    static func classifyFailure(log: String, jitlessEnabled: Bool) -> FailureClassification {
+        let normalized = log.lowercased()
+        if normalized.contains("no stikdebug jit region:") ||
+            normalized.contains("this process cannot make executable memory for itself") {
+            return .confirmedJITRequired
+        }
+        if jitlessEnabled &&
+            normalized.contains("executable memory is turned off (tl_no_xmem)") {
+            return .jitlessAOTUnavailable
+        }
+        return .other
+    }
+
+    static func failureMessage(logURL: URL?, jitlessEnabled: Bool) -> String {
+        guard let logURL,
+              let log = try? String(contentsOf: logURL, encoding: .utf8) else {
+            return "The Android runtime failed. No confirmed JIT restriction was found; inspect the session log for the actual cause."
+        }
+
+        switch classifyFailure(log: log, jitlessEnabled: jitlessEnabled) {
+        case .confirmedJITRequired:
+            return "Confirmed iOS executable-memory restriction. Retry with Strata's Built-in JIT, or attach StikDebug externally, then relaunch."
+        case .jitlessAOTUnavailable:
+            return "Confirmed JIT-less AOT coverage gap: Husk requested executable memory because a required library had no usable signed AOT dylib. Retry with Strata's Built-in JIT or external StikDebug."
+        case .other:
+            return "The Android runtime failed, but its log does not confirm a JIT restriction. This may be an APK, DEX, ELF, Android API, graphics, audio, or memory issue. Check the session log."
         }
     }
 }
