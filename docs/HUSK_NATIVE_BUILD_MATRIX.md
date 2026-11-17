@@ -57,3 +57,31 @@ Create an isolated native C target/module that:
 - Can be compiled in Xcode CI without invoking the existing IPA builder.
 
 No Xcode project target or native compile/link test is claimed by this document. SideStore and the IPA build/sign/export workflows remain out of scope.
+
+## Java runtime source closure and asset generation
+
+The source importer now also vendors the runtime build inputs that the upstream recipes previously referenced but that were absent from the first snapshot:
+
+- `src/java-framework/src/`: 820 Husk Java framework implementation files.
+- `src/java-framework/gen-src/`: 2,270 generated Android platform signature/constant stubs. These are compile-time declarations, not Android framework method implementations.
+- `src/java-framework/gen/` and `stubs/`: generators and compile-time interface inputs.
+- `src/art-support/`: Android guest-side ART support source.
+- `tools/strip_framework_res.py`, `tools/compat/`, and `scripts/copy_aosp_bundle.sh`: helpers referenced by the runtime build recipes.
+
+The generated source audit currently reports 3,286 imported files: 99 native C/Objective-C sources across all audited groups, 820 Java framework sources, 2,270 generated platform stubs, 53 headers/includes, 24 build/helper scripts, 10 Swift host references and 7 documents. The source inventory is not a license clearance: 837 non-generated files still lack per-file SPDX markers and 2,270 generated stubs lack SPDX markers. The root Husk GPL-2.0-or-later notice and the additional Android/AOSP provenance note must be retained; verify the exact Lineage framework image notices before redistributing generated runtime payloads.
+
+### Runtime data requirements
+
+- `build_java_runtime.sh` consumes extracted ART, i18n, Conscrypt and tzdata APEX contents, the matching `framework-res.apk` and `org.apache.http.legacy.jar`, a JDK and R8/D8. It generates `husk-framework.dex` and `husk-framework-core.dex` plus the copied APEX Java/native libraries.
+- `build_android_system.sh` supplies the Android system fonts, font XML and Conscrypt certificate store.
+- `build_art_support.sh` builds Android guest-side `libunwind.so` and `libartpalette-system.so`; it is separate from the iOS host runtime.
+- The new INFINITY asset builder extracts only the required system/APEX content from the pinned Lineage v2 image, builds the Java runtime in an isolated temporary source copy, validates required files, preserves the Android NOTICE when present, and emits a runtime-data ZIP. It does not package the full QEMU guest image or an IPA.
+- The runtime asset workflow is manual-dispatch only and uploads an Actions artifact. It has not yet been executed; no runtime data bundle is claimed available.
+
+### Native bridge implementation boundary
+
+- The INFINITY-owned C adapter now dispatches all ten Husk engine kinds through the app-facing native API: Unity, Java, Cocos, GameActivity, SDL, Unreal, Godot, GTA, Flutter and GameMaker.
+- Husk's own generic `husk_unity_touch`, `husk_unity_set_paused`, frame and performance APIs are engine-aware dispatchers; INFINITY routes generic controls through those rather than collapsing non-Java engines into Unity.
+- Java launch is gated by a successful runtime-asset validation. All launches require a readable ANGLE library and a valid Metal surface; Unreal additionally requires a readable MoltenVK library.
+- Swift exposes the engine selection, launch, touch, pause, Java keyboard hooks, live frame metrics and nonblocking stop through `INFINITYHuskRuntime`. It is not yet connected to the APK Library UI.
+- The ANGLE build has its own isolated iOS arm64 workflow and is not an IPA build. The ANGLE artifact must still be integrated/embedded and code-signed as part of a future authorized app build before it can be loaded by the app.
