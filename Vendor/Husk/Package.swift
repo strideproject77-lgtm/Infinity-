@@ -8,12 +8,12 @@ let package = Package(
         .library(
             name: "INFINITYHuskRuntime",
             type: .static,
-            targets: ["HuskTranslationCore", "HuskAppleAdapters"]
+            targets: ["HuskTranslationRuntime"]
         )
     ],
     targets: [
         .target(
-            name: "HuskTranslationCore",
+            name: "HuskTranslationRuntime",
             path: ".",
             exclude: [
                 "build-support",
@@ -36,12 +36,16 @@ let package = Package(
             publicHeadersPath: "include",
             cSettings: [
                 .define("_DARWIN_C_SOURCE"),
-                .unsafeFlags(["-fblocks"])
+                .unsafeFlags(["-fblocks", "-fobjc-arc"])
             ],
             linkerSettings: [
                 .linkedLibrary("z"),
                 .linkedLibrary("resolv"),
                 .linkedLibrary("sqlite3"),
+                .linkedFramework("Foundation"),
+                .linkedFramework("UIKit"),
+                .linkedFramework("CoreMotion"),
+                .linkedFramework("CoreFoundation"),
                 .linkedFramework("AudioToolbox"),
                 .linkedFramework("CoreText"),
                 .linkedFramework("CoreGraphics"),
@@ -51,22 +55,7 @@ let package = Package(
                 .linkedFramework("CoreMedia"),
                 .linkedFramework("CoreVideo"),
                 .linkedFramework("Accelerate"),
-                .linkedFramework("Security")
-            ]
-        ),
-        .target(
-            name: "HuskAppleAdapters",
-            dependencies: ["HuskTranslationCore"],
-            path: "objc-adapters",
-            publicHeadersPath: "include",
-            cSettings: [
-                .unsafeFlags(["-fobjc-arc", "-fblocks", "-D_DARWIN_C_SOURCE"])
-            ],
-            linkerSettings: [
-                .linkedFramework("Foundation"),
-                .linkedFramework("UIKit"),
-                .linkedFramework("CoreMotion"),
-                .linkedFramework("WebKit"),
+                .linkedFramework("Security"),
                 .linkedFramework("Metal"),
                 .linkedFramework("QuartzCore")
             ]
