@@ -651,3 +651,9 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Updated the provisioner to capture the complete `nm` output before searching it. The follow-up builder run is `44062302063` on commit `d878538e3d840b2cc60be6ef7216c1e9e68f1920`; its provisioning step has passed and the Xcode archive step is running.
 - Native tests run `44062302243`: source-contract/APK archive tests and shell validation passed; the Swift parser and bridge-header type-check jobs were still queued at the last check.
 - Serialized framework diagnostic run `44062176940` is still resolving packages; its build step has not yet started, so the BigNum module-map mitigation remains unverified.
+
+### Latest CI correction
+
+- The first serialized framework diagnostic run `44062176940` did not reach Swift compilation: `xcodebuild` rejected the unsupported argument `-parallelizeTargets NO`. Removed that argument and retained `-jobs 1`; corrected framework workflow commit is `5063dfef8d42eae7a89df3a2edb76a4590468150`, with follow-up run `44062566018` queued.
+- The IPA builder run `44062302063` successfully completed the pinned FFI provisioning step and is still executing the Xcode archive phase. It has not yet reached IPA packaging or artifact upload.
+- No signed IPA, IPA artifact, or verified APK launch is available at this checkpoint. SideStore remains unchanged.
