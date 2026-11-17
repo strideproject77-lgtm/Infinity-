@@ -58,6 +58,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("infinity_husk_prepare_native", header)
         swift = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
         self.assertIn("func prepareNative(", swift)
+        self.assertEqual(swift.count("func prepareNative("), 1)
         self.assertIn("nativeRuntimeNotPrepared", swift)
         self.assertIn("infinity_husk_launch_engine(int engine,", header)
         self.assertIn("husk_unity_touch(phase, pointer_id, x, y)", adapter)
