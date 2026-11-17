@@ -55,6 +55,17 @@ void infinity_husk_java_insert_text(const char *utf8);
 void infinity_husk_java_delete_backward(void);
 void infinity_husk_java_text_action(void);
 void infinity_husk_java_keyboard_closed(void);
+void infinity_husk_java_set_host(void (*keyboard)(int show, int input_type, int ime_options),
+                                 void (*set_clipboard)(const char *utf8),
+                                 char *(*get_clipboard)(void),
+                                 void (*share)(const char *utf8),
+                                 void (*orientation)(int android_orientation));
+void infinity_husk_java_set_document_picker(void (*pick)(const char *mime_types, int multiple));
+void infinity_husk_java_documents_picked(const char *const *paths, int count);
+void infinity_husk_gamepad_connect(int slot, const char *name);
+void infinity_husk_gamepad_disconnect(int slot);
+void infinity_husk_gamepad_update(int slot, unsigned buttons, float lx, float ly,
+                                  float rx, float ry, float left_trigger, float right_trigger);
 
 /* Runtime control and diagnostics. */
 void infinity_husk_stop(void);
