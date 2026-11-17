@@ -75,3 +75,14 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/infinity-husk-derived" \
             CODE_SIGNING_ALLOWED=NO \
             build | tee "$RUNNER_TEMP/infinity-husk-build.log"
+
+      - name: Verify arm64 aggregate object and INFINITY bridge symbols
+        working-directory: Vendor/Husk
+        run: |
+          OBJECT="$RUNNER_TEMP/infinity-husk-derived/Build/Products/Debug-iphoneos/HuskTranslationRuntime.o"
+          test -s "$OBJECT"
+          file "$OBJECT" | tee "$RUNNER_TEMP/infinity-husk-object-file.txt"
+          grep -q "Mach-O 64-bit object arm64" "$RUNNER_TEMP/infinity-husk-object-file.txt"
+          xcrun nm -g "$OBJECT" | grep -q "_infinity_husk_launch_engine"
+          xcrun nm -g "$OBJECT" | grep -q "_infinity_husk_prepare_java"
+
