@@ -85,3 +85,13 @@ The generated source audit currently reports 3,286 imported files: 99 native C/O
 - Java launch is gated by a successful runtime-asset validation. All launches require a readable ANGLE library and a valid Metal surface; Unreal additionally requires a readable MoltenVK library.
 - Swift exposes the engine selection, launch, touch, pause, Java keyboard hooks, live frame metrics and nonblocking stop through `INFINITYHuskRuntime`. It is not yet connected to the APK Library UI.
 - The ANGLE build has its own isolated iOS arm64 workflow and is not an IPA build. The ANGLE artifact must still be integrated/embedded and code-signed as part of a future authorized app build before it can be loaded by the app.
+
+## Strata APK library and launch surface
+
+- Added a persistent APK store under Strata's Documents area. Imports are copied into a staging directory, inspected as ZIP/APK, decoded for manifest metadata, validated for package ID and DEX content, then atomically moved into a package-named directory with an index update/rollback path.
+- Split-required APKs are recorded but launch is blocked; split APK installation is not implemented yet.
+- APK app data is stored separately from the base APK under a per-package data directory.
+- Added a Metal-backed UIKit surface with multi-touch pointer tracking and a SwiftUI launch screen showing live FPS/frame-time diagnostics and pause-on-background behavior.
+- Added a folder-based runtime-data installer. It validates Java framework/APEX files, Android system fonts/font maps/certificates and the CA bundle, stages the payload, then swaps it into the runtime directory with rollback.
+- The app does not treat a dylib copied into Documents as executable code. ANGLE and optional MoltenVK are accepted only from the app's signed `Frameworks` bundle. The ANGLE build workflow is separate and currently produces a build artifact; project embedding/signing is still a gate.
+- APK UI launch remains blocked until native/system assets and the signed ANGLE library are present. No real APK has yet been launched from this UI.
