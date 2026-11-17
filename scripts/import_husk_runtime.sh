@@ -136,6 +136,9 @@ Host app entry point (reference only, never compile into Strata): src/app/Husk/H
 Original QEMU/JIT bridging header (reference only, never compile wholesale): src/app/Husk/HuskBridge.h
 Upstream XcodeGen build manifest (audit reference only): src/app/project.yml
 Runtime resource: src/app/Husk/Resources/cacert.pem
+Java framework sources: src/java-framework/{src,gen-src,gen,stubs}
+ART guest support: src/art-support/
+Build helpers: tools/{strip_framework_res.py,compat/} and scripts/copy_aosp_bundle.sh
 Build recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh
 Technical docs: docs/{00-architecture,01-licensing,04-translation-layer,05-translation-layer-milestone2-handoff}.md
 Import date: $(date -u +%Y-%m-%d)
