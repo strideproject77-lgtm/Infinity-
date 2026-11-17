@@ -576,3 +576,14 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Updated the source-contract suite to cover persistent APK installation, migration-safe app records, split-APK launch blocking, runtime-data staging/rollback, native runtime preparation, and signed graphics-library gating.
 - Latest source-contract and APK archive test job passed: run 44008448645. The Swift bridge/header and Swift parser jobs in that run are still queued.
 - The current ANGLE iOS arm64 build remains in progress. The latest static Husk package build and full Strata framework compile have not yet completed, so native compilation and SwiftUI integration are not yet marked verified.
+
+## Latest CI verification update — 2026-11-17
+
+- Husk static runtime package build run `44007323497` completed **success**. Xcode compiled 97 native source files (93 C and 4 Objective-C translation/bridge sources) for `arm64-apple-ios15.0` and produced the aggregate `HuskTranslationRuntime.o`; the bridge symbols were present in the build log. This is an iOS SDK compile/relocatable-object link, not a Strata framework link or device execution.
+- A follow-up package workflow run `44008791239` adds explicit verification that the arm64 aggregate object exists and exports the INFINITY launch/prepare symbols; it was in progress when checked.
+- ANGLE workflow run `44006769136` completed **success**. The output is a Mach-O arm64 dynamic library with install ID `@rpath/libANGLE-shared.dylib`; the ANGLE license and WebKit revision files were present. The uploaded Actions artifact was 1,988,519 bytes (artifact ID `14294434213`). This does not yet mean the library is embedded or signed in Strata.
+- The ANGLE workflow was then hardened to vendor the verified dylib, headers, license and WebKit revision under `Vendor/Husk/Prebuilt/ANGLE/ios-arm64/` on main. That updated workflow run `44009059125` was queued when checked; no repository prebuilt is claimed until its commit step succeeds.
+- Android runtime asset workflow run `44008841948` failed before downloading the system image: Homebrew installed qemu/e2fsprogs, but the workflow did not expose the keg-only `debugfs` path in the same step. The workflow PATH setup was corrected; retry run `44009246862` was queued. No runtime asset ZIP has been generated yet.
+- Native tests run `44008842009`: source-contract/APK archive regression job **success**; Swift APK parser type-check and Swift-to-Husk bridge-header check were still queued.
+- Strata framework integration run `44008452278` was queued after switching the framework-only job to Xcode 27.2 and recursive submodule checkout. No final framework link is claimed yet.
+- No IPA build, signing, export or real APK execution was performed.
