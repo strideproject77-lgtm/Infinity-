@@ -135,7 +135,7 @@ struct StrataRuntimeCenter: View {
                 if let runtimeAssetsStatus {
                     Text(runtimeAssetsStatus).font(.caption).foregroundStyle(.secondary)
                 }
-                Text("Select the unzipped INFINITY runtime-data folder containing java-runtime, android-system and cacert.pem. ANGLE is separate native code and must be embedded and signed in the app bundle; copying a dylib into Files is not enough.")
+                Text("Select the unzipped INFINITY runtime-data folder containing java-runtime, android-system and cacert.pem. ANGLE and MoltenVK are separate native code and must be embedded and signed in the app bundle; copying a dylib into Files is not enough.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Management") {
