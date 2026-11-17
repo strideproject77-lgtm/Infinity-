@@ -5,6 +5,19 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/build.yml"
+      - "LiveContainerSwiftUI/**"
+      - "LiveContainer/**"
+      - "LiveProcess/**"
+      - "ShareExtension/**"
+      - "LaunchAppExtension/**"
+      - "MultitaskSupport/**"
+      - "SideStoreSupport/**"
+      - "ZSign/**"
+      - "FrameGeneration/**"
+      - "Resources/**"
+      - "LiveContainer.xcodeproj/**"
+      - "Scripts/embed-jit-helper.py"
+      - "Vendor/StikJIT/**"
       - "scripts/prepare_stikjit_idevice.sh"
   workflow_dispatch:
     inputs: 
