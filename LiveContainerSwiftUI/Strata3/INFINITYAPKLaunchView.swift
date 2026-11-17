@@ -10,7 +10,6 @@ private final class INFINITYHuskMetalView: UIView {
     var onTouch: ((Int, Int, Float, Float) -> Void)?
     private var pointerIDs: [ObjectIdentifier: Int] = [:]
     private var nextPointerID = 0
-    private var didNotifyLayer = false
 
     var metalLayer: CAMetalLayer { layer as! CAMetalLayer }
 
@@ -42,8 +41,7 @@ private final class INFINITYHuskMetalView: UIView {
         metalLayer.contentsScale = scale
         metalLayer.drawableSize = CGSize(width: bounds.width * scale,
                                          height: bounds.height * scale)
-        if !didNotifyLayer, metalLayer.device != nil {
-            didNotifyLayer = true
+        if metalLayer.device != nil {
             onLayerReady?(metalLayer)
         }
     }
@@ -240,6 +238,7 @@ struct INFINITYAPKLaunchView: View {
 
     private func launchIfReady(on layer: CAMetalLayer) {
         guard !launchAttempted else { return }
+        guard layer.drawableSize.width > 0, layer.drawableSize.height > 0 else { return }
         launchAttempted = true
 
         do {
