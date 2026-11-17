@@ -1,0 +1,54 @@
+name: INFINITY Husk iOS static runtime build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Vendor/Husk/Package.swift"
+      - "Vendor/Husk/include/**"
+      - "Vendor/Husk/bridge/**"
+      - "Vendor/Husk/translation-layer/**"
+      - "Vendor/Husk/translation-layer-next/**"
+      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
+      - ".github/workflows/infinity-husk-package-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-static-runtime:
+    name: Build Husk translation runtime static library (no app or IPA)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out INFINITY main
+        uses: actions/checkout@v4
+
+      - name: Validate Swift package manifest
+        working-directory: Vendor/Husk
+        run: |
+          swift package dump-package > "$RUNNER_TEMP/infinity-husk-package.json"
+          swift package describe
+
+      - name: Resolve generated package scheme
+        id: scheme
+        working-directory: Vendor/Husk
+        run: |
+          xcodebuild -list -json > "$RUNNER_TEMP/infinity-husk-xcode-list.json"
+          SCHEME="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["project"]["schemes"][0])' "$RUNNER_TEMP/infinity-husk-xcode-list.json")"
+          test -n "$SCHEME"
+          echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
+          echo "Building scheme: $SCHEME"
+
+      - name: Compile and archive static runtime target for iOS SDK
+        working-directory: Vendor/Husk
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -scheme "${{ steps.scheme.outputs.name }}" \
+            -destination "generic/platform=iOS" \
+            -sdk iphoneos \
+            -derivedDataPath "$RUNNER_TEMP/infinity-husk-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee "$RUNNER_TEMP/infinity-husk-build.log"
