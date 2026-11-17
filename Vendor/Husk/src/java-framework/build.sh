@@ -6,7 +6,14 @@ JDK="${HUSK_JDK:-/Volumes/GTAV/husk2/tools-dl/jdk/Contents/Home}"
 D8="${HUSK_D8:-/Volumes/GTAV/husk2/tools-dl/r8.jar}"   # R8 8.5+: the d8 in build-tools 34 crashes on these classes
 OUT="${1:-$HERE/../../build/husk-framework.dex}"
 TMP="$(mktemp -d)"
-python3 "$HERE/gen/gles20.py" "$HERE/src/android/opengl" "$HERE/../translation-layer-next/husk-tl-dvm-gles20.c" >/dev/null
+# The upstream tree keeps translation-layer-next beside java-framework under src/;
+# INFINITY vendors the native source tree at Vendor/Husk/translation-layer-next.
+TL_NEXT="$HERE/../translation-layer-next"
+if [ ! -f "$TL_NEXT/husk-tl-dvm-gles20.c" ]; then
+    TL_NEXT="$HERE/../../translation-layer-next"
+fi
+[ -f "$TL_NEXT/husk-tl-dvm-gles20.c" ] || { echo "translation-layer-next GLES source not found" >&2; exit 2; }
+python3 "$HERE/gen/gles20.py" "$HERE/src/android/opengl" "$TL_NEXT/husk-tl-dvm-gles20.c" >/dev/null
 # libcore's own classes that javac's JDK does not have (org.xmlpull): compiled to build against, not put in the dex
 "$JDK/bin/javac" -nowarn --release 8 -encoding UTF-8 -d "$TMP/stubs" $(find "$HERE/stubs" -name '*.java')
 if ! "$JDK/bin/javac" -nowarn --release 8 -encoding UTF-8 -Xmaxerrs 100000 -cp "$TMP/stubs" -d "$TMP/classes" $(find "$HERE/src" "$HERE/gen-src" -name '*.java') 2> "$TMP/javac.log"; then
