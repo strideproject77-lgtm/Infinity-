@@ -6,6 +6,13 @@ on:
     paths:
       - "LiveContainer.xcodeproj/project.pbxproj"
       - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
+      - "LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.c"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"
       - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
       - "LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h"
       - "Vendor/Husk/Package.swift"
