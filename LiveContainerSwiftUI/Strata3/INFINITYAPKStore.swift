@@ -148,7 +148,7 @@ enum INFINITYAPKStore {
         do {
             try fileManager.copyItem(at: source, to: finalAPK)
             let inspection = try INFINITYAPKInspection.inspect(url: finalAPK)
-            guard inspection.hasManifest, !inspection.entries.isEmpty else {
+            guard inspection.hasManifest, !inspection.dexFiles.isEmpty, !inspection.entries.isEmpty else {
                 throw StoreError.incompleteArchive
             }
             guard let manifest = inspection.manifest else { throw StoreError.invalidManifest }
