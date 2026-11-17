@@ -668,3 +668,12 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - No StikDebug code, pairing files, VPN configuration, or SideStore signing/installation/refresh code is embedded in INFINITY. The user operates the external tool separately when a device test requires JIT.
 - Device test records must state whether the INFINITY process had JIT enabled, how it was enabled, the iOS version, and whether launch/translation succeeded. A JIT-enabled process alone is not APK compatibility evidence.
 - Current status: strategy documented only. No new JIT implementation or JIT-ready runtime claim is made. Native compile/link, signed ANGLE embedding, Android runtime-data preparation, and real 2048/Hill Climb Racing device tests remain separate gates.
+
+
+### DEX execution audit correction — 2026-11-17
+
+- Inspected the vendored `translation-layer-next/husk-tl-dvm.h` and implementation. The header explicitly describes Husk's Java path as a DEX bytecode interpreter, not ART's optimizing JIT compiler. The implementation identifies itself as the Dalvik interpreter.
+- The header explains that Android ART cannot be used directly on Apple arm64 because of ART's low-4-GB/32-bit-reference assumptions and the iOS virtual-memory layout; Husk interprets DEX and calls native libcore methods through its linker.
+- Therefore, external StikDebug can only authorize JIT-capable native code in the INFINITY process where a component actually requests executable memory. It does not convert Husk's current DEX interpreter into ART JIT and must not be presented as a Java/DEX performance fix.
+- Keep StikDebug as the temporary device-side JIT authorization tool for any future component that genuinely needs it, but measure whether the current native translation path uses JIT before making it a launch prerequisite. The 2048 test must first establish whether interpreter-only Java execution is sufficient.
+- No ART JIT, DEX JIT compiler, or JIT acceleration is currently claimed as implemented in INFINITY.
