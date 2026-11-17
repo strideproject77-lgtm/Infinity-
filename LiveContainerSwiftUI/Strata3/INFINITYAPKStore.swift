@@ -58,8 +58,9 @@ enum INFINITYAPKStore {
         guard fileManager.fileExists(atPath: index.path) else { return [] }
         let data = try Data(contentsOf: index)
         let records = try JSONDecoder().decode([INFINITYAPKInstalledApp].self, from: data)
-        return records.filter { fileManager.fileExists(atPath: apkURL(for: $0).path) }
-            .sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
+        return records.filter {
+            isValidPackageName($0.packageName) && fileManager.fileExists(atPath: apkURL(for: $0).path)
+        }.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
     }
 
     @discardableResult
@@ -70,7 +71,6 @@ enum INFINITYAPKStore {
         try ensureRoot()
         let stage = root.appendingPathComponent(".staging-\(UUID().uuidString)", isDirectory: true)
         let finalAPK = stage.appendingPathComponent("base.apk")
-        let stageData = stage.appendingPathComponent("data", isDirectory: true)
         try fileManager.createDirectory(at: stage, withIntermediateDirectories: true)
         do {
             try fileManager.copyItem(at: source, to: finalAPK)
@@ -80,8 +80,6 @@ enum INFINITYAPKStore {
             }
             guard let manifest = inspection.manifest else { throw StoreError.invalidManifest }
             guard Self.isValidPackageName(manifest.packageName) else { throw StoreError.invalidPackageName }
-            try fileManager.createDirectory(at: stageData, withIntermediateDirectories: true)
-
             let engine = Self.detectEngine(inspection)
             let record = INFINITYAPKInstalledApp(
                 packageName: manifest.packageName,
@@ -102,11 +100,6 @@ enum INFINITYAPKStore {
             let hadPrevious = fileManager.fileExists(atPath: finalDirectory.path)
             if hadPrevious {
                 try fileManager.moveItem(at: finalDirectory, to: backupDirectory)
-                let oldData = backupDirectory.appendingPathComponent("data", isDirectory: true)
-                if fileManager.fileExists(atPath: oldData.path) {
-                    try fileManager.removeItem(at: stageData)
-                    try fileManager.moveItem(at: oldData, to: stageData)
-                }
             }
 
             do {
@@ -140,6 +133,12 @@ enum INFINITYAPKStore {
         if fileManager.fileExists(atPath: directory.path) {
             try fileManager.removeItem(at: directory)
         }
+        let dataDirectory = root.appendingPathComponent("Data", isDirectory: true)
+            .appendingPathComponent(packageName, isDirectory: true).standardizedFileURL
+        if dataDirectory.path.hasPrefix(root.standardizedFileURL.path + "/"),
+           fileManager.fileExists(atPath: dataDirectory.path) {
+            try fileManager.removeItem(at: dataDirectory)
+        }
         var records = try readIndex()
         records.removeAll { $0.packageName == packageName }
         try writeIndex(records)
@@ -150,8 +149,8 @@ enum INFINITYAPKStore {
     }
 
     static func dataURL(for app: INFINITYAPKInstalledApp) throws -> URL {
-        let directory = root.appendingPathComponent(app.packageName, isDirectory: true)
-            .appendingPathComponent("data", isDirectory: true).standardizedFileURL
+        let directory = root.appendingPathComponent("Data", isDirectory: true)
+            .appendingPathComponent(app.packageName, isDirectory: true).standardizedFileURL
         guard directory.path.hasPrefix(root.standardizedFileURL.path + "/") else {
             throw StoreError.invalidPackageName
         }
