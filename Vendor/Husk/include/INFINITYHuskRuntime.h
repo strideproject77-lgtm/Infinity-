@@ -56,8 +56,8 @@ bool infinity_husk_launch_engine(int engine,
                                  const char *angle_dylib, const char *ca_bundle,
                                  const char *moltenvk_dylib);
 
-/* Start is asynchronous. Paths must remain valid for the duration of the session.
-   The surface is a host CAMetalLayer (or NULL for a headless diagnostic session). */
+/* Start is asynchronous. APK/data/ANGLE paths must be readable; ANGLE is required by
+   Husk's EGL/GLES launch path. The surface is a host CAMetalLayer. */
 bool infinity_husk_launch_java(const char *apk_path, const char *data_dir,
                                void *metal_layer, int width, int height,
                                const char *angle_dylib, const char *ca_bundle);
