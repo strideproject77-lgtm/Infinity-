@@ -53,11 +53,19 @@ enum INFINITYAPKStore {
     }
 
     static var angleLibraryURL: URL {
-        runtimeRoot.appendingPathComponent("libANGLE-shared.dylib")
+        if let embedded = Bundle.main.privateFrameworksURL?.appendingPathComponent("libANGLE-shared.dylib"),
+           fileManager.isReadableFile(atPath: embedded.path) {
+            return embedded
+        }
+        return runtimeRoot.appendingPathComponent("libANGLE-shared.dylib")
     }
 
     static var moltenVKLibraryURL: URL {
-        runtimeRoot.appendingPathComponent("libMoltenVK.dylib")
+        if let embedded = Bundle.main.privateFrameworksURL?.appendingPathComponent("libMoltenVK.dylib"),
+           fileManager.isReadableFile(atPath: embedded.path) {
+            return embedded
+        }
+        return runtimeRoot.appendingPathComponent("libMoltenVK.dylib")
     }
 
     static func installedApps() throws -> [INFINITYAPKInstalledApp] {
@@ -238,6 +246,8 @@ enum INFINITYAPKStore {
         if names.contains("libyoyo.so") { return "gameMaker" }
         if names.contains("libflutter.so") { return "flutter" }
         if names.contains("libcocos2dcpp.so") { return "cocos" }
+        if names.contains("libsdl2.so") || names.contains("libsdl3.so") { return "sdl" }
+        if names.contains("libminecraftpe.so") || names.contains("libgameactivity.so") { return "gameActivity" }
         if inspection.dexFiles.isEmpty == false { return "java" }
         return nil
     }
