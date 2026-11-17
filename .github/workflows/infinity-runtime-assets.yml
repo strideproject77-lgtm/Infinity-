@@ -23,7 +23,16 @@ jobs:
       - name: Install image extraction tools
         run: |
           brew install qemu e2fsprogs gptfdisk
-          echo "/opt/homebrew/opt/e2fsprogs/sbin" >> "$GITHUB_PATH"
+          DEBUGFS_DIR="$(brew --prefix e2fsprogs)/sbin"
+          if [[ ! -x "$DEBUGFS_DIR/debugfs" ]]; then
+            DEBUGFS_DIR="$(brew --prefix e2fsprogs)/bin"
+          fi
+          test -x "$DEBUGFS_DIR/debugfs"
+          echo "$DEBUGFS_DIR" >> "$GITHUB_PATH"
+          export PATH="$DEBUGFS_DIR:$PATH"
+          if ! command -v gpt >/dev/null 2>&1 && [[ -x /usr/sbin/gpt ]]; then
+            export PATH="/usr/sbin:$PATH"
+          fi
           command -v qemu-img
           command -v debugfs
           command -v gpt
