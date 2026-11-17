@@ -657,3 +657,14 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - The first serialized framework diagnostic run `44062176940` did not reach Swift compilation: `xcodebuild` rejected the unsupported argument `-parallelizeTargets NO`. Removed that argument and retained `-jobs 1`; corrected framework workflow commit is `5063dfef8d42eae7a89df3a2edb76a4590468150`, with follow-up run `44062566018` queued.
 - The IPA builder run `44062302063` successfully completed the pinned FFI provisioning step and is still executing the Xcode archive phase. It has not yet reached IPA packaging or artifact upload.
 - No signed IPA, IPA artifact, or verified APK launch is available at this checkpoint. SideStore remains unchanged.
+
+
+## Temporary JIT strategy — 2026-11-17
+
+- Decision: use the user's existing external StikDebug + LocalDevVPN workflow as the temporary iOS JIT-enablement method for INFINITY device testing. Do not block native-runtime integration on implementing a built-in Strata JIT enabler.
+- StikDebug is an external iOS process/JIT authorization tool. It does not provide Android ART, DEX execution, Android framework APIs, Bionic, JNI, or a guest-side JIT compiler.
+- Android bytecode execution/JIT remains a separate runtime responsibility. The imported Husk native translation target must be audited for its actual Java/DEX execution behavior; do not infer ART JIT support from the presence of iOS JIT authorization.
+- Keep Husk's broad `HuskBridge.h`, QEMU guest JIT interfaces, and separate pairing/JIT helper dependencies excluded from the first native translation target. Do not add those dependencies merely to remove an audit warning.
+- No StikDebug code, pairing files, VPN configuration, or SideStore signing/installation/refresh code is embedded in INFINITY. The user operates the external tool separately when a device test requires JIT.
+- Device test records must state whether the INFINITY process had JIT enabled, how it was enabled, the iOS version, and whether launch/translation succeeded. A JIT-enabled process alone is not APK compatibility evidence.
+- Current status: strategy documented only. No new JIT implementation or JIT-ready runtime claim is made. Native compile/link, signed ANGLE embedding, Android runtime-data preparation, and real 2048/Hill Climb Racing device tests remain separate gates.
