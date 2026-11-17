@@ -21,6 +21,8 @@ let package = Package(
                 "host-reference",
                 "host-runtime",
                 "resources",
+                "src",
+                "tools",
                 "upstream-docs",
                 "objc-adapters",
                 "tests",
