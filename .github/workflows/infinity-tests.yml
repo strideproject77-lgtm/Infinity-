@@ -9,6 +9,9 @@ on:
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
+      - "Vendor/Husk/include/**"
+      - "Vendor/Husk/bridge/**"
+      - "Vendor/Husk/Package.swift"
       - "LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h"
       - "scripts/import_husk_runtime.sh"
       - "scripts/audit_husk_runtime.py"
@@ -49,8 +52,12 @@ jobs:
         run: |
           cat > /tmp/INFINITYHuskBridgeSmoke.swift <<'SWIFT'
           import Foundation
-          let _ = HUSK_UNITY_IDLE
-          let _ = HUSK_UNITY_RUNNING
+          let _ = INFINITY_HUSK_IDLE
+          let _ = INFINITY_HUSK_RUNNING
+          let _ = infinity_husk_get_state()
+          let _ = infinity_husk_frames()
+          let _ = infinity_husk_launch_java(nil, nil, nil, 0, 0, nil, nil)
+          let _ = infinity_husk_prepare_java(nil, 1.0, nil, nil, nil, nil, false)
           SWIFT
           swiftc -typecheck \
             -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
