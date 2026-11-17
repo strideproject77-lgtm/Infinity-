@@ -99,7 +99,7 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
     return true;
 }
 
-bool infinity_husk_launch_engine(infinity_husk_engine engine,
+bool infinity_husk_launch_engine(int engine,
                                  const char *apk_path, const char *data_dir,
                                  void *metal_layer, int width, int height,
                                  const char *angle_dylib, const char *ca_bundle,
