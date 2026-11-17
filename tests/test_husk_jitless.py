@@ -58,6 +58,12 @@ class HuskJITLessContractTests(unittest.TestCase):
         self.assertNotIn('normalized.contains("failed")', swift)
         self.assertNotIn('normalized.contains("crash")', swift)
 
+    def test_builtin_jit_is_not_claimed_as_an_infinity_host_fallback(self):
+        swift = self.read("LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift")
+        self.assertIn("External StikDebug may attach to INFINITY's process", swift)
+        self.assertIn("requires a separate guest process", swift)
+        self.assertIn("not connected to this APK runtime", swift)
+
     def test_launch_uses_a_fresh_husk_log_and_resets_jitless_after_stop(self):
         launch = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
         runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
