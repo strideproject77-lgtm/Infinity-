@@ -570,3 +570,9 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - ANGLE is being built separately but is not embedded/signed in the app yet.
 - No 2048, HCR or other APK compatibility claim is currently evidence-based.
 - No IPA has been built, signed or exported. SideStore source, targets, configuration, signing, installation and refresh systems remain untouched.
+
+## Latest regression check — 2026-11-17
+
+- Updated the source-contract suite to cover persistent APK installation, migration-safe app records, split-APK launch blocking, runtime-data staging/rollback, native runtime preparation, and signed graphics-library gating.
+- Latest source-contract and APK archive test job passed: run 44008448645. The Swift bridge/header and Swift parser jobs in that run are still queued.
+- The current ANGLE iOS arm64 build remains in progress. The latest static Husk package build and full Strata framework compile have not yet completed, so native compilation and SwiftUI integration are not yet marked verified.
