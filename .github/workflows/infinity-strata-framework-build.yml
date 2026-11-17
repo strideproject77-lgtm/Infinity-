@@ -57,5 +57,7 @@ jobs:
             -SYMROOT="$RUNNER_TEMP/infinity-strata-products" \
             -OBJROOT="$RUNNER_TEMP/infinity-strata-objects" \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            SWIFT_ENABLE_EXPLICIT_MODULES=NO \
+            -jobs 2 \
             CODE_SIGNING_ALLOWED=NO \
             build | tee "$RUNNER_TEMP/infinity-strata-framework.log"
