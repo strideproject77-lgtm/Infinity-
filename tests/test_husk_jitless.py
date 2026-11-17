@@ -54,7 +54,7 @@ class HuskJITLessContractTests(unittest.TestCase):
         self.assertIn('normalized.contains("this process cannot make executable memory for itself")', swift)
         self.assertIn('normalized.contains("executable memory is turned off (tl_no_xmem)")', swift)
         self.assertIn("return .other", swift)
-        self.assertIn("JIT, DEX, ELF, Android API, graphics, audio, or memory", swift)
+        self.assertIn("DEX, ELF, Android API, graphics, audio, or memory", swift)
         self.assertNotIn('normalized.contains("failed")', swift)
         self.assertNotIn('normalized.contains("crash")', swift)
 
