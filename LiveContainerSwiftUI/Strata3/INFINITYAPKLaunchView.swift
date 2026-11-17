@@ -192,6 +192,7 @@ struct INFINITYAPKLaunchView: View {
     @State private var metalLayer: CAMetalLayer?
     @State private var launchAttempted = false
     @State private var launchError: String?
+    @State private var jitlessPreparationNote: String?
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -221,6 +222,9 @@ struct INFINITYAPKLaunchView: View {
                 } else if runtime.state == .starting {
                     ProgressView("Starting Android runtime…")
                 }
+                if let jitlessPreparationNote {
+                    Text(jitlessPreparationNote).font(.caption).foregroundStyle(.secondary)
+                }
                 if let launchError {
                     Text(launchError).font(.caption).foregroundStyle(.red)
                 } else if let error = runtime.lastError {
@@ -247,7 +251,12 @@ struct INFINITYAPKLaunchView: View {
         guard !launchAttempted else { return }
         guard layer.drawableSize.width > 0, layer.drawableSize.height > 0 else { return }
         launchAttempted = true
+        Task { @MainActor in
+            await prepareAndLaunch(on: layer)
+        }
+    }
 
+    private func prepareAndLaunch(on layer: CAMetalLayer) async {
         do {
             guard let engine = selectedEngine else {
                 throw INFINITYHuskRuntime.RuntimeError.rejectedLaunch
@@ -266,14 +275,56 @@ struct INFINITYAPKLaunchView: View {
             let height = max(1, Int(layer.drawableSize.height))
             let certificates = nativeBundle.certificateBundle
 
+            var javaBundle: INFINITYAPKStore.RuntimeBundle?
             if engine == .java {
                 guard let bundle = INFINITYAPKStore.runtimeBundle() else {
                     throw INFINITYAPKStore.StoreError.missingRuntimeAssets
                 }
-                try runtime.prepareJava(runtimeRoot: bundle.javaRoot,
+                javaBundle = bundle
+            }
+
+            let runtimeLibraries = javaBundle.map { javaRuntimeLibraries(in: $0.javaRoot) } ?? []
+            let certificateP12 = LCUtils.certificateData()
+            let certificatePassword = LCSharedUtils.certificatePassword()
+            let certificateTeamID: String?
+            if let certificateP12, let certificatePassword {
+                certificateTeamID = LCUtils.getCertTeamId(withKeyData: certificateP12,
+                                                          password: certificatePassword)
+            } else {
+                certificateTeamID = nil
+            }
+
+            let jitlessEnabled: Bool
+            do {
+                jitlessEnabled = try await Task.detached(priority: .userInitiated) {
+                    try INFINITYJITLess.prepareForLaunch(
+                        apk: apk,
+                        nativeLibraryPaths: app.nativeLibraries,
+                        runtimeLibraries: runtimeLibraries,
+                        certificateP12: certificateP12,
+                        certificatePassword: certificatePassword,
+                        certificateTeamID: certificateTeamID,
+                        appTeamID: LCSharedUtils.teamIdentifier()
+                    )
+                }.value
+                jitlessPreparationNote = jitlessEnabled
+                    ? "JIT-less AOT ready · \(INFINITYJITLess.preparedLibraryCount) signed libraries"
+                    : "No ARM64 native libraries require JIT-less AOT preparation."
+            } catch {
+                try? INFINITYJITLess.configure(enabled: false)
+                jitlessPreparationNote = "JIT-less AOT not enabled: \(error.localizedDescription)"
+            }
+
+            let logURL = dataDirectory.appendingPathComponent(
+                engine == .unity ? "unity-run.log" : "native-run.log"
+            )
+            try? FileManager.default.removeItem(at: logURL)
+
+            if let javaBundle {
+                try runtime.prepareJava(runtimeRoot: javaBundle.javaRoot,
                                         density: Float(scale),
-                                        certificatesDirectory: bundle.certificatesDirectory,
-                                        systemFilesRoot: bundle.systemRoot,
+                                        certificatesDirectory: javaBundle.certificatesDirectory,
+                                        systemFilesRoot: javaBundle.systemRoot,
                                         nightMode: UITraitCollection.current.userInterfaceStyle == .dark)
             } else {
                 try runtime.prepareNative(certificatesDirectory: nativeBundle.certificatesDirectory,
@@ -284,10 +335,29 @@ struct INFINITYAPKLaunchView: View {
             try runtime.launch(engine: engine, apk: apk, dataDirectory: dataDirectory,
                                metalLayer: layer, width: width, height: height,
                                angleLibrary: angle, certificateBundle: certificates,
-                               moltenVKLibrary: moltenVK)
+                               moltenVKLibrary: moltenVK,
+                               jitlessEnabled: jitlessEnabled,
+                               diagnosticLogURL: logURL)
         } catch {
             launchError = error.localizedDescription
         }
+    }
+
+    private func javaRuntimeLibraries(in root: URL) -> [URL] {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        var libraries: [URL] = []
+        while let url = enumerator.nextObject() as? URL {
+            guard url.pathExtension == "so",
+                  let values = try? url.resourceValues(forKeys: [.isRegularFileKey]),
+                  values.isRegularFile == true else { continue }
+            libraries.append(url)
+        }
+        return libraries
     }
 
     private var selectedEngine: INFINITYHuskRuntime.Engine? {
