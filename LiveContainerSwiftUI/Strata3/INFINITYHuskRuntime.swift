@@ -63,6 +63,7 @@ final class INFINITYHuskRuntime: ObservableObject {
     @Published private(set) var loadedAPK: String?
     @Published private(set) var lastError: String?
     @Published private(set) var selectedEngine: Engine?
+    @Published private(set) var isStopping = false
 
     private var javaRuntimePrepared = false
     private var pollingTask: Task<Void, Never>?
@@ -210,10 +211,12 @@ final class INFINITYHuskRuntime: ObservableObject {
         pollingTask = nil
         guard state != .idle else {
             resetPublishedSession()
+            isStopping = false
             return
         }
 
         // Native shutdown may wait for engine threads; never block the SwiftUI main actor.
+        isStopping = true
         Task { [weak self] in
             await Task.detached(priority: .userInitiated) {
                 infinity_husk_stop()
@@ -221,6 +224,7 @@ final class INFINITYHuskRuntime: ObservableObject {
             guard let self else { return }
             self.refreshState()
             self.resetPublishedSession()
+            self.isStopping = false
         }
     }
 
