@@ -92,6 +92,9 @@ void infinity_husk_stop(void);
 infinity_husk_state infinity_husk_get_state(void);
 const char *infinity_husk_loaded_apk(void);
 unsigned long infinity_husk_frames(void);
+void infinity_husk_touch(int phase, int pointer_id, float x, float y);
+void infinity_husk_set_paused(bool paused);
+/* Backward-compatible aliases; both use Husk's engine-aware dispatcher. */
 void infinity_husk_unity_touch(int phase, int pointer_id, float x, float y);
 void infinity_husk_unity_set_paused(bool paused);
 void infinity_husk_unity_performance(infinity_husk_performance *out);
