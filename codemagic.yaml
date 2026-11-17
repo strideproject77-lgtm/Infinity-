@@ -14,10 +14,6 @@ workflows:
         archive_path: archive
 
 
-    triggering:
-      events:
-        - push
-
     when:
       changeset:
         includes:
