@@ -102,19 +102,27 @@ enum INFINITYAPKStore {
     }
 
     static var angleLibraryURL: URL {
-        if let embedded = Bundle.main.privateFrameworksURL?.appendingPathComponent("libANGLE-shared.dylib"),
-           fileManager.isReadableFile(atPath: embedded.path) {
-            return embedded
+        Bundle.main.privateFrameworksURL?.appendingPathComponent("libANGLE-shared.dylib")
+            ?? runtimeRoot.appendingPathComponent("libANGLE-shared.dylib")
+    }
+
+    static var isANGLEEmbeddedAndReadable: Bool {
+        guard let embedded = Bundle.main.privateFrameworksURL?.appendingPathComponent("libANGLE-shared.dylib") else {
+            return false
         }
-        return runtimeRoot.appendingPathComponent("libANGLE-shared.dylib")
+        return fileManager.isReadableFile(atPath: embedded.path)
     }
 
     static var moltenVKLibraryURL: URL {
-        if let embedded = Bundle.main.privateFrameworksURL?.appendingPathComponent("libMoltenVK.dylib"),
-           fileManager.isReadableFile(atPath: embedded.path) {
-            return embedded
+        Bundle.main.privateFrameworksURL?.appendingPathComponent("libMoltenVK.dylib")
+            ?? runtimeRoot.appendingPathComponent("libMoltenVK.dylib")
+    }
+
+    static var isMoltenVKEmbeddedAndReadable: Bool {
+        guard let embedded = Bundle.main.privateFrameworksURL?.appendingPathComponent("libMoltenVK.dylib") else {
+            return false
         }
-        return runtimeRoot.appendingPathComponent("libMoltenVK.dylib")
+        return fileManager.isReadableFile(atPath: embedded.path)
     }
 
     static func installedApps() throws -> [INFINITYAPKInstalledApp] {
@@ -236,7 +244,7 @@ enum INFINITYAPKStore {
               fileManager.fileExists(atPath: fontFiles.path),
               fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/fonts.xml").path),
               fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/font_fallback.xml").path),
-              fileManager.isReadableFile(atPath: angle.path),
+              isANGLEEmbeddedAndReadable,
               fileManager.isReadableFile(atPath: caBundle.path) else {
             return nil
         }
