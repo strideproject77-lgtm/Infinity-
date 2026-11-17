@@ -621,3 +621,16 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - This is a source-level correctness improvement, not evidence of APK execution or a successful native rebuild. CI for this batch must complete before marking it compiled/tested.
 - Current Actions state before this batch: framework build 44058032729 queued; native test 44057695911 source-contract job succeeded while remaining jobs were pending; runtime-data build 44057637895 queued. The new commits will trigger/queue their own checks.
 - No IPA build/sign/export was run or authorized. SideStore code/configuration/signing/install/refresh remains untouched. 2048 and Hill Climb Racing remain untested.
+
+
+## ANGLE app-bundle integration batch — 2026-11-17
+
+- Added the already-built, pinned iOS arm64 ANGLE dylib from `Vendor/Husk/Prebuilt/ANGLE/ios-arm64/lib/libANGLE-shared.dylib` to the Xcode project Frameworks group and the **LiveContainer app target's** `Embed Frameworks` copy phase.
+- The build-file entry uses `CodeSignOnCopy`; the intended output location is the app's Frameworks directory. This is project configuration only: no IPA/app build was run, so actual bundle placement and signing still require a successful app build and inspection.
+- No SideStore target, source, signing configuration, install/refresh path, or existing IPA builder workflow was changed.
+- Added runtime readiness rows to the installed APK detail screen: ANGLE embedded/readable, Android system data installed, Java/ART assets for Java APKs, and MoltenVK for Unreal APKs. This exposes blockers instead of a generic launch status.
+- Added source-contract coverage for the app embed phase, `CodeSignOnCopy`, and runtime readiness diagnostics. Corrected the test's Xcode target matcher.
+- Commits: project ANGLE embedding `fc88fd26d602c373424de34bb9adabff5b62d0c4`; readiness UI `90206af91e4eff7bcad7e52eb2ffc1704f4c1787`; regression test `7ebdb6a4fc5c5d5d5649ca88a4da62a03402b642`; test matcher correction `c680b7128466a0980f5556ae57db4293e9c2c4ef`.
+- CI snapshot: source-contract job for run `44058344354` passed; its Swift bridge and parser jobs were queued. Framework builds `44058327751` and `44058032729` were in progress; static runtime build `44058327716` was queued. A source-contract run on the intermediate adapter commit `44058327925` failed only because it still expected the old non-atomic launch store; the updated regression test is in later commit `d821a455` and run `44058344354` passed its source-contract job.
+- The ANGLE integration is **configured, not yet verified in a built/signed app**. Native launch concurrency changes are committed but need their native compile job to pass. Runtime asset ZIP generation remains pending. No APK has been executed successfully.
+- No IPA build, signing or export was performed. Real-device 2048 then Hill Climb Racing tests remain the acceptance gate.
