@@ -74,29 +74,52 @@ final class INFINITYHuskRuntime: ObservableObject {
         lastError = nil
     }
 
-    func launchJava(apk: URL,
-                    dataDirectory: URL,
-                    metalLayer: CAMetalLayer?,
-                    width: Int,
-                    height: Int,
-                    angleLibrary: URL,
-                    certificateBundle: URL? = nil) throws {
-        guard javaRuntimePrepared else { throw RuntimeError.javaRuntimeNotPrepared }
-        guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
+    enum Engine: Int32 {
+        case unity = 0
+        case java = 1
+        case cocos = 2
+        case gameActivity = 3
+        case sdl = 4
+        case unreal = 5
+        case godot = 6
+        case grandTheftAuto = 7
+        case flutter = 8
+        case gameMaker = 9
+    }
 
+    func launch(engine: Engine,
+                apk: URL,
+                dataDirectory: URL,
+                metalLayer: CAMetalLayer,
+                width: Int,
+                height: Int,
+                angleLibrary: URL,
+                certificateBundle: URL? = nil,
+                moltenVKLibrary: URL? = nil) throws {
+        if engine == .java && !javaRuntimePrepared {
+            throw RuntimeError.javaRuntimeNotPrepared
+        }
+        guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
         guard FileManager.default.isReadableFile(atPath: angleLibrary.path) else {
             throw RuntimeError.graphicsRuntimeNotPrepared
         }
-        guard FileManager.default.isReadableFile(atPath: angleLibrary.path) else {
-            throw RuntimeError.graphicsRuntimeNotPrepared
+        if engine == .unreal {
+            guard let moltenVKLibrary,
+                  FileManager.default.isReadableFile(atPath: moltenVKLibrary.path) else {
+                throw RuntimeError.graphicsRuntimeNotPrepared
+            }
         }
-        let layer = metalLayer.map { Unmanaged.passUnretained($0).toOpaque() }
+
+        let layer = Unmanaged.passUnretained(metalLayer).toOpaque()
         let accepted = apk.path.withCString { apkPath in
             dataDirectory.path.withCString { dataPath in
                 angleLibrary.path.withCString { angle in
                     withOptionalCString(certificateBundle?.path) { certificates in
-                        infinity_husk_launch_java(apkPath, dataPath, layer,
-                                                  Int32(width), Int32(height), angle, certificates)
+                        withOptionalCString(moltenVKLibrary?.path) { moltenVK in
+                            infinity_husk_launch_engine(engine.rawValue, apkPath, dataPath,
+                                                       layer, Int32(width), Int32(height),
+                                                       angle, certificates, moltenVK)
+                        }
                     }
                 }
             }
@@ -106,29 +129,28 @@ final class INFINITYHuskRuntime: ObservableObject {
         beginPolling()
     }
 
+    func launchJava(apk: URL,
+                    dataDirectory: URL,
+                    metalLayer: CAMetalLayer,
+                    width: Int,
+                    height: Int,
+                    angleLibrary: URL,
+                    certificateBundle: URL? = nil) throws {
+        try launch(engine: .java, apk: apk, dataDirectory: dataDirectory,
+                   metalLayer: metalLayer, width: width, height: height,
+                   angleLibrary: angleLibrary, certificateBundle: certificateBundle)
+    }
+
     func launchUnity(apk: URL,
                      dataDirectory: URL,
-                     metalLayer: CAMetalLayer?,
+                     metalLayer: CAMetalLayer,
                      width: Int,
                      height: Int,
                      angleLibrary: URL,
                      certificateBundle: URL? = nil) throws {
-        guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
-
-        let layer = metalLayer.map { Unmanaged.passUnretained($0).toOpaque() }
-        let accepted = apk.path.withCString { apkPath in
-            dataDirectory.path.withCString { dataPath in
-                angleLibrary.path.withCString { angle in
-                    withOptionalCString(certificateBundle?.path) { certificates in
-                        infinity_husk_launch_unity(apkPath, dataPath, layer,
-                                                   Int32(width), Int32(height), angle, certificates)
-                    }
-                }
-            }
-        }
-        guard accepted else { throw RuntimeError.rejectedLaunch }
-        lastError = nil
-        beginPolling()
+        try launch(engine: .unity, apk: apk, dataDirectory: dataDirectory,
+                   metalLayer: metalLayer, width: width, height: height,
+                   angleLibrary: angleLibrary, certificateBundle: certificateBundle)
     }
 
     func setJavaInsets(left: Int, top: Int, right: Int, bottom: Int, keyboardBottom: Int) {
