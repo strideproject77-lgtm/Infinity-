@@ -587,3 +587,15 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Native tests run `44008842009`: source-contract/APK archive regression job **success**; Swift APK parser type-check and Swift-to-Husk bridge-header check were still queued.
 - Strata framework integration run `44008452278` was queued after switching the framework-only job to Xcode 27.2 and recursive submodule checkout. No final framework link is claimed yet.
 - No IPA build, signing, export or real APK execution was performed.
+
+
+## Continuation batch — CI diagnosis and source fixes (2026-11-17)
+
+- Reconfirmed the active repository is `strideproject77-lgtm/Infinity-` and all changes were made on `main`.
+- Verified ANGLE build/vendor workflow run `44009059125` completed successfully. The verified iOS arm64 ANGLE dylib, headers, BSD license and pinned WebKit revision are now committed under `Vendor/Husk/Prebuilt/ANGLE/ios-arm64/` (vendor commit `c2d9c34c4d859c0312311586ded2daaa9b148c13`). This is a vendored prebuilt only; it is not embedded in a signed app bundle.
+- Inspected failed Swift bridge check `44009246927`: it exposed a duplicate `prepareNative(...)` method in `INFINITYHuskRuntime.swift`, which also caused a cascading throw diagnostic. Removed the duplicate in commit `de8f55d646fcd1156d416bb6e99bb00dc7cb398b`.
+- Inspected runtime asset build failure `44009246862`: font extraction stopped at a malformed `find -exec` terminator. Corrected the shell command in commit `2433195a9d56c98b02c3d8314a49bb9f16382434`.
+- Added regression assertions for exactly one Swift `prepareNative` declaration and the valid font-copy `find -exec` terminator. Test commits: `60778df884425754a6b1ab2fd72fce99a9e550ac` and `c856802a96a773b98bfcbb09d9655e553759dc38`.
+- Latest observed CI after these changes: native test run `44057689157` queued; native test run `44057638064` queued; runtime asset build run `44057637895` queued; SwiftUI framework build run `44057630057` in progress. These are not yet verified passes.
+- The previous framework build `44008452278` fetched recursive submodules successfully but failed while compiling the existing `swift-srp` dependency target. It did not report the old missing `litehook.h` checkout problem. The next step is to inspect the complete SRP compiler diagnostic and distinguish an upstream/toolchain issue from an INFINITY integration issue; do not modify SideStore or unrelated dependencies to mask it.
+- No IPA build, signing, export, simulator/device test, or real APK execution was performed. The 2048 and Hill Climb Racing compatibility status remains untested.
