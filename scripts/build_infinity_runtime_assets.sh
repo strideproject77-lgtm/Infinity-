@@ -29,10 +29,11 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 RAW="$WORK/vda.raw"
 SYSTEM_IMG="$WORK/system.img"
-SYSTEM_APEX="$WORK/system-apex"
+SYSTEM_DUMP="$WORK/system-dump"
+SYSTEM_APEX="$SYSTEM_DUMP/apex"
 APEX_ROOT="$WORK/apex"
 HUSK_ROOT="$WORK/husk-source"
-mkdir -p "$SYSTEM_APEX" "$APEX_ROOT" "$HUSK_ROOT"
+mkdir -p "$SYSTEM_DUMP" "$APEX_ROOT" "$HUSK_ROOT"
 
 echo "==> Converting the Lineage qcow2 image"
 qemu-img convert -O raw "$IMAGE" "$RAW"
@@ -102,7 +103,7 @@ fi
 [[ -n "$DEBUGFS" ]] || { echo "error: debugfs from e2fsprogs is required" >&2; exit 2; }
 
 echo "==> Extracting APEX modules and platform framework resources"
-"$DEBUGFS" -R "rdump /system/apex $SYSTEM_APEX" "$SYSTEM_IMG" >/dev/null
+"$DEBUGFS" -R "rdump /system/apex $SYSTEM_DUMP" "$SYSTEM_IMG" >/dev/null
 "$DEBUGFS" -R "dump /system/framework/framework-res.apk $WORK/framework-res.apk" "$SYSTEM_IMG" >/dev/null
 "$DEBUGFS" -R "dump /system/framework/org.apache.http.legacy.jar $WORK/org.apache.http.legacy.jar" "$SYSTEM_IMG" >/dev/null
 
@@ -142,8 +143,8 @@ done
 echo "==> Preparing matching Android system fonts, certificates and font maps"
 ANDROID_SYSTEM="$WORK/husk-source/build/android-system"
 mkdir -p "$ANDROID_SYSTEM/fonts" "$ANDROID_SYSTEM/etc" "$ANDROID_SYSTEM/cacerts"
-mkdir -p "$WORK/system-dump"
-"$DEBUGFS" -R "rdump /system/fonts $WORK/system-dump" "$SYSTEM_IMG" >/dev/null
+mkdir -p "$SYSTEM_DUMP"
+"$DEBUGFS" -R "rdump /system/fonts $SYSTEM_DUMP" "$SYSTEM_IMG" >/dev/null
 find "$WORK/system-dump/fonts" -type f ! -name '*CJK*' -size +100c -exec cp {} "$ANDROID_SYSTEM/fonts/" ;
 "$DEBUGFS" -R "dump /system/etc/fonts.xml $ANDROID_SYSTEM/etc/fonts.xml" "$SYSTEM_IMG" >/dev/null
 "$DEBUGFS" -R "dump /system/etc/font_fallback.xml $ANDROID_SYSTEM/etc/font_fallback.xml" "$SYSTEM_IMG" >/dev/null
