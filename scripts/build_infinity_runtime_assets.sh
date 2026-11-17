@@ -145,7 +145,7 @@ ANDROID_SYSTEM="$WORK/husk-source/build/android-system"
 mkdir -p "$ANDROID_SYSTEM/fonts" "$ANDROID_SYSTEM/etc" "$ANDROID_SYSTEM/cacerts"
 mkdir -p "$SYSTEM_DUMP"
 "$DEBUGFS" -R "rdump /system/fonts $SYSTEM_DUMP" "$SYSTEM_IMG" >/dev/null
-find "$WORK/system-dump/fonts" -type f ! -name '*CJK*' -size +100c -exec cp {} "$ANDROID_SYSTEM/fonts/" ;
+find "$WORK/system-dump/fonts" -type f ! -name '*CJK*' -size +100c -exec cp {} "$ANDROID_SYSTEM/fonts/" \\;
 "$DEBUGFS" -R "dump /system/etc/fonts.xml $ANDROID_SYSTEM/etc/fonts.xml" "$SYSTEM_IMG" >/dev/null
 "$DEBUGFS" -R "dump /system/etc/font_fallback.xml $ANDROID_SYSTEM/etc/font_fallback.xml" "$SYSTEM_IMG" >/dev/null
 if [[ -d "$APEX_ROOT/com.android.conscrypt/cacerts" ]]; then
