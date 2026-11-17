@@ -36,6 +36,7 @@ else
   mv "$TEMP_ARCHIVE" "$ARCHIVE"
 fi
 
+echo "Validating arm64 architecture in pinned idevice_ffi archive."
 lipo "$ARCHIVE" -verify_arch arm64
 SYMBOLS_FILE="$(mktemp)"
 trap 'rm -f "$SYMBOLS_FILE"' EXIT
