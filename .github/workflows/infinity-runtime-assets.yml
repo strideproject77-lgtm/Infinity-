@@ -1,0 +1,65 @@
+name: INFINITY build Android runtime assets
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-runtime-assets:
+    name: Extract and build native Android runtime data (no IPA)
+    runs-on: macos-26
+    timeout-minutes: 180
+    steps:
+      - name: Check out INFINITY main
+        uses: actions/checkout@v4
+
+      - name: Install image extraction tools
+        run: |
+          brew install qemu e2fsprogs gptfdisk
+          echo "/opt/homebrew/opt/e2fsprogs/sbin" >> "$GITHUB_PATH"
+          command -v qemu-img
+          command -v debugfs
+          command -v gpt
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Download pinned R8/D8
+        run: |
+          curl --fail --location --retry 3 \
+            "https://storage.googleapis.com/r8-releases/raw/8.5.35/r8.jar" \
+            --output "$RUNNER_TEMP/r8-8.5.35.jar"
+          test -s "$RUNNER_TEMP/r8-8.5.35.jar"
+
+      - name: Download and verify LineageOS system image
+        run: |
+          curl --fail --location --retry 3 \
+            "https://github.com/Leviidev/Husk/releases/download/lineage-v2/vda-v12.qcow2" \
+            --output "$RUNNER_TEMP/vda-v12.qcow2"
+          echo "a8dbaecc8fdcd682991b078d6bbb7df6972e459208634fa8dcbad24f17208d6a  $RUNNER_TEMP/vda-v12.qcow2" | shasum -a 256 -c
+
+      - name: Build Android runtime assets
+        env:
+          HUSK_JDK: ${{ env.JAVA_HOME }}
+          HUSK_D8: ${{ runner.temp }}/r8-8.5.35.jar
+        run: |
+          bash -n scripts/build_infinity_runtime_assets.sh
+          bash scripts/build_infinity_runtime_assets.sh \
+            "$RUNNER_TEMP/vda-v12.qcow2" \
+            "$RUNNER_TEMP/infinity-runtime-assets"
+
+      - name: Upload runtime data artifact (not an IPA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: INFINITY-Android-Runtime-Assets-v1
+          path: |
+            ${{ runner.temp }}/infinity-runtime-assets/infinity-android-runtime-assets.zip
+            ${{ runner.temp }}/infinity-runtime-assets/runtime-assets-manifest.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
