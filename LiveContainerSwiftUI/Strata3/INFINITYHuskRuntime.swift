@@ -17,6 +17,7 @@ final class INFINITYHuskRuntime: ObservableObject {
     enum RuntimeError: LocalizedError {
         case javaRuntimeNotPrepared
         case rejectedLaunch
+        case graphicsRuntimeNotPrepared
         case invalidSurface
 
         var errorDescription: String? {
@@ -25,6 +26,8 @@ final class INFINITYHuskRuntime: ObservableObject {
                 return "Android Java runtime assets are not prepared."
             case .rejectedLaunch:
                 return "Husk rejected the launch request. Check the APK, data folder and runtime assets."
+            case .graphicsRuntimeNotPrepared:
+                return "The ANGLE graphics runtime is missing or unreadable."
             case .invalidSurface:
                 return "The Android surface has an invalid size."
             }
@@ -76,15 +79,21 @@ final class INFINITYHuskRuntime: ObservableObject {
                     metalLayer: CAMetalLayer?,
                     width: Int,
                     height: Int,
-                    angleLibrary: URL? = nil,
+                    angleLibrary: URL,
                     certificateBundle: URL? = nil) throws {
         guard javaRuntimePrepared else { throw RuntimeError.javaRuntimeNotPrepared }
         guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
 
+        guard FileManager.default.isReadableFile(atPath: angleLibrary.path) else {
+            throw RuntimeError.graphicsRuntimeNotPrepared
+        }
+        guard FileManager.default.isReadableFile(atPath: angleLibrary.path) else {
+            throw RuntimeError.graphicsRuntimeNotPrepared
+        }
         let layer = metalLayer.map { Unmanaged.passUnretained($0).toOpaque() }
         let accepted = apk.path.withCString { apkPath in
             dataDirectory.path.withCString { dataPath in
-                withOptionalCString(angleLibrary?.path) { angle in
+                angleLibrary.path.withCString { angle in
                     withOptionalCString(certificateBundle?.path) { certificates in
                         infinity_husk_launch_java(apkPath, dataPath, layer,
                                                   Int32(width), Int32(height), angle, certificates)
@@ -102,14 +111,14 @@ final class INFINITYHuskRuntime: ObservableObject {
                      metalLayer: CAMetalLayer?,
                      width: Int,
                      height: Int,
-                     angleLibrary: URL? = nil,
+                     angleLibrary: URL,
                      certificateBundle: URL? = nil) throws {
         guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
 
         let layer = metalLayer.map { Unmanaged.passUnretained($0).toOpaque() }
         let accepted = apk.path.withCString { apkPath in
             dataDirectory.path.withCString { dataPath in
-                withOptionalCString(angleLibrary?.path) { angle in
+                angleLibrary.path.withCString { angle in
                     withOptionalCString(certificateBundle?.path) { certificates in
                         infinity_husk_launch_unity(apkPath, dataPath, layer,
                                                    Int32(width), Int32(height), angle, certificates)
