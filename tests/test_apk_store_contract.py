@@ -1,0 +1,32 @@
+from pathlib import Path
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class APKStoreContractTests(unittest.TestCase):
+    def read(self, relative: str) -> str:
+        return (ROOT / relative).read_text(encoding="utf-8")
+
+    def test_apk_install_is_persistent_and_split_requirements_are_recorded(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        self.assertIn("Strata3/AndroidApps", store)
+        self.assertIn("installed-apks.json", store)
+        self.assertIn("infinity_husk_apk_requires_splits", store)
+        self.assertIn("requiresSplits: requiresSplits", store)
+        self.assertIn("decodeIfPresent(Bool.self, forKey: .requiresSplits) ?? false", store)
+
+    def test_split_required_apps_are_not_offered_for_base_apk_only_launch(self):
+        view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn("guard !app.requiresSplits", view)
+        self.assertIn("launch is blocked until split-package installation is implemented", view)
+
+    def test_runtime_launch_surface_requires_a_sized_metal_drawable(self):
+        view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn("layer.drawableSize.width > 0", view)
+        self.assertIn("layer.drawableSize.height > 0", view)
+        self.assertIn("isMultipleTouchEnabled = true", view)
+
+
+if __name__ == "__main__":
+    unittest.main()
