@@ -23,7 +23,7 @@ Treat this as a dependency candidate list. It does not establish that every item
 The upstream app manifest also contains components that are not part of the first native translation target:
 
 - QEMU dylib, guest kernel/initramfs, qcow2 seed disks, firmware, BIOS files and guest-image staging scripts.
-- ANGLE dylib as currently described by the manifest: dynamically loaded by the QEMU/virgl graphics path. Re-evaluate only if a native translation-layer EGL path demonstrably requires it.
+- ANGLE is not compiled into the static C translation target, but it is a required runtime dylib for Husk's native EGL/GLES launch path: the common launch function rejects a missing ANGLE path and passes it to the engine's EGL configuration. It is also used by QEMU/virgl. Build it separately, preserve its BSD notice, and embed/code-sign it in the host app before native APK launch can work. It is not QEMU-only.
 - MoltenVK: separately built Vulkan path for selected Unreal workloads; optional and engine-specific.
 - `libhuskps4.dylib`: separate PS4/FEX backend.
 - `libhusk_rppairing`, StikJIT helper, and the file-picker fix dylib: separate helper/pairing or host-app features; do not import them as native Android translation dependencies.
@@ -38,7 +38,7 @@ The retained recipes reveal four distinct data/build groups:
 1. `build_android_system.sh` stages Android system data, including certificates and fonts, from a prepared Android system image.
 2. `build_java_runtime.sh` copies Android APEX/libcore/ICU/Conscrypt artifacts, framework resources and Husk's generated Java framework DEX from a prepared system image and source tree.
 3. `build_art_support.sh` uses the Android NDK to produce Android guest-side shared libraries (`libunwind.so`, `libartpalette-system.so`); these are not iOS host libraries.
-4. `build_angle_ios.sh` builds ANGLE from a WebKit checkout. Its own description is tied to the QEMU/virgl graphics stack; do not make it a prerequisite for the initial native runtime compile.
+4. `build_angle_ios.sh` builds the iOS arm64 ANGLE dylib from a pinned WebKit checkout. The native launch API requires a readable ANGLE dylib for EGL/GLES, so this is a runtime-launch prerequisite even though it remains a separate build artifact and is not a static-library link dependency. Preserve the ANGLE BSD license and WebKit revision alongside the artifact.
 
 Do not run these recipes as a group. They have external toolchain, source-image, generated-artifact and licensing requirements. Review each output's provenance, architecture and redistribution terms before bundling it.
 
@@ -53,7 +53,7 @@ Create an isolated native C target/module that:
 - Uses the pinned dual-tree source set only after per-file source/flag review.
 - Exposes a narrow INFINITY-owned C header and Swift wrapper, without importing `HuskBridge.h`.
 - Links only dependencies proven by the target's compile/link output.
-- Does not add QEMU, ANGLE, MoltenVK, StikJIT, SideStore, guest-image scripts or unrelated app targets.
+- Does not add QEMU, MoltenVK, StikJIT, SideStore, guest-image scripts or unrelated app targets. ANGLE is built and embedded as a separate signed runtime resource because the native launch contract requires it.
 - Can be compiled in Xcode CI without invoking the existing IPA builder.
 
 No Xcode project target or native compile/link test is claimed by this document. SideStore and the IPA build/sign/export workflows remain out of scope.
