@@ -36,7 +36,30 @@ jobs:
         working-directory: Vendor/Husk
         run: |
           xcodebuild -list -json > "$RUNNER_TEMP/infinity-husk-xcode-list.json"
-          SCHEME="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["project"]["schemes"][0])' "$RUNNER_TEMP/infinity-husk-xcode-list.json")"
+          SCHEME="$(python3 - "$RUNNER_TEMP/infinity-husk-xcode-list.json" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          def find_schemes(value):
+              if isinstance(value, dict):
+                  schemes = value.get("schemes")
+                  if isinstance(schemes, list) and schemes:
+                      return schemes
+                  for child in value.values():
+                      found = find_schemes(child)
+                      if found:
+                          return found
+              elif isinstance(value, list):
+                  for child in value:
+                      found = find_schemes(child)
+                      if found:
+                          return found
+              return []
+          schemes = find_schemes(data)
+          if not schemes:
+              raise SystemExit("xcodebuild did not report a Swift package scheme: " + json.dumps(data))
+          print(schemes[0])
+          PY
+          )"
           test -n "$SCHEME"
           echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
           echo "Building scheme: $SCHEME"
