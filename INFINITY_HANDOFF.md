@@ -478,3 +478,10 @@ This section supersedes earlier phase/status statements above where they still s
 - Fixed the Android super-partition name parser to split GPT names on an actual NUL byte, and added a regression assertion for that parsing detail.
 - Native shutdown now always reaches the C adapter even if SwiftUI has not yet received its first state poll; the C stop operation is idempotent when no session exists.
 - Latest source-contract/APK archive tests passed before these final follow-up commits. New split-store and native-preparation assertions have been added; their Actions runs are queued. Current Swift-to-C checks, full Strata framework compile, and static runtime compile are still pending. ANGLE's iOS build remains in progress.
+
+## Graphics runtime signing gate — 2026-11-17
+
+- Runtime readiness now checks for ANGLE and (for Unreal) MoltenVK inside the app's signed Frameworks directory. A loose dylib copied into Documents/Files is deliberately not accepted because iOS code-signing/dyld rules can reject it.
+- Runtime Manager reports whether ANGLE is embedded and signed; Java/native runtime data can be imported separately from an extracted folder.
+- The ANGLE workflow only builds and uploads a temporary iOS arm64 artifact. It does not yet embed ANGLE into the app target or modify the existing IPA builder. Until a signed app build contains ANGLE, all APK launch paths remain correctly blocked.
+- The same limitation applies to MoltenVK for Unreal. No graphics backend launch has been verified.
