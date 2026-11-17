@@ -16,7 +16,7 @@ on:
 jobs:
   build:
     name: Build using xcodebuild command
-    runs-on: xcode-27
+    runs-on: macos-15
     env:
       scheme: LiveContainer
       archive_path: archive
@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '27.2'
+          xcode-version: '26.4'
       - name: Checkout
         uses: actions/checkout@v6
         with:
