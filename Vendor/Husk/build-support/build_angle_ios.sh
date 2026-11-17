@@ -19,10 +19,21 @@ PREFIX="$HUSK_ROOT/build/ios-arm64/sysroot"
 LOG="$HUSK_ROOT/build/logs/angle-build.log"
 mkdir -p "$GPU" "$(dirname "$LOG")"
 
-if [ ! -d "$WK" ]; then
-    echo "==> sparse-cloning WebKit for its ANGLE tree"
-    git clone --depth 1 --filter=blob:none --sparse \
-        https://github.com/WebKit/WebKit.git "$WK"
+# Pin WebKit/ANGLE so the produced dylib is reproducible and auditable.
+WEBKIT_REVISION="${WEBKIT_REVISION:-d5a773e26f4a7f6d2911fb3337ed357abc8ff39a}"
+if [ ! -d "$WK/.git" ]; then
+    echo "==> sparse-cloning pinned WebKit revision $WEBKIT_REVISION"
+    mkdir -p "$WK"
+    git -C "$WK" init
+    git -C "$WK" remote add origin https://github.com/WebKit/WebKit.git
+    git -C "$WK" fetch --depth 1 --filter=blob:none origin "$WEBKIT_REVISION"
+    git -C "$WK" checkout --detach FETCH_HEAD
+else
+    CURRENT_WEBKIT="$(git -C "$WK" rev-parse HEAD)"
+    if [ "$CURRENT_WEBKIT" != "$WEBKIT_REVISION" ]; then
+        echo "error: existing WebKit checkout is $CURRENT_WEBKIT, expected $WEBKIT_REVISION; remove $WK and retry" >&2
+        exit 2
+    fi
 fi
 
 # Configurations and Tools/ccache are not optional: the ANGLE xcconfigs include
@@ -107,6 +118,8 @@ DYLIB="ANGLE.xcarchive/Products/usr/local/lib/libANGLE-shared.dylib"
 install -d "$PREFIX/lib" "$PREFIX/include"
 cp "$DYLIB" "$PREFIX/lib/"
 rsync -a "include/" "$PREFIX/include/"
+cp "$WK/Source/ThirdParty/ANGLE/LICENSE" "$PREFIX/LICENSE-ANGLE.txt"
+printf 'WebKit revision: %s\n' "$WEBKIT_REVISION" > "$PREFIX/WEBKIT_REVISION.txt"
 
 # WebKit ships it for loading out of WebCore.framework; ours is embedded in the
 # app, so the install name has to say so or dyld will not find it at runtime.
