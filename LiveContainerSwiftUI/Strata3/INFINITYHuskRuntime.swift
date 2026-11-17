@@ -28,6 +28,7 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     enum RuntimeError: LocalizedError {
         case javaRuntimeNotPrepared
+        case nativeRuntimeNotPrepared
         case graphicsRuntimeNotPrepared
         case vulkanRuntimeNotPrepared
         case invalidSurface
@@ -37,6 +38,8 @@ final class INFINITYHuskRuntime: ObservableObject {
             switch self {
             case .javaRuntimeNotPrepared:
                 return "Android Java runtime assets are not prepared."
+            case .nativeRuntimeNotPrepared:
+                return "Android system libraries, fonts and certificates are not prepared."
             case .graphicsRuntimeNotPrepared:
                 return "The ANGLE graphics runtime is missing or unreadable."
             case .vulkanRuntimeNotPrepared:
@@ -69,6 +72,23 @@ final class INFINITYHuskRuntime: ObservableObject {
     private var pollingTask: Task<Void, Never>?
 
     var isRunning: Bool { state == .running || state == .starting }
+
+    func prepareNative(certificatesDirectory: URL,
+                       systemFilesRoot: URL,
+                       extraFontsDirectory: URL? = nil,
+                       sharedStorageDirectory: URL? = nil) throws {
+        let prepared = certificatesDirectory.path.withCString { certificates in
+            systemFilesRoot.path.withCString { systemFiles in
+                withOptionalCString(extraFontsDirectory?.path) { extraFonts in
+                    withOptionalCString(sharedStorageDirectory?.path) { shared in
+                        infinity_husk_prepare_native(certificates, systemFiles, extraFonts, shared)
+                    }
+                }
+            }
+        }
+        guard prepared else { throw RuntimeError.nativeRuntimeNotPrepared }
+        lastError = nil
+    }
 
     func prepareJava(runtimeRoot: URL,
                      density: Float,
