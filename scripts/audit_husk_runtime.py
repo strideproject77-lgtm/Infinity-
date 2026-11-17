@@ -39,7 +39,7 @@ def classify(path: pathlib.Path) -> str:
     if suffix == ".swift":
         return "swift-host-source"
     if suffix == ".java":
-        if path.as_posix().replace("\\", "/").startswith("src/java-framework/gen-src/"):
+        if "/src/java-framework/gen-src/" in path.as_posix().replace("\\", "/"):
             return "generated-java-platform-stub"
         return "java-source"
     if suffix in HEADER_SUFFIXES:
