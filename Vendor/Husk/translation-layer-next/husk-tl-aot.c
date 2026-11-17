@@ -273,7 +273,9 @@ static size_t tar_octal(const uint8_t *p, size_t n)
 static int prepare_tar(const uint8_t *t, size_t n, const char *what, const char *cache_dir, const uint8_t *p12, size_t p12_len,
                        const char *password, const char *cert_tag, const char *sign_ident, char *err, size_t errlen)
 {
-    int done = 0; size_t off = 0; char longname[256] = "";
+    bool found_arm64_library = false;
+    bool conversion_failed = false;
+    size_t off = 0; char longname[256] = "";
     while (off + 512 <= n) {
         const uint8_t *h = t + off;
         if (!h[0]) break;                                     /* the zero blocks that end the archive */
@@ -287,22 +289,38 @@ static int prepare_tar(const uint8_t *t, size_t n, const char *what, const char 
         size_t size = tar_octal(h + 124, 12);
         char type = h[156] ? (char)h[156] : '0';
         off += 512;
-        if (size > n - off) break;
+        if (size > n - off) {
+            if (err && errlen) snprintf(err, errlen, "%s: truncated tar member", what);
+            return -1;
+        }
         if (type == 'L') {                                    /* GNU long name, the next header's */
             snprintf(longname, sizeof(longname), "%.*s", (int)(size < sizeof(longname) - 1 ? size : sizeof(longname) - 1), t + off);
         } else if (type == '0' || type == '7') {
             const char *base = strrchr(name, '/'); base = base ? base + 1 : name;
             size_t bl = strlen(base);
             if (bl > 3 && !strcmp(base + bl - 3, ".so") && is_arm64_elf(t + off, size)) {
+                found_arm64_library = true;
                 int r = prepare_one(base, t + off, size, cache_dir, p12, p12_len, password, cert_tag, sign_ident, err, errlen);
-                if (r < 0) { tl_log_line("aot: %s skipped: %s", base, err); if (errlen) err[0] = 0; }
-                else done += r;
+                if (r < 0) {
+                    tl_log_line("aot: %s skipped: %s", base, err ? err : "conversion failed");
+                    conversion_failed = true;
+                    if (err && errlen && !err[0]) snprintf(err, errlen, "%s: AOT conversion failed", base);
+                }
             }
         }
-        off += (size + 511) & ~(size_t)511;
+        size_t padded = (size + 511) & ~(size_t)511;
+        if (padded > n - off) {
+            if (err && errlen) snprintf(err, errlen, "%s: truncated tar padding", what);
+            return -1;
+        }
+        off += padded;
     }
-    tl_log_line("aot: %s is a tar of Android libraries; %d converted from it", what, done);
-    return done;
+    if (conversion_failed) return -1;
+    tl_log_line("aot: %s is a tar of Android libraries; ARM64 bundle %s", what,
+                found_arm64_library ? "prepared" : "contains no ARM64 libraries");
+    /* Count one APK-level bundle, not each inner .so, so the caller's
+       unique top-level library coverage check remains meaningful. */
+    return found_arm64_library ? 1 : 0;
 }
 
 int husk_aot_prepare(const char *const *apks, int napks, const char *cache_dir, const uint8_t *p12, size_t p12_len,
