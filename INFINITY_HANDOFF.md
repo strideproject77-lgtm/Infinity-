@@ -331,3 +331,83 @@ Create a narrowly scoped INFINITY-owned native bridge and isolated compile targe
 - No Xcode project, bundle identifier, product identity, signing setting, IPA workflow/builder, SideStore source/target/configuration, or install/refresh path was modified in this batch.
 - No app/IPA build, signing, export, simulator/device launch, or real APK execution was performed.
 - Next: review the compile workflow's complete diagnostics, resolve source-level blockers with narrowly scoped changes, then build a dedicated native target without changing Strata's existing LiveContainer bundle ID or protected SideStore/IPA workflows.
+
+## INFINITY master status and progress dashboard — 2026-11-17
+
+This section is the authoritative current snapshot. Older dated sections below/above it are retained as historical records; where their status differs, use this dashboard.
+
+### Product approach and architecture
+
+- Product goal: preserve Strata as the iOS host, launcher, unified Home Screen/Library and IPA manager, while adding Husk's real Android translation runtime for APKs. Do not replace Strata with a separate Android VM or a fake/demo execution surface.
+- Runtime strategy: reuse Husk's advanced translation-layer implementation as the primary Android execution engine, rather than inventing a small placeholder runtime and gradually replacing it. INFINITY-owned adapters are required wherever Husk assumes its own app models, window host, orientation, callbacks or services.
+- Language boundary: Swift owns Strata UI, app lifecycle orchestration and APK management; C owns the translation engine; Objective-C/Objective-C++ provides Apple-platform adapters where needed; C++ is limited to dependencies that require it.
+- Bridging strategy: Swift calls a narrow INFINITY-owned interface; that interface exposes only the native translation-layer API needed by Strata. Do not import Husk's broad `HuskBridge.h`, because it brings unrelated QEMU/JIT/pairing dependencies. A visible C declaration is not proof that a C implementation is compiled, linked or safe to call.
+- Native path first. QEMU remains modular and optional; do not let guest images, multi-gigabyte assets, ANGLE/virgl or unrelated PS4/FEX support block the first native Android runtime.
+- Keep both upstream translation source trees in scope because Husk's upstream app manifest compiles both. Select files and flags from actual dependency/compile evidence; do not blindly compile every source into Strata.
+- Test order: real 2048 APK first, Hill Climb Racing second, then additional real APKs. Compatibility is only claimed after real-device launch, rendering, input, audio and stability evidence.
+- Repository discipline: work only on `main`; preserve Strata; do not touch SideStore source, target, entitlements, signing, packaging, installation or refresh paths. Reuse the existing IPA builder only when explicitly authorized. No IPA build/sign/export without explicit permission.
+
+### Current completion estimate
+
+**Overall INFINITY Android-runtime integration: approximately 13%.** This is an engineering estimate of integration work, not a promise of compatibility, and not a measure of how many source files were copied.
+
+| Workstream | Completion | Evidence / meaning |
+|---|---:|---|
+| Strata baseline and protected-component audit | 100% | Strata 4.0 baseline and SideStore boundaries documented |
+| Husk source import pipeline and pinned snapshot | 100% | Automated import/audit workflow succeeded; 169-file snapshot at pinned revision is present |
+| Architecture, provenance and dependency inventory | 80% | Dual source trees, upstream manifest, candidate SDK dependencies, build recipes and major exclusions documented; per-file closure/licence review remains |
+| Swift-to-C API name inventory | 100% textual scan | 73 function names matched declarations and native definitions; not ABI, compiler or linker proof |
+| Swift bridging-header declaration visibility | 100% of this narrow step | `INFINITYHuskRuntimeBridge.h` is included by Strata's existing bridging header and exposes the upstream app-facing translation API |
+| INFINITY-owned lifecycle/window/orientation adapters | 0% complete | Still needs extraction and implementation |
+| Callable Swift wrapper and runtime lifecycle integration | 0% complete | No safe launch/stop/input/performance call path is wired |
+| Isolated Xcode native runtime target | 0% complete | No dedicated target compiling/linking Husk engine |
+| Native source compile/link proof | 0% complete | Latest compile-audit job was cancelled; no compiler pass is claimed |
+| 2048 real APK execution | 0% | Not run |
+| Hill Climb Racing real APK execution | 0% | Not run |
+| Other APK compatibility validation | 0% | Not run |
+| Unified APK+IPA Home Screen/Library execution flow | 0% runtime integration | Strata host exists; APK records are not yet launchable through a real engine |
+
+The 13% overall estimate reflects completed source materialization, substantial static audit and declaration-level bridge work. It must not be raised merely for documentation, copied source volume or a queued/cancelled CI job. Raise it only when implementation and test evidence advance.
+
+### Implemented and verified so far
+
+1. Strata 4.0 is the host/base; existing IPA builder was audited and retained.
+2. APK intake has original INFINITY code for ZIP inventory, bounded ZIP entry extraction, CRC checks, Android binary XML manifest decoding and Runtime Manager reporting. It is inspection/metadata support, not installation or execution.
+3. Husk revision `29abb512d81bf8cc08babcbe7f7007cb557208ef` is pinned and materialized under `Vendor/Husk/`; both `translation-layer/` and `translation-layer-next/` are included in the imported snapshot.
+4. Import/audit automation and generated source/API inventories are present. Current source snapshot contains 169 files: 96 native sources, 10 Swift host-reference/runtime files, 53 headers/includes, 4 build recipes, 4 documents, 1 resource and 1 build manifest.
+5. The upstream XcodeGen manifest and runtime recipes were reviewed. QEMU guest staging, current ANGLE/virgl route, MoltenVK, PS4/FEX, pairing/JIT helpers and Husk's broad app UI are excluded from the initial native translation target.
+6. A textual API scan found 73 Swift-to-C function-name matches across declarations and definitions. This does not prove ABI correctness or linking.
+7. `LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h` was added and included from `LiveContainerSwiftUI-Bridging-Header.h`. It includes only `husk-tl-unity-app.h`, not `HuskBridge.h`. This currently exposes declarations to Swift; it does not compile or link the engine and no Swift runtime calls are enabled.
+8. A separate native source compile-audit script/workflow was added. It attempts syntax-only compilation of C/Objective-C files against the iPhoneOS SDK and is separate from the IPA builder.
+9. Source-contract and APK archive regression tests have passed in recent runs. The parser type-check and bridge-check jobs in the most recent relevant native test runs were cancelled, so their success is not claimed.
+10. SideStore source, targets, entitlements, packaging/signing/installation/refresh flows and the IPA builder have not been intentionally modified or run.
+
+### Latest CI evidence and current blockers
+
+- Husk source import run `43936567610`: **success**; pinned source snapshot and audit were committed.
+- Native test run `43936567412`: source-contract/APK archive job **success**; Swift APK parser type-check job **cancelled**.
+- Native test run `43940319040`: source-contract/APK archive job **success**; Swift parser type-check and Swift-to-Husk bridge-header check jobs **cancelled**.
+- Husk native source compile-audit run `43943201448`: job **cancelled**. Its log was unavailable when checked, so there is no trustworthy compiler diagnostic summary and no source compile pass/failure count to report.
+- No dedicated runtime target, native link, Xcode app build, IPA build/sign/export, simulator/device launch or real APK execution has occurred.
+- Remaining technical gates: per-file source/compile-flag/dependency closure; review of 13 files without SPDX markers; generated Android Java/system runtime assets and redistribution provenance; INFINITY-owned window/orientation/lifecycle adapters; a linkable native target; runtime resource packaging; APK lifecycle/framework/graphics/audio/input support; real-device test evidence.
+- Treat the 13 missing SPDX markers as provenance-review flags, not proof that those files are unlicensed. The unresolved include in audit-only `HuskBridge.h` is the excluded pairing/JIT header; do not import unrelated pairing/JIT code to silence it.
+
+### Next implementation sequence
+
+1. Inspect and classify every native source's direct includes, conditional macros, platform APIs, generated headers and required compile flags. Resolve the 13 provenance flags before redistribution.
+2. Audit the exact upstream app-facing header and exported API semantics, then write INFINITY-owned Swift/C adapters for runtime creation, launch, callbacks, input, orientation, window/display, performance reporting and safe shutdown.
+3. Add a dedicated native runtime target with explicit source membership and only proven frameworks/libraries. Keep it isolated from SideStore and from IPA packaging/signing.
+4. Add a separate compile-and-link CI job. Fix errors from actual compiler/linker output; do not hide them with speculative global flags or fake stubs.
+5. Only after native linking succeeds, connect APK intake to runtime launch/lifecycle and add resource/runtime-data handling.
+6. Run one consolidated real-device test batch: 2048 first, then Hill Climb Racing. Record device/iOS version, signing/JIT mode, APK version/ABI, launch result, rendering, touch/controller input, audio, memory/stability and logs.
+7. Update this handoff with commit IDs, test run IDs and evidence after each substantial batch. Do not claim an APK is compatible until it has actually run.
+
+### Explicit non-claims
+
+- The declaration bridge is not a completed runtime bridge.
+- Imported Husk source is not a compiled engine.
+- Static API-name matching is not ABI or link validation.
+- APK manifest/ZIP inspection is not APK installation or execution.
+- A cancelled CI job is neither a pass nor a confirmed compiler failure.
+- No 2048, Hill Climb Racing or other APK compatibility percentage is currently evidence-based; all real execution test coverage remains 0%.
+- No IPA has been built, signed or exported in this work.
