@@ -825,3 +825,13 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Wired the same preparation script into both GitHub Actions and Codemagic before Xcode archive, so the regular IPA and SideStore-packaged variant inherit the same primary app icon.
 - Changed the IPA workflows to manual-only triggers so ordinary source commits and icon changes do not repeatedly launch expensive IPA builds. Codemagic remains manually startable from its dashboard; GitHub Actions remains available through workflow_dispatch.
 - This change does not run or package an IPA. Renderer availability and final on-device icon appearance still require the eventual consolidated build verification.
+
+
+## All-rounder product direction and pre-build repair — 2026-11-17
+
+- Product direction: INFINITY is an all-rounder iOS app platform, not an Android-only APK runner. Preserve Strata's IPA hosting/management and existing iOS app workflows while adding the Android translation runtime. Future work includes improving IPA import/launch/compatibility/diagnostics and an Xcode-oriented translation/build layer where technically and legally feasible. Keep these as separate modular backends under one Home Screen/Library; do not claim Xcode itself is a general-purpose IPA translation runtime. Xcode is the Apple build toolchain; any translation layer must be designed as a distinct subsystem and validated against iOS signing, sandbox, ABI, and platform constraints.
+- Fixed the StikJIT FFI validation command argument order: use `lipo "$ARCHIVE" -verify_arch arm64`. The prior order caused lipo to interpret the archive path as an architecture flag before any compile began.
+- Codemagic build request: temporarily enable push-triggering for this single repair commit, with a narrow changeset filter excluding the Codemagic configuration file itself. After the trigger commit, restore manual-only mode in a follow-up commit so future code changes do not automatically start IPA builds.
+- Icon asset catalog includes the primary, dark, and tinted appearances. Confirm the target's `ASSETCATALOG_COMPILER_APPICON_NAME` and on-device appearance after a successful build; repository-side PNG rendering and actual iOS icon display are not yet device-verified.
+- Build permission: user explicitly authorized starting the Codemagic IPA build on 2026-11-17. This does not authorize modifying SideStore internals or changing its signing/refresh/install behavior.
+- IPA size estimate must be treated as a range until the archive/export exists; final size depends on embedded frameworks, architectures, symbols, compression, and packaging.
