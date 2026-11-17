@@ -246,6 +246,10 @@ enum INFINITYAPKStore {
                                               certificateBundle: caBundle)
     }
 
+    static func runtimeDataReady() -> Bool {
+        hasJavaRuntimeAssets(at: runtimeRoot) && hasAndroidSystemAssets(at: runtimeRoot)
+    }
+
     static func runtimeBundle() -> INFINITYAPKRuntimeBundle? {
         guard let native = nativeRuntimeBundle() else { return nil }
         let java = runtimeRoot.appendingPathComponent("java-runtime", isDirectory: true)
