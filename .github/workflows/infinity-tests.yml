@@ -53,12 +53,14 @@ jobs:
         run: |
           cat > /tmp/INFINITYHuskBridgeSmoke.swift <<'SWIFT'
           import Foundation
-          let _ = INFINITY_HUSK_IDLE
-          let _ = INFINITY_HUSK_RUNNING
-          let _ = infinity_husk_get_state()
-          let _ = infinity_husk_frames()
-          let _ = infinity_husk_launch_java(nil, nil, nil, 0, 0, nil, nil)
-          let _ = infinity_husk_prepare_java(nil, 1.0, nil, nil, nil, nil, false)
+          func infinityBridgeSmoke() {
+              _ = INFINITY_HUSK_IDLE
+              _ = INFINITY_HUSK_RUNNING
+              _ = infinity_husk_get_state()
+              _ = infinity_husk_frames()
+              _ = infinity_husk_launch_java(nil, nil, nil, 0, 0, nil, nil)
+              _ = infinity_husk_prepare_java(nil, 1.0, nil, nil, nil, nil, false)
+          }
           SWIFT
           swiftc -typecheck \
             -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
