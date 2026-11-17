@@ -814,3 +814,6 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Commits: `784f355`, `3e654b8`, `2b593ee`, `27258c8`.
 - This is source-level work only. The native workflow must complete before claiming tests pass; no device test or real APK compatibility claim is made. Changes are confined to Husk AOT source, regression tests, CI test paths, and this handoff; Strata host and SideStore systems are untouched.
 \n
+
+- Follow-up contract clarification: `husk-tl-aot.h` now defines the return value as the number of unique top-level APK/runtime entries covered; tar bundles count once and only when all ARM64 ELF members convert. Regression tests also assert this documented API contract. Commits: `f860531`, `73e1fea`.
+- CI queue note: this repository has separate native source compile, static Husk runtime, Strata framework, and Python/source-contract workflows. Changes to `translation-layer-next/**` automatically queued the native compile/static runtime/framework checks; no IPA packaging workflow is involved in those three jobs. The newest native tests run is `44126055387`; it was queued at the last check, so no pass is claimed.\n
