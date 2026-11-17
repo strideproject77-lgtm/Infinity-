@@ -137,6 +137,7 @@ Original QEMU/JIT bridging header (reference only, never compile wholesale): src
 Upstream XcodeGen build manifest (audit reference only): src/app/project.yml
 Runtime resource: src/app/Husk/Resources/cacert.pem
 Java framework sources: src/java-framework/{src,gen-src,gen,stubs}
+INFINITY vendor-layout patch: build.sh resolves translation-layer-next from the flattened Vendor/Husk layout.
 ART guest support: src/art-support/
 Build helpers: tools/{strip_framework_res.py,compat/} and scripts/copy_aosp_bundle.sh
 Build recipes: scripts/{build_java_runtime,build_android_system,build_angle_ios,build_art_support}.sh
@@ -159,6 +160,29 @@ for path in translation-layer translation-layer-next host-runtime host-reference
   mkdir -p "$(dirname "$DEST/$path")"
   cp -R "$STAGE/$path" "$DEST/$path"
 done
+
+# INFINITY vendor-layout adaptation: upstream places translation-layer-next beside
+# java-framework under src/, while this repository keeps the native tree at Vendor/Husk/.
+python3 - "$DEST/src/java-framework/build.sh" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+old = 'python3 "$HERE/gen/gles20.py" "$HERE/src/android/opengl" "$HERE/../translation-layer-next/husk-tl-dvm-gles20.c" >/dev/null'
+new = '''# The upstream tree keeps translation-layer-next beside java-framework under src/;
+# INFINITY vendors the native source tree at Vendor/Husk/translation-layer-next.
+TL_NEXT="$HERE/../translation-layer-next"
+if [ ! -f "$TL_NEXT/husk-tl-dvm-gles20.c" ]; then
+    TL_NEXT="$HERE/../../translation-layer-next"
+fi
+[ -f "$TL_NEXT/husk-tl-dvm-gles20.c" ] || { echo "translation-layer-next GLES source not found" >&2; exit 2; }
+python3 "$HERE/gen/gles20.py" "$HERE/src/android/opengl" "$TL_NEXT/husk-tl-dvm-gles20.c" >/dev/null'''
+if old in text:
+    path.write_text(text.replace(old, new), encoding="utf-8")
+elif 'TL_NEXT="$HERE/../translation-layer-next"' not in text:
+    raise SystemExit("Unexpected upstream Java framework build.sh; review the path adaptation")
+PY
+
 cp "$STAGE/HUSK-LICENSE" "$DEST/HUSK-LICENSE"
 cp "$STAGE/UPSTREAM_REVISION.txt" "$DEST/UPSTREAM_REVISION.txt"
 
