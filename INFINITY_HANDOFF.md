@@ -689,3 +689,11 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Native test run `44062302243`: source-contract/APK archive tests and shell/audit syntax checks **passed**; Swift APK parser type-check and Swift-to-Husk bridge-header check were still queued at the last inspection.
 - No successful framework build, IPA, signed ANGLE embedding, Android runtime-data bundle, or real APK execution is claimed. SideStore source/configuration/signing/installation/refresh remains untouched.
 - Next: use the newly retained raw Xcode log to isolate the actual Archive failure; separately resolve the reproducible BigNum module-map issue in the framework-only build. Do not change dependency versions or package sources without a targeted compatibility check.
+
+
+## JIT strategy decision update — 2026-11-17
+
+- User confirms Strata's built-in JIT Enabler is working in their setup and provides JIT to apps added to Strata. This is the selected JIT authorization path for INFINITY; do not make external StikDebug/LocalDevVPN a permanent dependency.
+- Next implementation task is a source-level audit of Strata's actual built-in JIT flow (app registration, entitlement/authorization path, process launch/attach, failure handling, and iOS-version constraints), then selectively reuse/adapt the compatible implementation in INFINITY while preserving Strata's existing behavior.
+- Until that audit/integration is complete, record Strata built-in JIT as the intended provider, not as already integrated into INFINITY. External StikDebug may remain a temporary fallback for development only if needed.
+- This iOS JIT authorization remains distinct from Android guest DEX execution. Husk's current Java path is a DEX interpreter; no Android ART JIT compiler or DEX JIT acceleration is claimed.
