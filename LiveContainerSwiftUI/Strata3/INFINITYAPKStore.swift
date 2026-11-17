@@ -258,7 +258,7 @@ enum INFINITYAPKStore {
               fileManager.fileExists(atPath: fontFiles.path),
               fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/fonts.xml").path),
               fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/font_fallback.xml").path),
-              isANGLEEmbeddedAndReadable,
+              hasEmbeddedAngle,
               fileManager.isReadableFile(atPath: caBundle.path) else {
             return nil
         }
