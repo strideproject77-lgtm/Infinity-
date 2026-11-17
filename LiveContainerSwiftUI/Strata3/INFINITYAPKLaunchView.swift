@@ -353,6 +353,7 @@ struct INFINITYAPKLaunchView: View {
         var libraries: [URL] = []
         while let url = enumerator.nextObject() as? URL {
             guard url.pathExtension == "so",
+                  url.pathComponents.contains("lib64"),
                   let values = try? url.resourceValues(forKeys: [.isRegularFileKey]),
                   values.isRegularFile == true else { continue }
             libraries.append(url)
