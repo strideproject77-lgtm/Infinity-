@@ -39,7 +39,7 @@ class HuskJITLessContractTests(unittest.TestCase):
         self.assertIn("certificatePassword: String?", swift)
         self.assertIn("certificateTeamID == appTeamID", swift)
         self.assertIn("prepared == requiredNames.count", swift)
-        self.assertIn("Husk prepared \\(prepared) of \\(expected)", swift)
+        self.assertIn("Husk prepared %d of %d required ARM64 libraries", swift)
         self.assertIn("SHA256.hash(data: certificateP12)", swift)
         self.assertIn("LCUtils.certificateData()", launch)
         self.assertIn("LCSharedUtils.certificatePassword()", launch)
