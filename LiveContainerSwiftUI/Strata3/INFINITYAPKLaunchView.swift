@@ -275,7 +275,7 @@ struct INFINITYAPKLaunchView: View {
             let height = max(1, Int(layer.drawableSize.height))
             let certificates = nativeBundle.certificateBundle
 
-            var javaBundle: INFINITYAPKStore.RuntimeBundle?
+            var javaBundle: INFINITYAPKRuntimeBundle?
             if engine == .java {
                 guard let bundle = INFINITYAPKStore.runtimeBundle() else {
                     throw INFINITYAPKStore.StoreError.missingRuntimeAssets
