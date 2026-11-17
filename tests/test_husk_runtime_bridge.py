@@ -30,7 +30,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "husk_unity_launch(",
             "husk_native_unload(",
             "tl_javaapp_touch(",
-            "tl_javaapp_set_paused(",
+            "husk_unity_set_paused(",
             "husk_gamepad_update(",
             "husk_unity_perf_snapshot("
         ):
@@ -62,8 +62,10 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
     def test_swift_runtime_controller_uses_real_native_entrypoints(self):
         swift = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
         self.assertIn("@MainActor", swift)
-        self.assertIn("infinity_husk_launch_java", swift)
-        self.assertIn("infinity_husk_launch_unity", swift)
+        self.assertIn("infinity_husk_launch_engine", swift)
+        self.assertIn("case java = 1", swift)
+        self.assertIn("case gameActivity = 3", swift)
+        self.assertIn("case unreal = 5", swift)
         self.assertIn("infinity_husk_java_touch", swift)
         self.assertIn("infinity_husk_stop", swift)
         self.assertNotIn("Hello from Stride", swift)
