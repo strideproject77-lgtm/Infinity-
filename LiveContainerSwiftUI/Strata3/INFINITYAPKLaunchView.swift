@@ -168,7 +168,7 @@ struct INFINITYAPKInstalledAppDetail: View {
             return "The Java APEX libraries, ICU/time-zone data, framework resources, or generated DEX files are incomplete."
         }
         if app.detectedEngine == "unreal" {
-            return "The optional MoltenVK graphics library for this Unreal engine path is missing."
+            return "The MoltenVK graphics library is not embedded and signed in this app build."
         }
         return "Required engine assets are not installed."
     }
