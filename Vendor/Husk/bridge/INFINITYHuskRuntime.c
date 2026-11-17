@@ -34,6 +34,15 @@ static bool runtime_file(const char *root, const char *relative)
     return n > 0 && (size_t)n < sizeof(path) && readable_file(path);
 }
 
+static bool runtime_directory(const char *root, const char *relative)
+{
+    char path[2048];
+    struct stat st;
+    int n = snprintf(path, sizeof(path), "%s/%s", root, relative);
+    return n > 0 && (size_t)n < sizeof(path) &&
+           stat(path, &st) == 0 && S_ISDIR(st.st_mode) && access(path, R_OK) == 0;
+}
+
 bool infinity_husk_prepare_java(const char *runtime_root, float density,
                                 const char *system_certificates_dir,
                                 const char *system_fonts_root,
@@ -47,19 +56,40 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
     static const char *required[] = {
         "com.android.art/javalib/core-oj.jar",
         "com.android.art/javalib/core-libart.jar",
+        "com.android.art/javalib/okhttp.jar",
+        "com.android.art/javalib/bouncycastle.jar",
+        "com.android.art/javalib/apache-xml.jar",
+        "com.android.art/lib64/libandroidio.so",
+        "com.android.art/lib64/libbase.so",
+        "com.android.art/lib64/libc++.so",
+        "com.android.art/lib64/libexpat.so",
+        "com.android.art/lib64/libjavacore.so",
+        "com.android.art/lib64/libnativehelper.so",
+        "com.android.art/lib64/libopenjdk.so",
         "com.android.i18n/javalib/core-icu4j.jar",
         "com.android.conscrypt/javalib/conscrypt.jar",
+        "com.android.conscrypt/lib64/libjavacrypto.so",
+        "com.android.conscrypt/lib64/libcrypto.so",
+        "com.android.conscrypt/lib64/libssl.so",
         "husk-framework.dex",
+        "husk-framework-core.dex",
+        "org.apache.http.legacy.jar",
         "framework-res.apk"
     };
     for (size_t i = 0; i < sizeof(required) / sizeof(required[0]); i++)
         if (!runtime_file(runtime_root, required[i])) return false;
 
+    /* build_android_system.sh emits one root with fonts/, etc/ and cacerts/.
+       The fonts root is the Android-system root, not the fonts/ subdirectory. */
+    if (!readable_directory(system_certificates_dir) ||
+        !readable_directory(system_fonts_root) ||
+        !runtime_directory(system_fonts_root, "fonts") ||
+        !runtime_file(system_fonts_root, "etc/fonts.xml") ||
+        !runtime_file(system_fonts_root, "etc/font_fallback.xml"))
+        return false;
+
     husk_java_set_runtime(runtime_root, density);
-    if ((system_certificates_dir && system_certificates_dir[0]) ||
-        (system_fonts_root && system_fonts_root[0]))
-        husk_native_set_system_files(system_certificates_dir && system_certificates_dir[0] ? system_certificates_dir : NULL,
-                                     system_fonts_root && system_fonts_root[0] ? system_fonts_root : NULL);
+    husk_native_set_system_files(system_certificates_dir, system_fonts_root);
     if (extra_fonts_dir && extra_fonts_dir[0])
         husk_native_set_extra_fonts(extra_fonts_dir);
     husk_native_set_shared_storage(shared_storage_dir && shared_storage_dir[0] ? shared_storage_dir : NULL);
