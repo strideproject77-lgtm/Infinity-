@@ -32,14 +32,38 @@ class HuskJITLessContractTests(unittest.TestCase):
         self.assertIn('unsetenv("TL_NO_XMEM")', adapter)
         self.assertIn("atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE", adapter)
 
-    def test_swift_facade_requires_certificate_and_preserves_original_apks(self):
+    def test_swift_facade_reuses_imported_identity_and_requires_complete_aot_set(self):
         swift = self.read("LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift")
-        self.assertIn("certificateP12: Data", swift)
-        self.assertIn("certificatePassword: String", swift)
+        launch = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn("certificateP12: Data?", swift)
+        self.assertIn("certificatePassword: String?", swift)
+        self.assertIn("certificateTeamID == appTeamID", swift)
+        self.assertIn("prepared == requiredNames.count", swift)
+        self.assertIn("SHA256.hash(data: certificateP12)", swift)
+        self.assertIn("LCUtils.certificateData()", launch)
+        self.assertIn("LCSharedUtils.certificatePassword()", launch)
+        self.assertIn("LCUtils.getCertTeamId(withKeyData:", launch)
+        self.assertIn("Original APKs are never modified", swift)
         self.assertIn("infinity_husk_prepare_jitless(", swift)
-        self.assertIn("INFINITY/JITless", swift)
-        self.assertIn("Original APKs stay intact", swift)
         self.assertIn("infinity_husk_configure_jitless(", swift)
+
+    def test_jit_error_requires_husks_explicit_executable_memory_diagnostic(self):
+        swift = self.read("LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift")
+        self.assertIn('normalized.contains("no stikdebug jit region:")', swift)
+        self.assertIn('normalized.contains("this process cannot make executable memory for itself")', swift)
+        self.assertIn('normalized.contains("executable memory is turned off (tl_no_xmem)")', swift)
+        self.assertIn("FailureClassification.other", swift)
+        self.assertIn("JIT, DEX, ELF, Android API, graphics, audio, or memory", swift)
+        self.assertNotIn('normalized.contains("failed")', swift)
+        self.assertNotIn('normalized.contains("crash")', swift)
+
+    def test_launch_uses_a_fresh_husk_log_and_resets_jitless_after_stop(self):
+        launch = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
+        self.assertIn('engine == .unity ? "unity-run.log" : "native-run.log"', launch)
+        self.assertIn("removeItem(at: logURL)", launch)
+        self.assertIn("diagnosticLogURL: logURL", launch)
+        self.assertIn("try? INFINITYJITLess.configure(enabled: false)", runtime)
 
 
 if __name__ == "__main__":
