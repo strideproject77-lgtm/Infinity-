@@ -745,3 +745,14 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Expanded the existing IPA builder's push path filters to include application source, extension, project, resources and StikJIT dependency changes, so source fixes now trigger the existing builder. Commit: `890ffc8b644bed4c18718109b88dd17d07c2f6ad`.
 - Verification pending at handoff: the new source-contract workflow and Xcode archive/IPA builder must complete. The settings route and source-level contracts are committed, but no successful IPA, device-side JIT enablement, or real APK launch is claimed yet. Confirm the `LiveBoardJITSession.startLaunch` invocation path and inspect the next build/device logs before marking end-to-end JIT complete.
 - SideStore source, configuration, signing, installation and refresh systems remain untouched. No manual IPA build/sign/export or device installation was performed.
+
+
+## Codemagic IPA backup builder — 2026-11-17
+
+- Added root-level `codemagic.yaml` with a separate `INFINITY IPA (Codemagic backup)` workflow on the `main` branch.
+- The backup uses an independent Codemagic macOS M2 runner, restores Git submodules, provisions the same pinned StikJIT idevice FFI archive, resolves Xcode packages, and archives the same `LiveContainer` scheme using the current single-file Release compiler mitigation.
+- IPA packaging delegates to the existing `.github/build_github.sh` script, so both CI systems use the repository's existing IPA packaging path. Expected Codemagic artifacts are `LiveContainer.ipa`, `LiveContainer+SideStore.ipa`, the Xcode archive, and the raw archive log.
+- Push triggers are restricted to `main` and relevant source/build paths. `cancel_previous_builds: true` discards outdated webhook builds; this reduces duplicate backlog but does not guarantee zero queue time or unlimited build capacity.
+- Setup still required by the owner: create/sign in to Codemagic, add this GitHub repository, select the `main` branch and the `infinity-ipa-backup` workflow, and enable the repository webhook. No Codemagic account connection or webhook can be created from this repository commit.
+- The Codemagic workflow has not yet been run. Its YAML and macOS build behavior are therefore **configured but unverified**; no IPA success or device compatibility is claimed. Codemagic-hosted artifacts are separate from GitHub Actions artifacts/releases unless a later authenticated publishing integration is configured.
+- GitHub Actions remains the primary builder. No GitHub workflow, SideStore source/configuration/signing/installation/refresh path, or IPA signing configuration was changed by this backup addition. No IPA build, signing, export, or device installation was initiated.
