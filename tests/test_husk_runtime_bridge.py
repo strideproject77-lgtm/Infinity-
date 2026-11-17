@@ -47,7 +47,10 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(engine=engine):
                 self.assertIn(f"INFINITY_HUSK_ENGINE_{engine}", header)
                 self.assertIn(f"case INFINITY_HUSK_ENGINE_{engine}:", adapter)
-        self.assertIn("atomic_store(&g_infinity_engine, (int)engine)", adapter)
+        self.assertIn("atomic_store(&g_infinity_engine, engine)", adapter)
+        self.assertIn("bool infinity_husk_launch_engine(int engine,", adapter)
+        self.assertIn("atomic_load(&g_java_runtime_ready)", adapter)
+        self.assertIn("infinity_husk_launch_engine(int engine,", header)
         self.assertIn("husk_unity_touch(phase, pointer_id, x, y)", adapter)
         self.assertIn("husk_unity_set_paused(paused)", adapter)
 
