@@ -246,12 +246,8 @@ final class INFINITYHuskRuntime: ObservableObject {
     func stop() {
         pollingTask?.cancel()
         pollingTask = nil
-        guard state != .idle else {
-            resetPublishedSession()
-            isStopping = false
-            return
-        }
-
+        // The C launch can be accepted before the first state poll updates SwiftUI.
+        // Always ask the adapter to stop; it is an idempotent no-op without a session.
         // Native shutdown may wait for engine threads; never block the SwiftUI main actor.
         isStopping = true
         Task { [weak self] in
