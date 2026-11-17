@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-enum { INFINITY_ENGINE_NONE = -1 };
+enum { INFINITY_ENGINE_STARTING = -2, INFINITY_ENGINE_NONE = -1 };
 static atomic_int g_infinity_engine = ATOMIC_VAR_INIT(INFINITY_ENGINE_NONE);
 static atomic_bool g_java_runtime_ready = ATOMIC_VAR_INIT(false);
 static atomic_bool g_native_runtime_ready = ATOMIC_VAR_INIT(false);
@@ -137,8 +137,22 @@ bool infinity_husk_launch_engine(int engine,
     if (!atomic_load(&g_native_runtime_ready)) return false;
     if (engine == INFINITY_HUSK_ENGINE_JAVA && !atomic_load(&g_java_runtime_ready)) return false;
 
+    if (engine < INFINITY_HUSK_ENGINE_UNITY || engine > INFINITY_HUSK_ENGINE_GAMEMAKER)
+        return false;
+
+    /* Reserve the single native session before entering upstream launch code.
+       Without this CAS, two callers can both observe NONE and start two engines
+       against the same global Husk state and Metal surface. */
+    int expected_engine = INFINITY_ENGINE_NONE;
+    if (!atomic_compare_exchange_strong(&g_infinity_engine, &expected_engine,
+                                        INFINITY_ENGINE_STARTING))
+        return false;
+
     if (engine == INFINITY_HUSK_ENGINE_UNREAL) {
-        if (!readable_file(moltenvk_dylib)) return false;
+        if (!readable_file(moltenvk_dylib)) {
+            atomic_store(&g_infinity_engine, INFINITY_ENGINE_NONE);
+            return false;
+        }
         husk_ue4_set_vulkan(moltenvk_dylib);
     }
 
@@ -165,11 +179,13 @@ bool infinity_husk_launch_engine(int engine,
         case INFINITY_HUSK_ENGINE_GAMEMAKER:
             accepted = husk_gamemaker_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
         default:
-            return false;
+            accepted = false;
+            break;
     }
 
-    if (accepted)
-        atomic_store(&g_infinity_engine, engine);
+    /* Publish the selected backend only after Husk accepted the launch. */
+    atomic_store(&g_infinity_engine,
+                 accepted ? engine : INFINITY_ENGINE_NONE);
     return accepted;
 }
 
@@ -191,7 +207,8 @@ bool infinity_husk_launch_unity(const char *apk_path, const char *data_dir,
 
 void infinity_husk_java_touch(int phase, int pointer_id, float x, float y)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
+    if (isfinite(x) && isfinite(y) &&
+        atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         tl_javaapp_touch(phase, pointer_id, x, y);
 }
 
@@ -303,7 +320,10 @@ unsigned long infinity_husk_frames(void)
 
 void infinity_husk_touch(int phase, int pointer_id, float x, float y)
 {
-    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE)
+    int engine = atomic_load(&g_infinity_engine);
+    if (isfinite(x) && isfinite(y) &&
+        engine >= INFINITY_HUSK_ENGINE_UNITY &&
+        engine <= INFINITY_HUSK_ENGINE_GAMEMAKER)
         husk_unity_touch(phase, pointer_id, x, y);
 }
 
