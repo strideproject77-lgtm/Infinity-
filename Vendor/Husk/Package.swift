@@ -17,7 +17,6 @@ let package = Package(
             path: ".",
             exclude: [
                 "build-support",
-                "docs",
                 "host-reference",
                 "host-runtime",
                 "resources",
@@ -25,10 +24,12 @@ let package = Package(
                 "tools",
                 "upstream-docs",
                 "objc-adapters",
-                "tests",
                 "scripts",
                 "Package.swift",
-                "UPSTREAM_REVISION.txt"
+                "UPSTREAM_REVISION.txt",
+                "translation-layer/stb_vorbis.inc",
+                "translation-layer-next/husk-tl-codesign-wwdr.inc",
+                "translation-layer-next/husk-tl-egl-es31.inc"
             ],
             sources: [
                 "translation-layer",
@@ -41,7 +42,7 @@ let package = Package(
                 .headerSearchPath("translation-layer"),
                 .headerSearchPath("translation-layer-next"),
                 .headerSearchPath("include"),
-                .unsafeFlags(["-fblocks", "-fobjc-arc"])
+                .unsafeFlags(["-fblocks", "-fobjc-arc", "-Wno-macro-redefined"])
             ],
             linkerSettings: [
                 .linkedLibrary("z"),
