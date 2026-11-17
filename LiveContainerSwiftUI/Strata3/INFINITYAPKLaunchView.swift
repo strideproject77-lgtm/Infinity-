@@ -111,7 +111,7 @@ struct INFINITYAPKInstalledAppDetail: View {
             return INFINITYAPKStore.runtimeBundle() != nil
         }
         if app.detectedEngine == "unreal" {
-            return FileManager.default.isReadableFile(atPath: INFINITYAPKStore.moltenVKLibraryURL.path)
+            return INFINITYAPKStore.isMoltenVKEmbeddedAndReadable
         }
         return true
     }
