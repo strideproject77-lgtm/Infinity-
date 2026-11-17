@@ -101,6 +101,20 @@ enum INFINITYAPKStore {
         LCPath.docPath.appendingPathComponent("Strata3/AndroidRuntime", isDirectory: true)
     }
 
+    static var hasEmbeddedAngle: Bool {
+        guard let embedded = Bundle.main.privateFrameworksURL?.appendingPathComponent("libANGLE-shared.dylib") else {
+            return false
+        }
+        return fileManager.isReadableFile(atPath: embedded.path)
+    }
+
+    static var hasEmbeddedMoltenVK: Bool {
+        guard let embedded = Bundle.main.privateFrameworksURL?.appendingPathComponent("libMoltenVK.dylib") else {
+            return false
+        }
+        return fileManager.isReadableFile(atPath: embedded.path)
+    }
+
     static var angleLibraryURL: URL {
         Bundle.main.privateFrameworksURL?.appendingPathComponent("libANGLE-shared.dylib")
             ?? runtimeRoot.appendingPathComponent("libANGLE-shared.dylib")
