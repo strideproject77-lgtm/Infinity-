@@ -36,7 +36,7 @@ else
   mv "$TEMP_ARCHIVE" "$ARCHIVE"
 fi
 
-lipo -verify_arch arm64 "$ARCHIVE"
+lipo "$ARCHIVE" -verify_arch arm64
 SYMBOLS_FILE="$(mktemp)"
 trap 'rm -f "$SYMBOLS_FILE"' EXIT
 if ! nm -gU "$ARCHIVE" > "$SYMBOLS_FILE"; then
