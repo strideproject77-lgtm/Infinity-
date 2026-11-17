@@ -52,6 +52,14 @@ enum INFINITYAPKStore {
         LCPath.docPath.appendingPathComponent("Strata3/AndroidRuntime", isDirectory: true)
     }
 
+    static var angleLibraryURL: URL {
+        runtimeRoot.appendingPathComponent("libANGLE-shared.dylib")
+    }
+
+    static var moltenVKLibraryURL: URL {
+        runtimeRoot.appendingPathComponent("libMoltenVK.dylib")
+    }
+
     static func installedApps() throws -> [INFINITYAPKInstalledApp] {
         try ensureRoot()
         let index = root.appendingPathComponent(indexName)
@@ -162,7 +170,7 @@ enum INFINITYAPKStore {
         let java = runtimeRoot.appendingPathComponent("java-runtime", isDirectory: true)
         let system = runtimeRoot.appendingPathComponent("android-system", isDirectory: true)
         let certificates = system.appendingPathComponent("cacerts", isDirectory: true)
-        let angle = runtimeRoot.appendingPathComponent("libANGLE-shared.dylib")
+        let angle = angleLibraryURL
         let caBundle = runtimeRoot.appendingPathComponent("cacert.pem")
         let required = [
             "com.android.art/javalib/core-oj.jar",
