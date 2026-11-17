@@ -37,6 +37,20 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(symbol=symbol):
                 self.assertIn(symbol, adapter)
 
+    def test_all_husk_backend_engines_are_dispatched_without_collapsing_identity(self):
+        header = self.read("Vendor/Husk/include/INFINITYHuskRuntime.h")
+        adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
+        for engine in (
+            "UNITY", "JAVA", "COCOS", "GAME_ACTIVITY", "SDL",
+            "UNREAL", "GODOT", "GTA", "FLUTTER", "GAMEMAKER"
+        ):
+            with self.subTest(engine=engine):
+                self.assertIn(f"INFINITY_HUSK_ENGINE_{engine}", header)
+                self.assertIn(f"case INFINITY_HUSK_ENGINE_{engine}:", adapter)
+        self.assertIn("atomic_store(&g_infinity_engine, (int)engine)", adapter)
+        self.assertIn("husk_unity_touch(phase, pointer_id, x, y)", adapter)
+        self.assertIn("husk_unity_set_paused(paused)", adapter)
+
     def test_java_runtime_is_rejected_when_boot_assets_are_missing(self):
         adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
         for asset in (
