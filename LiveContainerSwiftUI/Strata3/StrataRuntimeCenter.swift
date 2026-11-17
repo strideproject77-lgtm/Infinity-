@@ -82,7 +82,7 @@ struct StrataRuntimeCenter: View {
                              ? "APK structure recognized. Execution compatibility is not yet tested."
                              : "Incomplete APK structure: manifest or DEX files are missing.")
                             .font(.caption)
-                            .foregroundStyle(report.isStructurallyRecognizableAPK ? .secondary : .orange)
+                            .foregroundStyle(report.isStructurallyRecognizableAPK ? Color.secondary : Color.orange)
                     }
                     .padding(.vertical, 4)
                 }
