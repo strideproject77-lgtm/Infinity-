@@ -27,7 +27,7 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("static var hasEmbeddedAngle", store)
         self.assertIn("static var hasEmbeddedMoltenVK", store)
         self.assertIn("isANGLEEmbeddedAndReadable", store)
-        self.assertIn("INFINITYAPKStore.isANGLEEmbeddedAndReadable", view)
+        self.assertIn("INFINITYAPKStore.nativeRuntimeBundle() != nil", view)
         self.assertIn("INFINITYAPKStore.isMoltenVKEmbeddedAndReadable", view)
         self.assertIn("not embedded and signed", view)
 
