@@ -10,6 +10,9 @@ The importer fetches exact Husk revision 29abb512d81bf8cc08babcbe7f7007cb557208e
 - src/translation-layer/ — retained because selected upstream Swift host code still calls its attempt/check APIs. This legacy tree is a host dependency, not a replacement for translation-layer-next.
 - Selected host runtime files: TranslationLayer.swift, TLUnityView.swift, TLAppSettings.swift, AppWindows.swift, HuskGamepad.swift, HuskKeyboard.swift, HuskAudio.swift, HuskLog.swift and HuskFilePicker.swift.
 - HuskApp.swift under host-reference/ only. It contains an @main app entry point and must never be compiled into Strata.
+- The Java framework implementation sources under src/java-framework/src/, compile-time stubs, generated Android platform signature/constant stubs under gen-src/, and the GLES/API generators.
+- The Android guest-side ART support source under src/art-support/.
+- Runtime asset build helpers: tools/strip_framework_res.py, tools/compat/, and scripts/copy_aosp_bundle.sh.
 - The upstream CA certificate resource, selected Java/Android-system/ANGLE/ART build recipes, technical docs and licensing guide.
 
 The result is placed under Vendor/Husk/, outside Strata's synchronized Xcode source groups. The importer does not add source files to any Xcode target.
@@ -41,7 +44,7 @@ Only importer-owned paths are replaced. INFINITY-owned files such as Vendor/Husk
 - JIT helper extension, pairing/signing/refresh/install flows and unrelated app features.
 - Prebuilt QEMU binaries and generated Android runtime payloads.
 
-QEMU remains a separate optional backend decision. The native translation layer is the primary path; ANGLE/GLES, Java runtime assets, Android system fonts/certificates and Vulkan/MoltenVK are separately audited dependencies. The included build recipes are retained for review, not executed by the importer.
+QEMU remains a separate optional backend decision. The native translation layer is the primary path; ANGLE/GLES, Java runtime assets, Android system fonts/certificates and Vulkan/MoltenVK are separately audited dependencies. The included build recipes are retained for review, not executed by the importer. The Java runtime build requires a matching Lineage system image/APEX tree, JDK, R8/D8 and framework resources; source import alone does not generate the runtime payload.
 
 ## Integration workflow
 
@@ -59,7 +62,7 @@ QEMU remains a separate optional backend decision. The native translation layer 
 
 ## Audit limitations
 
-scripts/audit_husk_runtime.py inventories imported source groups, source types, SPDX identifiers, quoted includes, system header includes and Swift imports. It is not a compiler, full symbol resolver, legal opinion or proof of runtime compatibility. Missing generated headers, conditional includes, linker symbols, runtime resources and transitive dependencies still require review.
+scripts/audit_husk_runtime.py inventories imported native/Java source groups, generated platform stub provenance, SPDX identifiers, quoted includes, system header includes and Swift imports. It is not a compiler, full symbol resolver, legal opinion or proof of runtime compatibility. Missing generated headers, conditional includes, linker symbols, runtime resources and transitive dependencies still require review.
 
 ## Safety
 
