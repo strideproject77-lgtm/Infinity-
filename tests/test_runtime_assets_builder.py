@@ -27,6 +27,7 @@ class RuntimeAssetBuilderTests(unittest.TestCase):
         self.assertIn('build/java-runtime', script)
         self.assertIn('build/android-system', script)
         self.assertIn('etc/font_fallback.xml', script)
+        self.assertIn(r'-exec cp {} "$ANDROID_SYSTEM/fonts/" \;', script)
         self.assertIn('cacerts', script)
 
     def test_builder_never_packages_qemu_guest_or_ipa(self):
