@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Thin Swift facade for Husk's ahead-of-time native-library conversion.
 /// This does not grant JIT or execute DEX; it prepares signed ARM64 Mach-O
