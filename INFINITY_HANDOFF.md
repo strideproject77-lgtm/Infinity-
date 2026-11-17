@@ -765,3 +765,16 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - The workflow verifies that all submodules finish at their pinned revisions before proceeding. It does not rewrite submodule URLs or update pinned commits.
 - This is a retry mitigation, not a DNS repair: if Codemagic cannot resolve github.com for all attempts, the workflow will still fail clearly at dependency checkout. The next Codemagic run is required to verify whether the runner-side failure was transient.
 - No IPA build was manually triggered. No IPA was built, signed, exported, or installed by this change. GitHub's existing primary builder and all SideStore source/configuration/signing/installation/refresh systems remain untouched.
+
+
+## JIT-less certificate reuse and evidence-based failure diagnosis — 2026-11-17
+
+- Audited the existing LiveContainer certificate path: `LCUtils.certificateData()` reads the shared imported signing identity first (including the SideStore-backed shared Keychain identity), and `LCSharedUtils.certificatePassword()` returns its paired password. The host team identifier is available from `LCSharedUtils.teamIdentifier()`; `LCUtils.getCertTeamId(withKeyData:password:)` validates the imported PKCS#12 identity's team.
+- Connected APK launch preparation to this existing identity. INFINITY now asks Husk's `husk_aot_prepare` to create signed AOT Mach-O libraries from the APK's ARM64 .so entries and, for Java APKs, the Android runtime's lib64 .so files. It does not alter the original APK.
+- JIT-less mode is enabled only when the imported certificate matches the host signing team and the AOT converter reports a prepared count equal to the complete unique required-library set. Missing, invalid, mismatched, or incomplete certificate/AOT preparation leaves `TL_NO_XMEM` disabled and continues with the ordinary runtime path.
+- Each launch clears its previous Husk log before startup and records the correct `unity-run.log` or `native-run.log` path. When the runtime reports failure, the classifier only recommends JIT after finding Husk's explicit executable-memory denial diagnostics: `no StikDebug JIT region` or `this process cannot make executable memory for itself`. In active JIT-less mode, the exact `executable memory is turned off (TL_NO_XMEM)` diagnostic is reported as an AOT coverage gap. Generic failure/crash, DEX, ELF, graphics, API, and memory messages remain non-JIT errors.
+- Confirmed JIT-related failures now tell the user about Strata Built-in JIT and external StikDebug. Other failures explicitly state that JIT is not confirmed.
+- Runtime shutdown resets JIT-less loader configuration so a later app cannot inherit stale `TL_NO_XMEM` state.
+- Added source-contract regressions for SideStore identity reuse, complete AOT-set gating, strict error classification, fresh logs, and shutdown reset.
+- Validation in this batch: source changes and test assertions added; no Xcode build, iOS device run, actual AOT conversion, or real APK execution has yet been performed. The GitHub Actions test workflow is expected to run from the source changes; no pass is claimed until its result is inspected.
+- No IPA build/sign/export was initiated. SideStore implementation, entitlements, signing, installation, refresh, and packaging systems were not changed.
