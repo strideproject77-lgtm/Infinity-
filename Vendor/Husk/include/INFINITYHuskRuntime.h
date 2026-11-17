@@ -50,7 +50,7 @@ typedef enum infinity_husk_engine {
 } infinity_husk_engine;
 
 /* Explicit backend dispatch. ANGLE is required by Husk's launch contract. */
-bool infinity_husk_launch_engine(infinity_husk_engine engine,
+bool infinity_husk_launch_engine(int engine,
                                  const char *apk_path, const char *data_dir,
                                  void *metal_layer, int width, int height,
                                  const char *angle_dylib, const char *ca_bundle,
