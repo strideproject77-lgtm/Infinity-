@@ -14,6 +14,9 @@ struct StrataRuntimeCenter: View {
     @State private var apkInspectionError: String?
     @State private var installedAPKs: [INFINITYAPKInstalledApp] = []
     @State private var apkStoreError: String?
+    @State private var importingRuntimeAssets = false
+    @State private var installingRuntimeAssets = false
+    @State private var runtimeAssetsStatus: String?
     private var guests: [LCAppModel] { apps.filter { !($0.appInfo is BuiltInSideStoreAppInfo) && (!($0.uiIsHidden) || sharedModel.isHiddenAppUnlocked) }.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending } }
     var body: some View {
         List {
@@ -111,6 +114,30 @@ struct StrataRuntimeCenter: View {
                     }
                 }
             }
+            Section("Android runtime assets") {
+                Button {
+                    importingRuntimeAssets = true
+                    runtimeAssetsStatus = nil
+                } label: {
+                    Label("Import prepared runtime data folder", systemImage: "shippingbox")
+                }
+                .disabled(installingRuntimeAssets)
+
+                if installingRuntimeAssets {
+                    ProgressView("Validating and installing runtime data…")
+                }
+                LabeledContent("Java + Android system data",
+                               value: INFINITYAPKStore.runtimeDataReady() ? "Installed" : "Missing")
+                LabeledContent("ANGLE graphics library",
+                               value: FileManager.default.isReadableFile(atPath: INFINITYAPKStore.angleLibraryURL.path)
+                                ? "Present · signing still required"
+                                : "Not embedded")
+                if let runtimeAssetsStatus {
+                    Text(runtimeAssetsStatus).font(.caption).foregroundStyle(.secondary)
+                }
+                Text("Select the unzipped INFINITY runtime-data folder containing java-runtime, android-system and cacert.pem. ANGLE is separate native code and must be embedded and signed in the app bundle; copying a dylib into Files is not enough.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Management") {
                 NavigationLink { StrataIdentitySettings() } label: { Label("LocalSigner · Signing Identity", systemImage: "signature") }
                 NavigationLink { StrataDiagnosticsView(apps: guests) } label: { Label("Runtime Diagnostics", systemImage: "waveform.path.ecg") }
@@ -152,6 +179,28 @@ struct StrataRuntimeCenter: View {
                 }
             } catch {
                 apkInspectionError = error.localizedDescription
+            }
+        }
+        .fileImporter(isPresented: $importingRuntimeAssets, allowedContentTypes: [.folder]) { result in
+            do {
+                let folder = try result.get()
+                installingRuntimeAssets = true
+                runtimeAssetsStatus = nil
+                Task {
+                    defer { installingRuntimeAssets = false }
+                    do {
+                        try await Task.detached(priority: .userInitiated) {
+                            try INFINITYAPKStore.installRuntimeAssets(from: folder)
+                        }.value
+                        runtimeAssetsStatus = INFINITYAPKStore.runtimeDataReady()
+                            ? "Android runtime data installed and validated. ANGLE still needs app-bundle integration."
+                            : "Runtime data copy completed, but required Android files are still missing."
+                    } catch {
+                        runtimeAssetsStatus = error.localizedDescription
+                    }
+                }
+            } catch {
+                runtimeAssetsStatus = error.localizedDescription
             }
         }
     }
