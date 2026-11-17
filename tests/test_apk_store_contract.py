@@ -26,9 +26,9 @@ class APKStoreContractTests(unittest.TestCase):
         view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
         self.assertIn("static var hasEmbeddedAngle", store)
         self.assertIn("static var hasEmbeddedMoltenVK", store)
-        self.assertIn("hasEmbeddedAngle,", store)
-        self.assertIn("INFINITYAPKStore.hasEmbeddedAngle", view)
-        self.assertIn("INFINITYAPKStore.hasEmbeddedMoltenVK", view)
+        self.assertIn("isANGLEEmbeddedAndReadable", store)
+        self.assertIn("INFINITYAPKStore.isANGLEEmbeddedAndReadable", view)
+        self.assertIn("INFINITYAPKStore.isMoltenVKEmbeddedAndReadable", view)
         self.assertIn("not embedded and signed", view)
 
     def test_runtime_data_install_is_staged_and_rollback_safe(self):
