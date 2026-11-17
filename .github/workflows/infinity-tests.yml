@@ -32,6 +32,7 @@ on:
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
       - "Vendor/Husk/include/**"
       - "Vendor/Husk/bridge/**"
+      - "Vendor/Husk/translation-layer-next/**"
       - "Vendor/Husk/Package.swift"
       - "Vendor/Husk/build-support/build_angle_ios.sh"
       - "Vendor/Husk/src/java-framework/build.sh"
