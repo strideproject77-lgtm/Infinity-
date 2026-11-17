@@ -65,6 +65,9 @@ class HuskJITLessContractTests(unittest.TestCase):
         self.assertIn("not connected to this APK runtime", swift)
 
     def test_tar_aot_coverage_counts_one_top_level_bundle_and_fails_closed(self):
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-aot.h")
+        self.assertIn("unique top-level APK/runtime library entries are covered", header)
+        self.assertIn("a tar bundle counts once", header)
         aot = self.read("Vendor/Husk/translation-layer-next/husk-tl-aot.c")
         prepare_tar = aot.split("static int prepare_tar(", 1)[1].split(
             "\nint husk_aot_prepare(", 1
