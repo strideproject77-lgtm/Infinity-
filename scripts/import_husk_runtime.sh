@@ -25,6 +25,10 @@ if [[ "$REFRESH" -ne 1 ]] && {
   [[ -e "$DEST/build-support" ]] ||
   [[ -e "$DEST/upstream-docs" ]] ||
   [[ -e "$DEST/resources" ]] ||
+  [[ -e "$DEST/src/java-framework" ]] ||
+  [[ -e "$DEST/src/art-support" ]] ||
+  [[ -e "$DEST/tools" ]] ||
+  [[ -e "$DEST/scripts" ]] ||
   [[ -e "$DEST/HUSK-LICENSE" ]] ||
   [[ -e "$DEST/UPSTREAM_REVISION.txt" ]]
 }; then
@@ -67,6 +71,11 @@ git -C "$TMP/repo" archive --format=tar "$REVISION" \
   src/app/Husk/HuskBridge.h \
   src/app/project.yml \
   src/app/Husk/Resources/cacert.pem \
+  src/java-framework \
+  src/art-support \
+  tools/strip_framework_res.py \
+  tools/compat \
+  scripts/copy_aosp_bundle.sh \
   scripts/build_java_runtime.sh \
   scripts/build_android_system.sh \
   scripts/build_angle_ios.sh \
@@ -83,7 +92,7 @@ git -C "$TMP/repo" archive --format=tar "$REVISION" \
 }
 
 STAGE="$TMP/stage"
-mkdir -p "$STAGE/translation-layer" "$STAGE/translation-layer-next" "$STAGE/host-runtime" "$STAGE/host-reference" "$STAGE/build-support" "$STAGE/upstream-docs" "$STAGE/resources"
+mkdir -p "$STAGE/translation-layer" "$STAGE/translation-layer-next" "$STAGE/host-runtime" "$STAGE/host-reference" "$STAGE/build-support" "$STAGE/upstream-docs" "$STAGE/resources" "$STAGE/src/java-framework" "$STAGE/src/art-support" "$STAGE/tools/compat" "$STAGE/scripts"
 cp -R "$ARCHIVE/src/translation-layer/." "$STAGE/translation-layer/"
 cp -R "$ARCHIVE/src/translation-layer-next/." "$STAGE/translation-layer-next/"
 # These are source inputs for a later isolated Strata adapter, not Xcode target
@@ -102,6 +111,13 @@ done
 cp "$ARCHIVE/src/app/Husk/HuskBridge.h" "$STAGE/host-reference/HuskBridge.h"
 cp "$ARCHIVE/src/app/project.yml" "$STAGE/build-support/project.yml"
 cp "$ARCHIVE/src/app/Husk/Resources/cacert.pem" "$STAGE/resources/cacert.pem"
+cp -R "$ARCHIVE/src/java-framework/." "$STAGE/src/java-framework/"
+cp -R "$ARCHIVE/src/art-support/." "$STAGE/src/art-support/"
+cp "$ARCHIVE/tools/strip_framework_res.py" "$STAGE/tools/strip_framework_res.py"
+cp -R "$ARCHIVE/tools/compat/." "$STAGE/tools/compat/"
+cp "$ARCHIVE/scripts/copy_aosp_bundle.sh" "$STAGE/scripts/copy_aosp_bundle.sh"
+# Do not vendor interpreter caches as source.
+find "$STAGE/src/java-framework" "$STAGE/tools/compat" -type d -name __pycache__ -prune -exec rm -rf {} +
 for file in build_java_runtime.sh build_android_system.sh build_angle_ios.sh build_art_support.sh; do
   cp "$ARCHIVE/scripts/$file" "$STAGE/build-support/$file"
 done
@@ -129,17 +145,18 @@ EOF
 LEGACY_COUNT="$(find "$STAGE/translation-layer" -type f | wc -l | tr -d ' ')"
 NATIVE_COUNT="$(find "$STAGE/translation-layer-next" -type f | wc -l | tr -d ' ')"
 HOST_COUNT="$(find "$STAGE/host-runtime" -type f | wc -l | tr -d ' ')"
-[[ "$LEGACY_COUNT" -gt 0 && "$NATIVE_COUNT" -gt 0 && "$HOST_COUNT" -gt 0 ]] || { echo "Imported source groups are incomplete" >&2; exit 8; }
+JAVA_COUNT="$(find "$STAGE/src/java-framework" -type f | wc -l | tr -d ' ')"
+[[ "$LEGACY_COUNT" -gt 0 && "$NATIVE_COUNT" -gt 0 && "$HOST_COUNT" -gt 0 && "$JAVA_COUNT" -gt 0 ]] || { echo "Imported source groups are incomplete" >&2; exit 8; }
 
 # Replace only importer-owned paths. Preserve INFINITY's
 # Vendor/Husk/THIRD_PARTY_NOTICES.md and any other INFINITY-owned vendor files.
 mkdir -p "$DEST"
-for path in translation-layer translation-layer-next host-runtime host-reference build-support upstream-docs resources; do
+for path in translation-layer translation-layer-next host-runtime host-reference build-support upstream-docs resources src/java-framework src/art-support tools scripts; do
   rm -rf "$DEST/$path"
   cp -R "$STAGE/$path" "$DEST/$path"
 done
 cp "$STAGE/HUSK-LICENSE" "$DEST/HUSK-LICENSE"
 cp "$STAGE/UPSTREAM_REVISION.txt" "$DEST/UPSTREAM_REVISION.txt"
 
-echo "[done] Imported $LEGACY_COUNT legacy-layer, $NATIVE_COUNT native-layer and $HOST_COUNT host-runtime files from Husk $REVISION"
+echo "[done] Imported $LEGACY_COUNT legacy-layer, $NATIVE_COUNT native-layer, $HOST_COUNT host-runtime and $JAVA_COUNT Java-framework files from Husk $REVISION"
 echo "No Xcode target was changed. Complete dependency, licensing, and host-API review before compiling."
