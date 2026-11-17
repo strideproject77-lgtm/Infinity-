@@ -195,6 +195,13 @@ struct LCSettingsView: View {
                         ForEach(JITEnablerType.allCases) { enablerType in
                             Text(enablerType.displayName).tag(enablerType)
                         }
+                    if JITEnabler == .BuiltIn {
+                        NavigationLink {
+                            LiveBoardJITSetup()
+                        } label: {
+                            Label("Built-in JIT setup", systemImage: "bolt.fill")
+                        }
+                    }
                     } label: {
                         Text("lc.settings.jitEnabler".loc)
                     }
