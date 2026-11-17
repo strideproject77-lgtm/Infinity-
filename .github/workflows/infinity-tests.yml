@@ -19,6 +19,7 @@ on:
       - "Vendor/Husk/src/java-framework/build.sh"
       - "LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h"
       - "scripts/import_husk_runtime.sh"
+      - "scripts/prepare_stikjit_idevice.sh"
       - "scripts/build_infinity_runtime_assets.sh"
       - ".github/workflows/infinity-runtime-assets.yml"
       - ".github/workflows/infinity-husk-angle.yml"
@@ -48,6 +49,7 @@ jobs:
       - name: Validate runtime build scripts
         run: |
           bash -n scripts/import_husk_runtime.sh
+          bash -n scripts/prepare_stikjit_idevice.sh
           bash -n scripts/build_infinity_runtime_assets.sh
           bash -n Vendor/Husk/build-support/build_angle_ios.sh
           bash -n Vendor/Husk/src/java-framework/build.sh
