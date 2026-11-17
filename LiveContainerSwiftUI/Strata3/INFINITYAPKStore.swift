@@ -284,6 +284,111 @@ enum INFINITYAPKStore {
                                         certificateBundle: native.certificateBundle)
     }
 
+    /// Installs a prepared runtime-data folder exported by the INFINITY asset workflow.
+    /// The folder must contain java-runtime/, android-system/ and cacert.pem.
+    /// ANGLE remains an app-bundled, code-signed dependency and is not installed here.
+    static func installRuntimeAssets(from source: URL) throws {
+        let scoped = source.startAccessingSecurityScopedResource()
+        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+
+        let sourceRoot = source.standardizedFileURL
+        guard hasJavaRuntimeAssets(at: sourceRoot),
+              hasAndroidSystemAssets(at: sourceRoot) else {
+            throw StoreError.missingRuntimeAssets
+        }
+
+        try fileManager.createDirectory(at: runtimeRoot, withIntermediateDirectories: true)
+        let stage = runtimeRoot.appendingPathComponent(".runtime-stage-\(UUID().uuidString)", isDirectory: true)
+        let backup = runtimeRoot.appendingPathComponent(".runtime-backup-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(at: stage, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: backup, withIntermediateDirectories: true)
+
+        let components = ["java-runtime", "android-system", "cacert.pem"]
+        do {
+            for name in components {
+                try fileManager.copyItem(at: sourceRoot.appendingPathComponent(name),
+                                         to: stage.appendingPathComponent(name))
+            }
+            guard hasJavaRuntimeAssets(at: stage), hasAndroidSystemAssets(at: stage) else {
+                throw StoreError.missingRuntimeAssets
+            }
+
+            var movedOld: [String] = []
+            var movedNew: [String] = []
+            do {
+                for name in components {
+                    let current = runtimeRoot.appendingPathComponent(name)
+                    if fileManager.fileExists(atPath: current.path) {
+                        try fileManager.moveItem(at: current, to: backup.appendingPathComponent(name))
+                        movedOld.append(name)
+                    }
+                }
+                for name in components {
+                    try fileManager.moveItem(at: stage.appendingPathComponent(name),
+                                             to: runtimeRoot.appendingPathComponent(name))
+                    movedNew.append(name)
+                }
+            } catch {
+                for name in movedNew {
+                    try? fileManager.removeItem(at: runtimeRoot.appendingPathComponent(name))
+                }
+                for name in movedOld {
+                    try? fileManager.moveItem(at: backup.appendingPathComponent(name),
+                                              to: runtimeRoot.appendingPathComponent(name))
+                }
+                throw error
+            }
+            try? fileManager.removeItem(at: backup)
+            try? fileManager.removeItem(at: stage)
+        } catch {
+            try? fileManager.removeItem(at: stage)
+            try? fileManager.removeItem(at: backup)
+            throw error
+        }
+    }
+
+    private static func hasJavaRuntimeAssets(at root: URL) -> Bool {
+        let java = root.appendingPathComponent("java-runtime", isDirectory: true)
+        let required = [
+            "com.android.art/javalib/core-oj.jar",
+            "com.android.art/javalib/core-libart.jar",
+            "com.android.art/javalib/okhttp.jar",
+            "com.android.art/javalib/bouncycastle.jar",
+            "com.android.art/javalib/apache-xml.jar",
+            "com.android.art/lib64/libandroidio.so",
+            "com.android.art/lib64/libbase.so",
+            "com.android.art/lib64/libc++.so",
+            "com.android.art/lib64/libexpat.so",
+            "com.android.art/lib64/libjavacore.so",
+            "com.android.art/lib64/libnativehelper.so",
+            "com.android.art/lib64/libopenjdk.so",
+            "com.android.i18n/javalib/core-icu4j.jar",
+            "com.android.conscrypt/javalib/conscrypt.jar",
+            "com.android.conscrypt/lib64/libjavacrypto.so",
+            "com.android.conscrypt/lib64/libcrypto.so",
+            "com.android.conscrypt/lib64/libssl.so",
+            "husk-framework.dex",
+            "husk-framework-core.dex",
+            "org.apache.http.legacy.jar",
+            "framework-res.apk"
+        ]
+        return required.allSatisfy {
+            fileManager.isReadableFile(atPath: java.appendingPathComponent($0).path)
+        } && fileManager.fileExists(atPath: java.appendingPathComponent("com.android.i18n/etc/icu").path)
+          && fileManager.fileExists(atPath: java.appendingPathComponent("com.android.tzdata/etc").path)
+    }
+
+    private static func hasAndroidSystemAssets(at root: URL) -> Bool {
+        let system = root.appendingPathComponent("android-system", isDirectory: true)
+        let certificates = system.appendingPathComponent("cacerts", isDirectory: true)
+        let fonts = system.appendingPathComponent("fonts", isDirectory: true)
+        return (try? fileManager.contentsOfDirectory(at: certificates, includingPropertiesForKeys: nil).isEmpty) == false
+            && fileManager.fileExists(atPath: fonts.path)
+            && fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/fonts.xml").path)
+            && fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/font_fallback.xml").path)
+            && fileManager.isReadableFile(atPath: root.appendingPathComponent("cacert.pem").path)
+    }
+
     private static func ensureRoot() throws {
         try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
     }
