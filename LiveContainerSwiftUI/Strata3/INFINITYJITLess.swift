@@ -74,8 +74,7 @@ enum INFINITYJITLess {
               let certificatePassword else {
             throw PreparationError.certificateUnavailable
         }
-        guard let certificateTeamID, !certificateTeamID.isEmpty,
-              !certificateTeamID.isEmpty else {
+        guard let certificateTeamID, !certificateTeamID.isEmpty else {
             throw PreparationError.invalidCertificate
         }
         guard let appTeamID, !appTeamID.isEmpty,
