@@ -33,6 +33,9 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     @Published private(set) var state: State = .idle
     @Published private(set) var frameCount: UInt = 0
+    @Published private(set) var framesPerSecond: Double = 0
+    @Published private(set) var meanFrameMilliseconds: Double = 0
+    @Published private(set) var maxFrameMilliseconds: Double = 0
     @Published private(set) var loadedAPK: String?
     @Published private(set) var lastError: String?
 
@@ -163,15 +166,36 @@ final class INFINITYHuskRuntime: ObservableObject {
     func stop() {
         pollingTask?.cancel()
         pollingTask = nil
-        infinity_husk_stop()
-        refreshState()
-        frameCount = 0
-        loadedAPK = nil
+        let shouldStop = state != .idle
+        guard shouldStop else {
+            frameCount = 0
+            loadedAPK = nil
+            return
+        }
+        Task { [weak self] in
+            await Task.detached(priority: .userInitiated) {
+                infinity_husk_stop()
+            }.value
+            guard let self else { return }
+            self.refreshState()
+            self.frameCount = 0
+            self.framesPerSecond = 0
+            self.meanFrameMilliseconds = 0
+            self.maxFrameMilliseconds = 0
+            self.loadedAPK = nil
+        }
     }
 
     func refreshState() {
         state = State(rawValue: Int32(infinity_husk_get_state().rawValue)) ?? .failed
         frameCount = infinity_husk_frames()
+        var currentFPS = 0.0
+        var currentMean = 0.0
+        var currentMax = 0.0
+        infinity_husk_performance_snapshot(&currentFPS, &currentMean, &currentMax)
+        framesPerSecond = currentFPS
+        meanFrameMilliseconds = currentMean
+        maxFrameMilliseconds = currentMax
         if let path = infinity_husk_loaded_apk() {
             loadedAPK = String(cString: path)
         } else {
