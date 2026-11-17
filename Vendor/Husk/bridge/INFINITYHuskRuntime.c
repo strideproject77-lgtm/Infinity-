@@ -161,7 +161,7 @@ bool infinity_husk_launch_engine(int engine,
     }
 
     if (accepted)
-        atomic_store(&g_infinity_engine, (int)engine);
+        atomic_store(&g_infinity_engine, engine);
     return accepted;
 }
 
