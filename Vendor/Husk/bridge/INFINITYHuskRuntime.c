@@ -3,6 +3,9 @@
 #include "INFINITYHuskRuntime.h"
 #include "husk-tl-unity-app.h"
 #include "husk-tl-dvm-javaapp.h"
+#include "husk-tl-aot.h"
+#include "husk-tl-codesign.h"
+#include "husk-tl-ld.h"
 
 #include <math.h>
 #include <stdatomic.h>
@@ -377,4 +380,73 @@ bool infinity_husk_apk_is_game(const char *apk_path)
 bool infinity_husk_apk_requires_splits(const char *apk_path)
 {
     return apk_path && apk_path[0] && husk_apk_split_required(apk_path) != 0;
+}
+
+
+/* JIT-less preparation is intentionally separate from engine launch. It is
+ * safe to run before a session exists and never modifies the original APK. */
+int infinity_husk_prepare_jitless(const char *const *apk_paths, int apk_count,
+                                  const char *cache_dir,
+                                  const uint8_t *p12, size_t p12_len,
+                                  const char *password, const char *certificate_tag,
+                                  const char *signing_identifier,
+                                  const char *app_executable_path,
+                                  char *error, size_t error_capacity)
+{
+    if (error && error_capacity) error[0] = '\0';
+    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE ||
+        !apk_paths || apk_count <= 0 || !cache_dir || !cache_dir[0] ||
+        !p12 || p12_len == 0 || !password || !certificate_tag || !certificate_tag[0] ||
+        !signing_identifier || !signing_identifier[0] ||
+        !readable_directory(cache_dir) || access(cache_dir, W_OK) != 0) {
+        if (error && error_capacity)
+            snprintf(error, error_capacity, "Invalid APK list, writable cache, signing certificate, or active runtime session.");
+        return -1;
+    }
+    for (int i = 0; i < apk_count; ++i) {
+        if (!readable_file(apk_paths[i])) {
+            if (error && error_capacity)
+                snprintf(error, error_capacity, "An APK or runtime library path is missing or unreadable.");
+            return -1;
+        }
+    }
+    if (app_executable_path && app_executable_path[0] && readable_file(app_executable_path))
+        (void)husk_codesign_chain_from_executable(app_executable_path);
+
+    char local_error[512] = "";
+    int prepared = husk_aot_prepare(apk_paths, apk_count, cache_dir, p12, p12_len,
+                                    password, certificate_tag, signing_identifier,
+                                    NULL, NULL, local_error, sizeof(local_error));
+    if (prepared < 0 && error && error_capacity)
+        snprintf(error, error_capacity, "%s", local_error[0] ? local_error : "Husk AOT preparation failed.");
+    return prepared;
+}
+
+/* Call before launching a guest. tl_ld_set_aot_dir copies the search path, so
+ * the temporary buffer is safe to release after configuration. */
+bool infinity_husk_configure_jitless(bool enabled, const char *cache_dir,
+                                     const char *bundled_frameworks_dir)
+{
+    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE) return false;
+    if (!enabled) {
+        unsetenv("TL_NO_XMEM");
+        tl_ld_set_aot_dir(NULL);
+        return true;
+    }
+    if (!cache_dir || !readable_directory(cache_dir)) return false;
+    if (bundled_frameworks_dir && bundled_frameworks_dir[0] &&
+        !readable_directory(bundled_frameworks_dir)) return false;
+
+    char search_path[4096];
+    int n;
+    if (bundled_frameworks_dir && bundled_frameworks_dir[0])
+        n = snprintf(search_path, sizeof(search_path), "%s:%s",
+                     bundled_frameworks_dir, cache_dir);
+    else
+        n = snprintf(search_path, sizeof(search_path), "%s", cache_dir);
+    if (n <= 0 || (size_t)n >= sizeof(search_path)) return false;
+
+    if (setenv("TL_NO_XMEM", "1", 1) != 0) return false;
+    tl_ld_set_aot_dir(search_path);
+    return true;
 }
