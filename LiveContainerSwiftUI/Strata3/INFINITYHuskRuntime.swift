@@ -6,6 +6,19 @@ import QuartzCore
 /// This class only calls the INFINITY-owned C bridge; it never launches a demo surface.
 @MainActor
 final class INFINITYHuskRuntime: ObservableObject {
+    enum Engine: Int32 {
+        case unity = 0
+        case java = 1
+        case cocos = 2
+        case gameActivity = 3
+        case sdl = 4
+        case unreal = 5
+        case godot = 6
+        case gta = 7
+        case flutter = 8
+        case gameMaker = 9
+    }
+
     enum State: Int32 {
         case idle = 0
         case starting = 1
@@ -19,6 +32,8 @@ final class INFINITYHuskRuntime: ObservableObject {
         case rejectedLaunch
         case graphicsRuntimeNotPrepared
         case invalidSurface
+        case missingGraphicsRuntime
+        case missingVulkanRuntime
 
         var errorDescription: String? {
             switch self {
@@ -30,6 +45,10 @@ final class INFINITYHuskRuntime: ObservableObject {
                 return "The ANGLE graphics runtime is missing or unreadable."
             case .invalidSurface:
                 return "The Android surface has an invalid size."
+            case .missingGraphicsRuntime:
+                return "Husk's ANGLE/GLES runtime library is missing."
+            case .missingVulkanRuntime:
+                return "The selected Unreal backend requires its Vulkan runtime library."
             }
         }
     }
@@ -41,6 +60,7 @@ final class INFINITYHuskRuntime: ObservableObject {
     @Published private(set) var maxFrameMilliseconds: Double = 0
     @Published private(set) var loadedAPK: String?
     @Published private(set) var lastError: String?
+    @Published private(set) var selectedEngine: Engine?
 
     private var javaRuntimePrepared = false
     private var pollingTask: Task<Void, Never>?
@@ -136,6 +156,7 @@ final class INFINITYHuskRuntime: ObservableObject {
                     height: Int,
                     angleLibrary: URL,
                     certificateBundle: URL? = nil) throws {
+        guard javaRuntimePrepared else { throw RuntimeError.javaRuntimeNotPrepared }
         try launch(engine: .java, apk: apk, dataDirectory: dataDirectory,
                    metalLayer: metalLayer, width: width, height: height,
                    angleLibrary: angleLibrary, certificateBundle: certificateBundle)
@@ -153,6 +174,46 @@ final class INFINITYHuskRuntime: ObservableObject {
                    angleLibrary: angleLibrary, certificateBundle: certificateBundle)
     }
 
+    func launch(engine: Engine,
+                apk: URL,
+                dataDirectory: URL,
+                metalLayer: CAMetalLayer,
+                width: Int,
+                height: Int,
+                angleLibrary: URL,
+                certificateBundle: URL? = nil,
+                moltenVKLibrary: URL? = nil) throws {
+        guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
+        guard FileManager.default.fileExists(atPath: angleLibrary.path) else {
+            throw RuntimeError.missingGraphicsRuntime
+        }
+        if engine == .unreal {
+            guard let moltenVKLibrary,
+                  FileManager.default.fileExists(atPath: moltenVKLibrary.path) else {
+                throw RuntimeError.missingVulkanRuntime
+            }
+        }
+
+        let layer = Unmanaged.passUnretained(metalLayer).toOpaque()
+        let accepted = apk.path.withCString { apkPath in
+            dataDirectory.path.withCString { dataPath in
+                angleLibrary.path.withCString { angle in
+                    withOptionalCString(certificateBundle?.path) { certificates in
+                        withOptionalCString(moltenVKLibrary?.path) { moltenVK in
+                            infinity_husk_launch_engine(engine.rawValue, apkPath, dataPath, layer,
+                                                       Int32(width), Int32(height), angle,
+                                                       certificates, moltenVK)
+                        }
+                    }
+                }
+            }
+        }
+        guard accepted else { throw RuntimeError.rejectedLaunch }
+        selectedEngine = engine
+        lastError = nil
+        beginPolling()
+    }
+
     func setJavaInsets(left: Int, top: Int, right: Int, bottom: Int, keyboardBottom: Int) {
         infinity_husk_java_set_insets(Int32(left), Int32(top), Int32(right),
                                       Int32(bottom), Int32(keyboardBottom))
@@ -162,8 +223,12 @@ final class INFINITYHuskRuntime: ObservableObject {
         infinity_husk_java_touch(Int32(phase), Int32(pointerID), x, y)
     }
 
+    func sendTouch(phase: Int, pointerID: Int, x: Float, y: Float) {
+        infinity_husk_touch(Int32(phase), Int32(pointerID), x, y)
+    }
+
     func sendUnityTouch(phase: Int, pointerID: Int, x: Float, y: Float) {
-        infinity_husk_unity_touch(Int32(phase), Int32(pointerID), x, y)
+        sendTouch(phase: phase, pointerID: pointerID, x: x, y: y)
     }
 
     func sendJavaKey(androidKeyCode: Int, down: Bool) {
@@ -190,8 +255,26 @@ final class INFINITYHuskRuntime: ObservableObject {
         infinity_husk_java_set_paused(paused)
     }
 
+    func setPaused(_ paused: Bool) {
+        infinity_husk_set_paused(paused)
+    }
+
     func setUnityPaused(_ paused: Bool) {
-        infinity_husk_unity_set_paused(paused)
+        setPaused(paused)
+    }
+
+    struct Performance {
+        let fps: Double
+        let meanMilliseconds: Double
+        let maxMilliseconds: Double
+    }
+
+    func performanceSnapshot() -> Performance {
+        var fps = 0.0
+        var mean = 0.0
+        var maximum = 0.0
+        infinity_husk_performance_snapshot(&fps, &mean, &maximum)
+        return Performance(fps: fps, meanMilliseconds: mean, maxMilliseconds: maximum)
     }
 
     func stop() {
