@@ -129,9 +129,9 @@ struct StrataRuntimeCenter: View {
                 LabeledContent("Java + Android system data",
                                value: INFINITYAPKStore.runtimeDataReady() ? "Installed" : "Missing")
                 LabeledContent("ANGLE graphics library",
-                               value: FileManager.default.isReadableFile(atPath: INFINITYAPKStore.angleLibraryURL.path)
-                                ? "Present · signing still required"
-                                : "Not embedded")
+                               value: INFINITYAPKStore.isANGLEEmbeddedAndReadable
+                                ? "Embedded and readable"
+                                : "Not embedded · app build required")
                 if let runtimeAssetsStatus {
                     Text(runtimeAssetsStatus).font(.caption).foregroundStyle(.secondary)
                 }
