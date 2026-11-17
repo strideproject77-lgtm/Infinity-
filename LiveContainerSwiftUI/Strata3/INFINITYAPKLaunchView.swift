@@ -104,7 +104,7 @@ struct INFINITYAPKInstalledAppDetail: View {
     private var canLaunch: Bool {
         guard !app.requiresSplits,
               app.detectedEngine != nil,
-              FileManager.default.isReadableFile(atPath: INFINITYAPKStore.angleLibraryURL.path) else {
+              INFINITYAPKStore.nativeRuntimeBundle() != nil else {
             return false
         }
         if app.detectedEngine == "java" {
@@ -161,11 +161,11 @@ struct INFINITYAPKInstalledAppDetail: View {
         guard app.detectedEngine != nil else {
             return "The package's native engine could not be identified safely. No engine has been guessed."
         }
-        guard FileManager.default.isReadableFile(atPath: INFINITYAPKStore.angleLibraryURL.path) else {
-            return "The iOS ANGLE graphics library is not installed. Husk requires it for the EGL/GLES launch path."
+        guard INFINITYAPKStore.nativeRuntimeBundle() != nil else {
+            return "The Android system files, fonts, certificates or signed ANGLE graphics library are missing."
         }
-        if app.detectedEngine == "java" {
-            return "The Java runtime, Android system fonts/certificates, framework resources, and generated DEX files are incomplete."
+        if app.detectedEngine == "java" && INFINITYAPKStore.runtimeBundle() == nil {
+            return "The Java APEX libraries, ICU/time-zone data, framework resources, or generated DEX files are incomplete."
         }
         if app.detectedEngine == "unreal" {
             return "The optional MoltenVK graphics library for this Unreal engine path is missing."
@@ -247,11 +247,14 @@ struct INFINITYAPKLaunchView: View {
                 throw INFINITYAPKStore.StoreError.missingInstalledAPK
             }
             let dataDirectory = try INFINITYAPKStore.dataURL(for: app)
-            let angle = INFINITYAPKStore.angleLibraryURL
+            guard let nativeBundle = INFINITYAPKStore.nativeRuntimeBundle() else {
+                throw INFINITYHuskRuntime.RuntimeError.nativeRuntimeNotPrepared
+            }
+            let angle = nativeBundle.angleLibrary
             let scale = layer.contentsScale
             let width = max(1, Int(layer.drawableSize.width))
             let height = max(1, Int(layer.drawableSize.height))
-            var certificates: URL?
+            let certificates = nativeBundle.certificateBundle
 
             if engine == .java {
                 guard let bundle = INFINITYAPKStore.runtimeBundle() else {
@@ -262,7 +265,9 @@ struct INFINITYAPKLaunchView: View {
                                         certificatesDirectory: bundle.certificatesDirectory,
                                         systemFilesRoot: bundle.systemRoot,
                                         nightMode: UITraitCollection.current.userInterfaceStyle == .dark)
-                certificates = bundle.certificateBundle
+            } else {
+                try runtime.prepareNative(certificatesDirectory: nativeBundle.certificatesDirectory,
+                                          systemFilesRoot: nativeBundle.systemRoot)
             }
 
             let moltenVK = engine == .unreal ? INFINITYAPKStore.moltenVKLibraryURL : nil
