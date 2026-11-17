@@ -97,40 +97,70 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
     return true;
 }
 
+bool infinity_husk_launch_engine(infinity_husk_engine engine,
+                                 const char *apk_path, const char *data_dir,
+                                 void *metal_layer, int width, int height,
+                                 const char *angle_dylib, const char *ca_bundle,
+                                 const char *moltenvk_dylib)
+{
+    if (!apk_path || !apk_path[0] || !data_dir || !data_dir[0] || !metal_layer ||
+        width <= 0 || height <= 0 || !angle_dylib || !angle_dylib[0] ||
+        atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE ||
+        !readable_file(apk_path) || !readable_directory(data_dir) ||
+        !readable_file(angle_dylib) ||
+        (ca_bundle && ca_bundle[0] && !readable_file(ca_bundle)))
+        return false;
+
+        if (engine == INFINITY_HUSK_ENGINE_UNREAL) {
+        if (!readable_file(moltenvk_dylib)) return false;
+        husk_ue4_set_vulkan(moltenvk_dylib);
+    }
+
+    bool accepted = false;
+    switch (engine) {
+        case INFINITY_HUSK_ENGINE_UNITY:
+            accepted = husk_unity_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_JAVA:
+            accepted = husk_java_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_COCOS:
+            accepted = husk_cocos_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_GAME_ACTIVITY:
+            accepted = husk_gameactivity_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_SDL:
+            accepted = husk_sdl_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_UNREAL:
+            accepted = husk_ue4_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_GODOT:
+            accepted = husk_godot_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_GTA:
+            accepted = husk_gta_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_FLUTTER:
+            accepted = husk_flutter_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        case INFINITY_HUSK_ENGINE_GAMEMAKER:
+            accepted = husk_gamemaker_launch(apk_path, data_dir, metal_layer, width, height, angle_dylib, ca_bundle); break;
+        default:
+            return false;
+    }
+
+    if (accepted)
+        atomic_store(&g_infinity_engine, engine == INFINITY_HUSK_ENGINE_JAVA ? INFINITY_ENGINE_JAVA : INFINITY_ENGINE_UNITY);
+    return accepted;
+}
+
 bool infinity_husk_launch_java(const char *apk_path, const char *data_dir,
                                void *metal_layer, int width, int height,
                                const char *angle_dylib, const char *ca_bundle)
 {
-    if (!apk_path || !apk_path[0] || !data_dir || !data_dir[0] ||
-        width <= 0 || height <= 0 || atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE ||
-        !readable_file(apk_path) || !readable_directory(data_dir))
-        return false;
-
-    if (!husk_java_launch(apk_path, data_dir, metal_layer, width, height,
-                          angle_dylib && angle_dylib[0] ? angle_dylib : NULL,
-                          ca_bundle && ca_bundle[0] ? ca_bundle : NULL))
-        return false;
-
-    atomic_store(&g_infinity_engine, INFINITY_ENGINE_JAVA);
-    return true;
+    return infinity_husk_launch_engine(INFINITY_HUSK_ENGINE_JAVA, apk_path, data_dir,
+                                       metal_layer, width, height, angle_dylib, ca_bundle, NULL);
 }
 
 bool infinity_husk_launch_unity(const char *apk_path, const char *data_dir,
                                 void *metal_layer, int width, int height,
                                 const char *angle_dylib, const char *ca_bundle)
 {
-    if (!apk_path || !apk_path[0] || !data_dir || !data_dir[0] ||
-        width <= 0 || height <= 0 || atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE ||
-        !readable_file(apk_path) || !readable_directory(data_dir))
-        return false;
-
-    if (!husk_unity_launch(apk_path, data_dir, metal_layer, width, height,
-                           angle_dylib && angle_dylib[0] ? angle_dylib : NULL,
-                           ca_bundle && ca_bundle[0] ? ca_bundle : NULL))
-        return false;
-
-    atomic_store(&g_infinity_engine, INFINITY_ENGINE_UNITY);
-    return true;
+    return infinity_husk_launch_engine(INFINITY_HUSK_ENGINE_UNITY, apk_path, data_dir,
+                                       metal_layer, width, height, angle_dylib, ca_bundle, NULL);
 }
 
 void infinity_husk_java_touch(int phase, int pointer_id, float x, float y)
