@@ -141,7 +141,7 @@ class HuskImportContractTests(unittest.TestCase):
             )
             manifest = json.loads((output / "HUSK_SOURCE_MANIFEST.json").read_text(encoding="utf-8"))
             report = (output / "HUSK_SOURCE_AUDIT.md").read_text(encoding="utf-8")
-            self.assertEqual(manifest["file_count"], 7)
+            self.assertEqual(manifest["file_count"], 9)
             self.assertEqual(manifest["counts_by_kind"]["native-source"], 1)
             self.assertEqual(manifest["counts_by_kind"]["swift-host-source"], 1)
             self.assertEqual(manifest["counts_by_kind"]["generated-java-platform-stub"], 1)
