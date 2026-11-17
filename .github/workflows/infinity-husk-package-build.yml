@@ -85,4 +85,6 @@ jobs:
           grep -q "Mach-O 64-bit object arm64" "$RUNNER_TEMP/infinity-husk-object-file.txt"
           xcrun nm -g "$OBJECT" | grep -q "_infinity_husk_launch_engine"
           xcrun nm -g "$OBJECT" | grep -q "_infinity_husk_prepare_java"
+          xcrun nm -g "$OBJECT" | grep -q "_infinity_husk_prepare_jitless"
+          xcrun nm -g "$OBJECT" | grep -q "_infinity_husk_configure_jitless"
 
