@@ -208,9 +208,9 @@ enum INFINITYJITLess {
 
         switch classifyFailure(log: log, jitlessEnabled: jitlessEnabled) {
         case .confirmedJITRequired:
-            return "Confirmed iOS executable-memory restriction. Retry with Strata's Built-in JIT, or attach StikDebug externally, then relaunch."
+            return "Confirmed iOS executable-memory restriction. External StikDebug may attach to INFINITY's process. Strata's current built-in JIT path requires a separate guest process and is not yet connected to this in-process APK runtime."
         case .jitlessAOTUnavailable:
-            return "Confirmed JIT-less AOT coverage gap: Husk requested executable memory because a required library had no usable signed AOT dylib. Retry with Strata's Built-in JIT or external StikDebug."
+            return "Husk JIT-less mode blocked an executable-memory request. This indicates the current APK path needs executable memory or an AOT-compatible library; it does not identify a specific missing library. External StikDebug may attach to INFINITY's process. Strata's built-in JIT currently requires a separate guest process and is not connected to this APK runtime."
         case .other:
             return "The Android runtime failed, but its log does not confirm a JIT restriction. This may be an APK, DEX, ELF, Android API, graphics, audio, or memory issue. Check the session log."
         }
