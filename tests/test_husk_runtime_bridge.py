@@ -43,12 +43,21 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "com.android.art/javalib/core-oj.jar",
             "com.android.art/javalib/core-libart.jar",
             "com.android.i18n/javalib/core-icu4j.jar",
+            "com.android.art/javalib/okhttp.jar",
+            "com.android.art/lib64/libopenjdk.so",
+            "com.android.i18n/javalib/core-icu4j.jar",
             "com.android.conscrypt/javalib/conscrypt.jar",
+            "com.android.conscrypt/lib64/libjavacrypto.so",
             "husk-framework.dex",
+            "husk-framework-core.dex",
+            "org.apache.http.legacy.jar",
             "framework-res.apk"
         ):
             with self.subTest(asset=asset):
                 self.assertIn(asset, adapter)
+        self.assertIn('runtime_directory(system_fonts_root, "fonts")', adapter)
+        self.assertIn('runtime_file(system_fonts_root, "etc/fonts.xml")', adapter)
+        self.assertIn('runtime_file(system_fonts_root, "etc/font_fallback.xml")', adapter)
 
     def test_swift_runtime_controller_uses_real_native_entrypoints(self):
         swift = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
