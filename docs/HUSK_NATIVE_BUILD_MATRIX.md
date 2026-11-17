@@ -95,3 +95,7 @@ The generated source audit currently reports 3,286 imported files: 99 native C/O
 - Added a folder-based runtime-data installer. It validates Java framework/APEX files, Android system fonts/font maps/certificates and the CA bundle, stages the payload, then swaps it into the runtime directory with rollback.
 - The app does not treat a dylib copied into Documents as executable code. ANGLE and optional MoltenVK are accepted only from the app's signed `Frameworks` bundle. The ANGLE build workflow is separate and currently produces a build artifact; project embedding/signing is still a gate.
 - APK UI launch remains blocked until native/system assets and the signed ANGLE library are present. No real APK has yet been launched from this UI.
+
+### ANGLE build evidence
+
+The pinned ANGLE workflow run `44006769136` completed successfully. It produced `libANGLE-shared.dylib` as a Mach-O arm64 dynamic library with install ID `@rpath/libANGLE-shared.dylib`, and validated the accompanying ANGLE license and WebKit revision files. The Actions artifact was 1,988,519 bytes (artifact ID `14294434213`). A subsequent workflow revision now copies this verified output into `Vendor/Husk/Prebuilt/ANGLE/ios-arm64/` on main; the vendor commit is pending that workflow's completion. The app target still needs an Embed Frameworks copy phase with CodeSignOnCopy before the Swift runtime can load ANGLE.
