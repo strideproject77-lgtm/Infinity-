@@ -37,7 +37,13 @@ else
 fi
 
 lipo -verify_arch arm64 "$ARCHIVE"
-if ! nm -gU "$ARCHIVE" | grep -q 'idevice_error_free'; then
+SYMBOLS_FILE="$(mktemp)"
+trap 'rm -f "$SYMBOLS_FILE"' EXIT
+if ! nm -gU "$ARCHIVE" > "$SYMBOLS_FILE"; then
+  echo "Unable to inspect the pinned idevice_ffi archive symbols." >&2
+  exit 1
+fi
+if ! grep -q 'idevice_error_free' "$SYMBOLS_FILE"; then
   echo "Pinned idevice_ffi archive does not export idevice_error_free." >&2
   exit 1
 fi
