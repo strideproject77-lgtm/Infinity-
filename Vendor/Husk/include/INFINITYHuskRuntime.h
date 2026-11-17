@@ -1,0 +1,74 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * INFINITY-owned, narrow host API for the pinned Husk translation runtime.
+ * Keep upstream app/QEMU/JIT/pairing interfaces out of Strata's bridging header.
+ */
+#ifndef INFINITY_HUSK_RUNTIME_H
+#define INFINITY_HUSK_RUNTIME_H
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef enum infinity_husk_state {
+    INFINITY_HUSK_IDLE = 0,
+    INFINITY_HUSK_STARTING = 1,
+    INFINITY_HUSK_RUNNING = 2,
+    INFINITY_HUSK_FAILED = 3,
+    INFINITY_HUSK_ENDED = 4
+} infinity_husk_state;
+
+typedef struct infinity_husk_performance {
+    double fps;
+    double mean_ms;
+    double max_ms;
+} infinity_husk_performance;
+
+/* Configure the Java/Dalvik runtime before starting a Java APK. Required root is the
+   prepared Java runtime generated from the pinned Android system image. */
+bool infinity_husk_prepare_java(const char *runtime_root, float density,
+                                const char *system_certificates_dir,
+                                const char *system_fonts_root,
+                                const char *extra_fonts_dir,
+                                const char *shared_storage_dir,
+                                bool night_mode);
+
+/* Start is asynchronous. Paths must remain valid for the duration of the session.
+   The surface is a host CAMetalLayer (or NULL for a headless diagnostic session). */
+bool infinity_husk_launch_java(const char *apk_path, const char *data_dir,
+                               void *metal_layer, int width, int height,
+                               const char *angle_dylib, const char *ca_bundle);
+bool infinity_husk_launch_unity(const char *apk_path, const char *data_dir,
+                                void *metal_layer, int width, int height,
+                                const char *angle_dylib, const char *ca_bundle);
+
+/* Java-app host input and lifecycle. Coordinates are surface pixels, origin top-left. */
+void infinity_husk_java_touch(int phase, int pointer_id, float x, float y);
+void infinity_husk_java_key(int android_keycode, bool down);
+void infinity_husk_java_back(void);
+void infinity_husk_java_set_paused(bool paused);
+void infinity_husk_java_set_insets(int left, int top, int right, int bottom, int keyboard_bottom);
+void infinity_husk_java_insert_text(const char *utf8);
+void infinity_husk_java_delete_backward(void);
+void infinity_husk_java_text_action(void);
+void infinity_husk_java_keyboard_closed(void);
+
+/* Runtime control and diagnostics. */
+void infinity_husk_stop(void);
+infinity_husk_state infinity_husk_get_state(void);
+const char *infinity_husk_loaded_apk(void);
+unsigned long infinity_husk_frames(void);
+void infinity_husk_unity_touch(int phase, int pointer_id, float x, float y);
+void infinity_husk_unity_set_paused(bool paused);
+void infinity_husk_unity_performance(infinity_husk_performance *out);
+int infinity_husk_apk_orientation(const char *apk_path);
+bool infinity_husk_apk_is_game(const char *apk_path);
+bool infinity_husk_apk_requires_splits(const char *apk_path);
+
+#ifdef __cplusplus
+}
+#endif
+#endif
