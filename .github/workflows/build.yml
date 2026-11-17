@@ -65,7 +65,9 @@ jobs:
           file_to_build: ${{ steps.file_to_build.outputs.file_to_build }}
         run: |
           set -o pipefail
-          xcodebuild archive -archivePath "$archive_path" -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -sdk iphoneos -arch arm64 -configuration Release 2>&1 | tee "$RUNNER_TEMP/xcodebuild-archive.log" | xcpretty
+          # Keep the large SwiftUI app target within hosted macOS runner memory limits.
+          # Single-file compilation avoids the peak memory/dependency-file pressure of WMO.
+          xcodebuild archive -archivePath "$archive_path" -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -sdk iphoneos -arch arm64 -configuration Release -jobs 1 SWIFT_COMPILATION_MODE=singlefile SWIFT_OPTIMIZATION_LEVEL=-O 2>&1 | tee "$RUNNER_TEMP/xcodebuild-archive.log" | xcpretty
 
       - name: Upload raw Xcode archive log
         if: always()
