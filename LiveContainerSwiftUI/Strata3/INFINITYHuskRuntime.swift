@@ -147,12 +147,19 @@ final class INFINITYHuskRuntime: ObservableObject {
             throw RuntimeError.javaRuntimeNotPrepared
         }
         guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
-        guard FileManager.default.isReadableFile(atPath: angleLibrary.path) else {
+        guard let frameworks = Bundle.main.privateFrameworksURL else {
+            throw RuntimeError.graphicsRuntimeNotPrepared
+        }
+        let embeddedANGLE = frameworks.appendingPathComponent("libANGLE-shared.dylib").standardizedFileURL
+        guard angleLibrary.standardizedFileURL == embeddedANGLE,
+              FileManager.default.isReadableFile(atPath: embeddedANGLE.path) else {
             throw RuntimeError.graphicsRuntimeNotPrepared
         }
         if engine == .unreal {
+            let embeddedMoltenVK = frameworks.appendingPathComponent("libMoltenVK.dylib").standardizedFileURL
             guard let moltenVKLibrary,
-                  FileManager.default.isReadableFile(atPath: moltenVKLibrary.path) else {
+                  moltenVKLibrary.standardizedFileURL == embeddedMoltenVK,
+                  FileManager.default.isReadableFile(atPath: embeddedMoltenVK.path) else {
                 throw RuntimeError.vulkanRuntimeNotPrepared
             }
         }
