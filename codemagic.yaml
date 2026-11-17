@@ -25,6 +25,7 @@ workflows:
       changeset:
         includes:
           - codemagic.yaml
+          - .gitmodules
           - .github/workflows/build.yml
           - .github/build_github.sh
           - LiveContainerSwiftUI/**
@@ -43,10 +44,41 @@ workflows:
           - scripts/prepare_stikjit_idevice.sh
 
     scripts:
-      - name: Restore Git submodules
+      - name: Restore Git submodules (retry transient network failures)
         script: |
           set -euo pipefail
-          git submodule update --init --recursive
+          export GIT_TERMINAL_PROMPT=0
+          git submodule sync --recursive
+
+          # Retry transient DNS/network failures without changing pinned SHAs.
+          max_attempts=5
+          attempt=1
+          while [ "$attempt" -le "$max_attempts" ]; do
+            echo "Submodule restore attempt $attempt/$max_attempts"
+            if git -c http.version=HTTP/1.1 \
+              -c http.lowSpeedLimit=1000 \
+              -c http.lowSpeedTime=30 \
+              submodule update --init --recursive; then
+              break
+            fi
+
+            if [ "$attempt" -eq "$max_attempts" ]; then
+              echo "Submodule restore failed after $max_attempts attempts." >&2
+              git submodule status --recursive || true
+              exit 1
+            fi
+
+            delay=$((attempt * 15))
+            echo "Transient submodule/network failure; retrying in ${delay}s."
+            sleep "$delay"
+            attempt=$((attempt + 1))
+          done
+
+          git submodule status --recursive
+          if git submodule status --recursive | grep -E '^[+-U]'; then
+            echo "One or more submodules are not at their pinned revisions." >&2
+            exit 1
+          fi
 
       - name: Provision pinned StikJIT idevice FFI archive
         script: |
