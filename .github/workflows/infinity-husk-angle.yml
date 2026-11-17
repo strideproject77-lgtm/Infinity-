@@ -1,0 +1,54 @@
+name: INFINITY Husk ANGLE iOS graphics runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Vendor/Husk/build-support/build_angle_ios.sh"
+      - ".github/workflows/infinity-husk-angle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-angle:
+    name: Build ANGLE for iOS arm64 (no app or IPA)
+    runs-on: xcode-27
+    timeout-minutes: 90
+    steps:
+      - name: Select Xcode used by the existing project builder
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "27.2"
+
+      - name: Check out pinned INFINITY source
+        uses: actions/checkout@v6
+
+      - name: Build pinned WebKit ANGLE for iOS arm64
+        run: |
+          set -euo pipefail
+          bash Vendor/Husk/build-support/build_angle_ios.sh
+
+      - name: Validate the staged graphics library and notices
+        run: |
+          set -euo pipefail
+          DYLIB="Vendor/Husk/build/ios-arm64/sysroot/lib/libANGLE-shared.dylib"
+          test -s "$DYLIB"
+          test -s "Vendor/Husk/build/ios-arm64/sysroot/LICENSE-ANGLE.txt"
+          test -s "Vendor/Husk/build/ios-arm64/sysroot/WEBKIT_REVISION.txt"
+          file "$DYLIB"
+          lipo -info "$DYLIB"
+          otool -D "$DYLIB"
+
+      - name: Publish ANGLE build artifact (no IPA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinity-angle-ios-arm64
+          path: |
+            Vendor/Husk/build/ios-arm64/sysroot/lib/libANGLE-shared.dylib
+            Vendor/Husk/build/ios-arm64/sysroot/include/
+            Vendor/Husk/build/ios-arm64/sysroot/LICENSE-ANGLE.txt
+            Vendor/Husk/build/ios-arm64/sysroot/WEBKIT_REVISION.txt
+          if-no-files-found: error
+          retention-days: 14
