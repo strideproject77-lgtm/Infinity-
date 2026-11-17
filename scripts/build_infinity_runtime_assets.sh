@@ -160,7 +160,9 @@ mkdir -p "$WORK/husk-source/build/android-system/licenses"
 "$DEBUGFS" -R "dump /system/etc/NOTICE.html.gz $WORK/husk-source/build/android-system/licenses/NOTICE.html.gz" "$SYSTEM_IMG" >/dev/null 2>&1 || true
 
 echo "==> Preparing an isolated source workspace"
-tar -C "$ROOT" --exclude='./build' --exclude='./.build' -cf - . | tar -C "$HUSK_ROOT" -xf -
+# Only the pinned vendor snapshot is needed for the asset build. Do not copy
+# the whole INFINITY checkout (especially .git, SideStore or Xcode project files).
+tar -C "$ROOT/Vendor/Husk" --exclude='./build' --exclude='./.build' -cf - . | tar -C "$HUSK_ROOT" -xf -
 
 echo "==> Building Java framework DEX and runtime APEX layout"
 HUSK_JDK="$JDK" HUSK_D8="$D8" HUSK_AOSP=0 \
@@ -224,7 +226,7 @@ fi
 IMAGE_SHA="$(shasum -a 256 "$IMAGE" | awk '{print $1}')"
 JDK_VERSION="$("$JDK/bin/java" -version 2>&1 | head -n 1)"
 D8_VERSION="$(basename "$D8")"
-HUSK_REVISION="$(grep '^Revision:' "$ROOT/UPSTREAM_REVISION.txt" | cut -d' ' -f2)"
+HUSK_REVISION="$(grep '^Revision:' "$ROOT/Vendor/Husk/UPSTREAM_REVISION.txt" | cut -d' ' -f2)"
 python3 - "$OUT/runtime-assets-manifest.json" "$IMAGE_SHA" "$JDK_VERSION" "$D8_VERSION" "$HUSK_REVISION" "$IMAGE" <<'PY'
 import datetime, json, os, sys
 output, digest, jdk, d8, revision, image = sys.argv[1:]
