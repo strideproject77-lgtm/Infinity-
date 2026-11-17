@@ -40,6 +40,7 @@
 		A15000000000000000000012 /* StosSign_Anisette in Frameworks */ = {isa = PBXBuildFile; productRef = A15000000000000000000022 /* StosSign_Anisette */; };
 		A15000000000000000000013 /* StosSign_Common in Frameworks */ = {isa = PBXBuildFile; productRef = A15000000000000000000023 /* StosSign_Common */; };
 		F10000000000000000000001 /* INFINITYHuskRuntime in Frameworks */ = {isa = PBXBuildFile; productRef = F10000000000000000000002 /* INFINITYHuskRuntime */; };
+        F20000000000000000000001 /* libANGLE-shared.dylib in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* libANGLE-shared.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -122,6 +123,7 @@
 				E1292BEC2DCA3B670065E12D /* LiveContainerShared.framework in Embed Frameworks */,
 				17413FBC2D9C0BAE00F3F928 /* LiveContainerSwiftUI.framework in Embed Frameworks */,
 				174140942D9C0E8200F3F928 /* ZSign.dylib in Embed Frameworks */,
+				F20000000000000000000001 /* libANGLE-shared.dylib in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -196,6 +198,7 @@
 		E16D95762E1CD49E0068EB63 /* LCMachOUtils.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LCMachOUtils.h; sourceTree = "<group>"; };
 		E16D9BA02E1D48DE0068EB63 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		E1946AD63041BFDD005CBEDD /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+        F20000000000000000000002 /* libANGLE-shared.dylib */ = {isa = PBXFileReference; lastKnownFileType = file; path = Vendor/Husk/Prebuilt/ANGLE/ios-arm64/lib/libANGLE-shared.dylib; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -454,6 +457,7 @@
 		174140B82D9C0F9100F3F928 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				F20000000000000000000002 /* libANGLE-shared.dylib */,
 				E1946AD63041BFDD005CBEDD /* IOKit.framework */,
 				17554B712DA16988004C6D90 /* OpenSSL.xcframework */,
 				174140D52D9C176700F3F928 /* libarchive.tbd */,
