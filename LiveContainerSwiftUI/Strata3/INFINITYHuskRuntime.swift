@@ -43,17 +43,17 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     func prepareJava(runtimeRoot: URL,
                      density: Float,
-                     certificatesDirectory: URL? = nil,
-                     systemFontsDirectory: URL? = nil,
+                     certificatesDirectory: URL,
+                     systemFilesRoot: URL,
                      extraFontsDirectory: URL? = nil,
                      sharedStorageDirectory: URL? = nil,
                      nightMode: Bool) throws {
         let prepared = runtimeRoot.path.withCString { root in
-            withOptionalCString(certificatesDirectory?.path) { certificates in
-                withOptionalCString(systemFontsDirectory?.path) { fonts in
+            certificatesDirectory.path.withCString { certificates in
+                systemFilesRoot.path.withCString { systemFiles in
                     withOptionalCString(extraFontsDirectory?.path) { extraFonts in
                         withOptionalCString(sharedStorageDirectory?.path) { shared in
-                            infinity_husk_prepare_java(root, density, certificates, fonts,
+                            infinity_husk_prepare_java(root, density, certificates, systemFiles,
                                                        extraFonts, shared, nightMode)
                         }
                     }
