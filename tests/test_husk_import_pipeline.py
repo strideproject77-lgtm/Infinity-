@@ -33,6 +33,11 @@ class HuskImportContractTests(unittest.TestCase):
             "cacert.pem",
             "HuskBridge.h",
             "project.yml",
+            "src/java-framework",
+            "src/art-support",
+            "gen-src",
+            "strip_framework_res.py",
+            "copy_aosp_bundle.sh",
         ):
             self.assertIn(name, script)
 
@@ -64,6 +69,10 @@ class HuskImportContractTests(unittest.TestCase):
             '"$DEST/build-support"',
             '"$DEST/upstream-docs"',
             '"$DEST/resources"',
+            '"$DEST/src/java-framework"',
+            '"$DEST/src/art-support"',
+            '"$DEST/tools"',
+            '"$DEST/scripts"',
             '"$DEST/HUSK-LICENSE"',
             '"$DEST/UPSTREAM_REVISION.txt"',
         ):
@@ -72,7 +81,7 @@ class HuskImportContractTests(unittest.TestCase):
     def test_importer_replaces_only_owned_vendor_groups(self):
         script = IMPORTER.read_text(encoding="utf-8")
         self.assertIn(
-            "translation-layer translation-layer-next host-runtime host-reference build-support upstream-docs resources",
+            "translation-layer translation-layer-next host-runtime host-reference build-support upstream-docs resources src/java-framework src/art-support tools scripts",
             script,
         )
         self.assertIn('cp "$STAGE/HUSK-LICENSE" "$DEST/HUSK-LICENSE"', script)
@@ -90,6 +99,10 @@ class HuskImportContractTests(unittest.TestCase):
                 "build-support",
                 "upstream-docs",
                 "resources",
+                "src/java-framework",
+                "src/art-support",
+                "tools",
+                "scripts",
             )
             for group in groups:
                 (vendor / group).mkdir(parents=True)
@@ -110,6 +123,15 @@ class HuskImportContractTests(unittest.TestCase):
             )
             (vendor / "build-support" / "build.sh").write_text("#!/bin/sh\n", encoding="utf-8")
             (vendor / "upstream-docs" / "runtime.md").write_text("# Runtime\n", encoding="utf-8")
+            (vendor / "src" / "java-framework" / "gen-src" / "android").mkdir(parents=True)
+            (vendor / "src" / "java-framework" / "gen-src" / "android" / "Fixture.java").write_text(
+                "package android; public class Fixture {}\n", encoding="utf-8"
+            )
+            (vendor / "src" / "java-framework" / "src" / "android" / "app").mkdir(parents=True)
+            (vendor / "src" / "java-framework" / "src" / "android" / "app" / "Activity.java").write_text(
+                "/* SPDX-License-Identifier: GPL-2.0-or-later */\npackage android.app; public class Activity {}\n",
+                encoding="utf-8"
+            )
             output = base / "generated"
             subprocess.run(
                 [sys.executable, str(AUDITOR), "--vendor-root", str(vendor), "--output-dir", str(output)],
@@ -122,10 +144,13 @@ class HuskImportContractTests(unittest.TestCase):
             self.assertEqual(manifest["file_count"], 7)
             self.assertEqual(manifest["counts_by_kind"]["native-source"], 1)
             self.assertEqual(manifest["counts_by_kind"]["swift-host-source"], 1)
+            self.assertEqual(manifest["counts_by_kind"]["generated-java-platform-stub"], 1)
+            self.assertEqual(manifest["counts_by_kind"]["java-source"], 1)
             self.assertEqual(manifest["swift_imports"]["UIKit"], 1)
             self.assertIn("pthread.h", manifest["system_header_includes"])
             self.assertIn("legacy translation-layer/", report)
             self.assertIn("Husk source and host integration audit", report)
+            self.assertIn("Generated Android platform signature stubs", report)
             api_report = (output / "HUSK_HOST_API_AUDIT.md").read_text(encoding="utf-8")
             api_manifest = json.loads((output / "HUSK_HOST_API_MANIFEST.json").read_text(encoding="utf-8"))
             self.assertIn("husk_fixture_start — declared / defined", api_report)
