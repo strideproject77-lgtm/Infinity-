@@ -9,6 +9,7 @@ on:
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
+      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift"
       - "Vendor/Husk/include/**"
       - "Vendor/Husk/bridge/**"
       - "Vendor/Husk/Package.swift"
@@ -61,6 +62,7 @@ jobs:
           SWIFT
           swiftc -typecheck \
             -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
+            LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift \
             /tmp/INFINITYHuskBridgeSmoke.swift
 
   swift-typecheck:
