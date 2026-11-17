@@ -14,6 +14,7 @@
 
 enum { INFINITY_ENGINE_NONE = 0, INFINITY_ENGINE_JAVA = 1, INFINITY_ENGINE_UNITY = 2 };
 static atomic_int g_infinity_engine = ATOMIC_VAR_INIT(INFINITY_ENGINE_NONE);
+static atomic_bool g_java_runtime_ready = ATOMIC_VAR_INIT(false);
 
 static bool readable_directory(const char *path)
 {
@@ -50,7 +51,7 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
                                 const char *shared_storage_dir,
                                 bool night_mode)
 {
-    if (!readable_directory(runtime_root) || !isfinite(density) || density <= 0.0f) return false;
+    if (!readable_directory(runtime_root) || !isfinite(density) || density <= 0.0f) { atomic_store(&g_java_runtime_ready, false); return false; }
 
     /* Fail early when the prepared Dalvik boot/runtime assets are incomplete. */
     static const char *required[] = {
@@ -77,7 +78,7 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
         "framework-res.apk"
     };
     for (size_t i = 0; i < sizeof(required) / sizeof(required[0]); i++)
-        if (!runtime_file(runtime_root, required[i])) return false;
+        if (!runtime_file(runtime_root, required[i])) { atomic_store(&g_java_runtime_ready, false); return false; }
 
     /* build_android_system.sh emits one root with fonts/, etc/ and cacerts/.
        The fonts root is the Android-system root, not the fonts/ subdirectory. */
@@ -86,7 +87,7 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
         !runtime_directory(system_fonts_root, "fonts") ||
         !runtime_file(system_fonts_root, "etc/fonts.xml") ||
         !runtime_file(system_fonts_root, "etc/font_fallback.xml"))
-        return false;
+        { atomic_store(&g_java_runtime_ready, false); return false; }
 
     husk_java_set_runtime(runtime_root, density);
     husk_native_set_system_files(system_certificates_dir, system_fonts_root);
@@ -94,6 +95,7 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
         husk_native_set_extra_fonts(extra_fonts_dir);
     husk_native_set_shared_storage(shared_storage_dir && shared_storage_dir[0] ? shared_storage_dir : NULL);
     husk_java_set_night_mode(night_mode ? 1 : 0);
+    atomic_store(&g_java_runtime_ready, true);
     return true;
 }
 
@@ -111,7 +113,9 @@ bool infinity_husk_launch_engine(infinity_husk_engine engine,
         (ca_bundle && ca_bundle[0] && !readable_file(ca_bundle)))
         return false;
 
-        if (engine == INFINITY_HUSK_ENGINE_UNREAL) {
+        if (engine == INFINITY_HUSK_ENGINE_JAVA && !atomic_load(&g_java_runtime_ready)) return false;
+
+    if (engine == INFINITY_HUSK_ENGINE_UNREAL) {
         if (!readable_file(moltenvk_dylib)) return false;
         husk_ue4_set_vulkan(moltenvk_dylib);
     }
