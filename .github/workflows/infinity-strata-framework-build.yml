@@ -39,9 +39,10 @@ jobs:
           set -o pipefail
           xcodebuild \
             -project LiveContainer.xcodeproj \
-            -scheme LiveContainerSwiftUI \
+            -target LiveContainerSwiftUI \
             -sdk iphoneos \
             -configuration Debug \
-            -derivedDataPath "$RUNNER_TEMP/infinity-strata-derived" \
+            -SYMROOT="$RUNNER_TEMP/infinity-strata-products" \
+            -OBJROOT="$RUNNER_TEMP/infinity-strata-objects" \
             CODE_SIGNING_ALLOWED=NO \
             build | tee "$RUNNER_TEMP/infinity-strata-framework.log"
