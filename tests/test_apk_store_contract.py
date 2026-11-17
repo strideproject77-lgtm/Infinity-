@@ -21,6 +21,16 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("guard !app.requiresSplits", view)
         self.assertIn("launch is blocked until split-package installation is implemented", view)
 
+    def test_native_graphics_are_required_inside_the_signed_app_bundle(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn("static var hasEmbeddedAngle", store)
+        self.assertIn("static var hasEmbeddedMoltenVK", store)
+        self.assertIn("hasEmbeddedAngle,", store)
+        self.assertIn("INFINITYAPKStore.hasEmbeddedAngle", view)
+        self.assertIn("INFINITYAPKStore.hasEmbeddedMoltenVK", view)
+        self.assertIn("not embedded and signed", view)
+
     def test_runtime_launch_surface_requires_a_sized_metal_drawable(self):
         view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
         self.assertIn("layer.drawableSize.width > 0", view)
