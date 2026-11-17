@@ -29,6 +29,11 @@ typedef struct infinity_husk_performance {
 
 /* Configure the Java/Dalvik runtime before starting a Java APK. Required root is the
    prepared Java runtime generated from the pinned Android system image. */
+bool infinity_husk_prepare_native(const char *system_certificates_dir,
+                                  const char *system_fonts_root,
+                                  const char *extra_fonts_dir,
+                                  const char *shared_storage_dir);
+
 bool infinity_husk_prepare_java(const char *runtime_root, float density,
                                 const char *system_certificates_dir,
                                 const char *system_fonts_root,
