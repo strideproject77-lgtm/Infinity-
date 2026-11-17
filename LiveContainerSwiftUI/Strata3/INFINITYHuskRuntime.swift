@@ -90,6 +90,23 @@ final class INFINITYHuskRuntime: ObservableObject {
         lastError = nil
     }
 
+    func prepareNative(certificatesDirectory: URL,
+                        systemFilesRoot: URL,
+                        extraFontsDirectory: URL? = nil,
+                        sharedStorageDirectory: URL? = nil) throws {
+        let prepared = certificatesDirectory.path.withCString { certificates in
+            systemFilesRoot.path.withCString { systemFiles in
+                withOptionalCString(extraFontsDirectory?.path) { extraFonts in
+                    withOptionalCString(sharedStorageDirectory?.path) { shared in
+                        infinity_husk_prepare_native(certificates, systemFiles, extraFonts, shared)
+                    }
+                }
+            }
+        }
+        guard prepared else { throw RuntimeError.nativeRuntimeNotPrepared }
+        lastError = nil
+    }
+
     func prepareJava(runtimeRoot: URL,
                      density: Float,
                      certificatesDirectory: URL,
