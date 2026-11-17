@@ -14,10 +14,13 @@ workflows:
         archive_path: archive
 
 
+    triggering:
+      events:
+        - push
+
     when:
       changeset:
         includes:
-          - codemagic.yaml
           - .gitmodules
           - .github/workflows/build.yml
           - .github/build_github.sh
