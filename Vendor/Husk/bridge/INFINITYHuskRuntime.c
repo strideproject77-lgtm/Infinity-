@@ -12,7 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-enum { INFINITY_ENGINE_NONE = 0, INFINITY_ENGINE_JAVA = 1, INFINITY_ENGINE_UNITY = 2 };
+enum { INFINITY_ENGINE_NONE = -1 };
 static atomic_int g_infinity_engine = ATOMIC_VAR_INIT(INFINITY_ENGINE_NONE);
 static atomic_bool g_java_runtime_ready = ATOMIC_VAR_INIT(false);
 
@@ -147,7 +147,7 @@ bool infinity_husk_launch_engine(infinity_husk_engine engine,
     }
 
     if (accepted)
-        atomic_store(&g_infinity_engine, engine == INFINITY_HUSK_ENGINE_JAVA ? INFINITY_ENGINE_JAVA : INFINITY_ENGINE_UNITY);
+        atomic_store(&g_infinity_engine, (int)engine);
     return accepted;
 }
 
@@ -169,25 +169,25 @@ bool infinity_husk_launch_unity(const char *apk_path, const char *data_dir,
 
 void infinity_husk_java_touch(int phase, int pointer_id, float x, float y)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         tl_javaapp_touch(phase, pointer_id, x, y);
 }
 
 void infinity_husk_java_key(int android_keycode, bool down)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         tl_javaapp_key(android_keycode, down);
 }
 
 void infinity_husk_java_back(void)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         tl_javaapp_back();
 }
 
 void infinity_husk_java_set_paused(bool paused)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         husk_unity_set_paused(paused);
 }
 
@@ -199,25 +199,25 @@ void infinity_husk_java_set_insets(int left, int top, int right, int bottom, int
 
 void infinity_husk_java_insert_text(const char *utf8)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA && utf8)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA && utf8)
         tl_javaapp_text(utf8);
 }
 
 void infinity_husk_java_delete_backward(void)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         tl_javaapp_text_delete();
 }
 
 void infinity_husk_java_text_action(void)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         tl_javaapp_text_action();
 }
 
 void infinity_husk_java_keyboard_closed(void)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         tl_javaapp_keyboard_closed();
 }
 
@@ -237,7 +237,7 @@ void infinity_husk_java_set_document_picker(void (*pick)(const char *, int))
 
 void infinity_husk_java_documents_picked(const char *const *paths, int count)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
+    if (atomic_load(&g_infinity_engine) == INFINITY_HUSK_ENGINE_JAVA)
         husk_java_documents_picked(paths, count);
 }
 
@@ -276,21 +276,29 @@ const char *infinity_husk_loaded_apk(void)
 
 unsigned long infinity_husk_frames(void)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA) return tl_javaapp_frames();
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_UNITY) return husk_unity_frames();
-    return 0;
+    return atomic_load(&g_infinity_engine) == INFINITY_ENGINE_NONE ? 0 : husk_unity_frames();
+}
+
+void infinity_husk_touch(int phase, int pointer_id, float x, float y)
+{
+    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE)
+        husk_unity_touch(phase, pointer_id, x, y);
+}
+
+void infinity_husk_set_paused(bool paused)
+{
+    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE)
+        husk_unity_set_paused(paused);
 }
 
 void infinity_husk_unity_touch(int phase, int pointer_id, float x, float y)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_UNITY)
-        husk_unity_touch(phase, pointer_id, x, y);
+    infinity_husk_touch(phase, pointer_id, x, y);
 }
 
 void infinity_husk_unity_set_paused(bool paused)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_UNITY)
-        husk_unity_set_paused(paused);
+    infinity_husk_set_paused(paused);
 }
 
 void infinity_husk_performance_snapshot(double *fps, double *mean_ms, double *max_ms)
@@ -299,8 +307,7 @@ void infinity_husk_performance_snapshot(double *fps, double *mean_ms, double *ma
     *fps = 0.0;
     *mean_ms = 0.0;
     *max_ms = 0.0;
-    int engine = atomic_load(&g_infinity_engine);
-    if (engine == INFINITY_ENGINE_JAVA || engine == INFINITY_ENGINE_UNITY) {
+    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE) {
         husk_unity_perf native = { 0 };
         husk_unity_perf_snapshot(&native);
         *fps = native.fps;
