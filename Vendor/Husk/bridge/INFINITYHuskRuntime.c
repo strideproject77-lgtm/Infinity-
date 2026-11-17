@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stdatomic.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -89,7 +90,8 @@ bool infinity_husk_launch_unity(const char *apk_path, const char *data_dir,
                                 const char *angle_dylib, const char *ca_bundle)
 {
     if (!apk_path || !apk_path[0] || !data_dir || !data_dir[0] ||
-        width <= 0 || height <= 0 || atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE)
+        width <= 0 || height <= 0 || atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE ||
+        !readable_file(apk_path) || !readable_directory(data_dir))
         return false;
 
     if (!husk_unity_launch(apk_path, data_dir, metal_layer, width, height,
@@ -127,8 +129,8 @@ void infinity_husk_java_set_paused(bool paused)
 
 void infinity_husk_java_set_insets(int left, int top, int right, int bottom, int keyboard_bottom)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
-        tl_javaapp_set_insets(left, top, right, bottom, keyboard_bottom);
+    /* Initial values are accepted before launch; subsequent calls update rotation/IME geometry. */
+    husk_java_set_insets(left, top, right, bottom, keyboard_bottom);
 }
 
 void infinity_husk_java_insert_text(const char *utf8)
