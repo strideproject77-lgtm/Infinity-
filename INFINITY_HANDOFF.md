@@ -485,3 +485,88 @@ This section supersedes earlier phase/status statements above where they still s
 - Runtime Manager reports whether ANGLE is embedded and signed; Java/native runtime data can be imported separately from an extracted folder.
 - The ANGLE workflow only builds and uploads a temporary iOS arm64 artifact. It does not yet embed ANGLE into the app target or modify the existing IPA builder. Until a signed app build contains ANGLE, all APK launch paths remain correctly blocked.
 - The same limitation applies to MoltenVK for Unreal. No graphics backend launch has been verified.
+
+## Fast integration batch — authoritative status update 2026-11-17
+
+This section supersedes the earlier 13% snapshot above. It records the larger implementation batch; older sections remain as history.
+
+### Current overall progress
+
+**Estimated INFINITY Android-runtime integration: approximately 20%.** This is an engineering estimate, not an APK compatibility score. Real-device APK execution remains at 0%.
+
+| Workstream | Current status | Verified meaning |
+|---|---:|---|
+| Strata host baseline and protected SideStore boundary | 100% audited | Runtime package is attached only to the Strata SwiftUI framework target; SideStore target/configuration is not modified |
+| Husk source import | 100% | Pinned snapshot now includes native translation trees, Java framework sources, ART support and build helpers |
+| Source/dependency/licensing audit | 85% | Dual native trees, Java source closure, build recipes and exclusions documented; 837 files still lack per-file SPDX markers and exact Android platform provenance remains under review |
+| INFINITY C bridge implementation | 70% | Ten backend dispatch paths, native/Java readiness gates, APK validation, lifecycle, generic input and metrics are implemented; latest compile rerun is pending |
+| Swift runtime controller | 70% | Generic backend selection, Java/native preparation, Metal launch, touch, pause, metrics and nonblocking shutdown are implemented; latest type-check rerun is pending |
+| Static native package compile | 100% for the first compile batch; latest adapter batch pending | Initial CI compiled 97 native source files (96 Husk + INFINITY adapter); a later backend-signature mismatch was found and corrected, with a new run queued |
+| Strata SwiftUI framework link | 0% verified | Local package product is declared on LiveContainerSwiftUI, but a successful framework link has not yet been recorded |
+| Persistent APK library and launch UI | 75% code implemented | APK copy/inspection/index, split guard, per-package data, Metal surface, multi-touch, FPS and background pause are in source; no device validation |
+| Java/system runtime asset builder | 70% code implemented | Source image extraction, APEX extraction, Java DEX build, Android fonts/certificates and ZIP packaging are scripted; manual workflow has not been run |
+| ANGLE graphics dependency | In progress | Separate pinned WebKit ANGLE build workflow is running; artifact is not yet verified or embedded/signed in Strata |
+| 2048 real APK | 0% tested | No device execution |
+| Hill Climb Racing | 0% tested | No device execution |
+| Other APK compatibility | 0% tested | No device execution |
+
+### Product approach and runtime design
+
+- Strata remains the iOS host, IPA manager, Home Screen/Library and existing iOS guest launcher. INFINITY adds APK storage and a real Android translation path inside Strata; it does not replace Strata with a full Android VM.
+- Husk's pinned advanced translation runtime remains the execution engine. Reuse both upstream native translation trees; do not create a fake compatibility screen or claim support based on metadata inspection.
+- Swift owns the Strata UI, persistent APK library and runtime lifecycle controller. C owns the native translation runtime and engine dispatch. Objective-C/Objective-C++ adapters are added only where Apple frameworks require them.
+- The INFINITY-owned bridge deliberately avoids upstream `HuskBridge.h` and its unrelated QEMU/JIT/pairing dependencies.
+- QEMU remains a separate optional backend. Native translation is the first target.
+- All ten upstream backend identifiers are now represented in the bridge: Unity, Java, Cocos, GameActivity, SDL, Unreal, Godot, GTA, Flutter and GameMaker. The C adapter preserves the selected engine ID and uses Husk's engine-aware touch/pause/frame/performance dispatch.
+- Java launch requires validated Java/APEX/framework DEX and Android system files. All launch paths require a readable ANGLE library and a valid CAMetalLayer; Unreal additionally requires MoltenVK.
+- iOS dynamic libraries must be embedded and signed in the app's Frameworks bundle. INFINITY does not treat a dylib copied into Documents as executable code. The current Swift launch controller checks the bundle path before passing ANGLE/MoltenVK to C.
+- Testing order remains 2048 first, then Hill Climb Racing, then other real APKs. Compatibility is reported only after device launch/render/input/audio/stability evidence.
+
+### Source and native implementation completed
+
+1. Expanded the pinned Husk import to include `src/java-framework/`, `src/art-support/`, `tools/compat/`, `tools/strip_framework_res.py` and `scripts/copy_aosp_bundle.sh`. Latest vendor import commit: `41f1a5d` (pinned Husk revision remains `29abb512d81bf8cc08babcbe7f7007cb557208ef`).
+2. Current generated audit reports 3,286 imported files, including 99 native C/Objective-C sources across audited groups, 820 Java framework implementation files, 2,270 generated Android framework signature/constant stubs, 53 headers/includes, 24 build/helper scripts, 10 Swift host references and 7 documents.
+3. The generated Android `gen-src` files are signature/constant stubs only, not Android method implementations. The handwritten Java framework implementation is retained under Husk's GPL-2.0-or-later source snapshot. Third-party notices now record the Android/AOSP framework provenance and the need to preserve the exact Lineage image notices.
+4. Added `Vendor/Husk/Package.swift` as an isolated static native package target containing both translation trees and the INFINITY bridge. The target is not a SideStore target.
+5. Added `INFINITYHuskRuntime.h` and `INFINITYHuskRuntime.c`. The adapter now validates APK/data/graphics paths, Java framework/APEX assets, Android system fonts/font maps/certificates, and native-vs-Java preparation state before allowing launch. It routes all ten backend launch functions and generic runtime controls.
+6. Added `INFINITYHuskRuntime.swift`, which exposes engine selection, native/Java preparation, launch, touch, Java keyboard operations, pause, FPS/frame-time metrics, and nonblocking shutdown.
+7. Added the local Husk static package product to the `LiveContainerSwiftUI` target only. The existing SideStore target was not given this package dependency.
+8. Added a persistent APK store at `Strata3/AndroidApps`: import is staged, APK structure/manifest/DEX are inspected, package IDs are validated, split requirements are recorded, and the package folder/index update has rollback behavior. Per-package app data is stored separately.
+9. Added a Metal-backed APK launch view with multi-touch pointer tracking, FPS/frame-time display and pause when the app scene becomes inactive. Split-required packages and unidentified engines are blocked rather than guessed.
+10. Added a runtime-data folder installer. It validates the Java runtime, Android fonts/font maps/certificate store and CA bundle, stages the files, then swaps them into `Strata3/AndroidRuntime` with rollback. The runtime UI explains that ANGLE must be embedded/signed separately.
+
+### Runtime asset and ANGLE pipelines
+
+- Added `scripts/build_infinity_runtime_assets.sh` and manual workflow `.github/workflows/infinity-runtime-assets.yml`. It downloads the pinned Lineage v2 `vda-v12.qcow2` image with SHA-256 verification, extracts the system partition and required ART/i18n/tzdata/Conscrypt APEX contents, extracts framework resources and legacy HTTP jar, generates Husk framework DEX with JDK/R8, extracts Android fonts/font maps/certificates, preserves the system NOTICE when present, validates output and creates a runtime-data ZIP.
+- The runtime-data workflow is manual-dispatch only and uploads an Actions artifact. It has not been executed yet; no Java/system runtime bundle is claimed ready.
+- Added a separate iOS arm64 ANGLE build workflow using the pinned WebKit source revision. It builds only the graphics dylib and publishes an Actions artifact; it does not build or export an IPA. Latest observed run `44006769136` was still building ANGLE when checked.
+- ANGLE is not yet embedded in the Strata app target or code-signed by the app build. Therefore the APK launch UI remains correctly blocked even if the Java/system runtime-data folder is installed. Unreal also needs an embedded/signed MoltenVK library.
+
+### Latest CI evidence and blockers
+
+- Initial isolated Husk static-package build run `44004015499`: **success**, compiling 97 native sources (96 imported Husk native files plus the INFINITY bridge).
+- A later generic backend adapter compile exposed a conflicting function signature. The signature was corrected; the latest native package compile run `44008090234` was queued when this section was written. Do not claim the latest adapter batch has compiled until that run succeeds.
+- Native source-contract/APK archive tests run `44007420511`: source-contract job **success**. Later bridge/store/runtime-asset tests were added; latest run `44008131243` was queued when checked.
+- The Swift bridge type-check has passed in an earlier run for the initial runtime controller, but the consolidated generic-engine controller and native preparation additions require the latest type-check job to finish.
+- First framework-only Xcode attempt failed because the CI checkout did not fetch Strata's existing `litehook` submodule and the older Xcode SDK did not recognize the existing `UIGlassEffect` API. The workflow was updated to fetch recursive submodules and build only the `LiveContainerSwiftUI` target (not the app/IPA); the latest framework build run `44008090303` was queued when checked.
+- No successful final framework link, no app build, no IPA build/sign/export, no simulator/device launch and no real APK execution are claimed.
+- The ANGLE build run `44006769136` was in progress; the runtime-data build workflow has not been dispatched.
+- The source audit reports 837 non-generated files without per-file SPDX markers and 2,270 generated platform stubs without SPDX markers. These are provenance/license-review items, not proof that the files are unlicensed. Keep the root GPL-2.0-or-later license and third-party notices intact.
+
+### Next implementation sequence
+
+1. Complete the latest native static-package compile, Swift bridge type-check and framework-only Xcode target build. Fix only compiler/linker diagnostics from those runs.
+2. Finish the ANGLE build and review its license/revision artifact. Integrate ANGLE into the app's signed Frameworks bundle without changing SideStore, signing identity, install/refresh logic or the existing IPA workflow. Do not build an IPA until explicitly authorized.
+3. Run the manual runtime-data workflow; inspect the generated manifest, Android NOTICE and archive contents before declaring the payload distributable.
+4. Add an in-app diagnostic for runtime-data readiness, embedded ANGLE readiness, missing assets and backend detection. Do not allow launch if any required asset is missing.
+5. Run a consolidated real-device test on the target iPhone: 2048 first, then HCR. Capture APK version/ABI, launch result, render path, touch, audio, orientation, FPS/frame-time, memory, logs and shutdown behavior.
+6. Only after real-device evidence, publish compatibility results and raise the progress estimate.
+
+### Explicit non-claims
+
+- Source import and static compilation do not equal a linked or callable Android runtime.
+- The APK library UI and Metal launch surface are implemented in source but not yet device-verified.
+- The runtime-data builder is scripted but has not produced a verified asset bundle.
+- ANGLE is being built separately but is not embedded/signed in the app yet.
+- No 2048, HCR or other APK compatibility claim is currently evidence-based.
+- No IPA has been built, signed or exported. SideStore source, targets, configuration, signing, installation and refresh systems remain untouched.
