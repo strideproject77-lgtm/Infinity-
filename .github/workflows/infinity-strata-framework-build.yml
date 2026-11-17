@@ -1,0 +1,45 @@
+name: INFINITY Strata SwiftUI runtime integration build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "LiveContainer.xcodeproj/project.pbxproj"
+      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
+      - "LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h"
+      - "Vendor/Husk/Package.swift"
+      - "Vendor/Husk/include/**"
+      - "Vendor/Husk/bridge/**"
+      - "Vendor/Husk/translation-layer/**"
+      - "Vendor/Husk/translation-layer-next/**"
+      - ".github/workflows/infinity-strata-framework-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  strata-swiftui-framework:
+    name: Compile Strata SwiftUI framework with INFINITY runtime linked
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out INFINITY main
+        uses: actions/checkout@v4
+
+      - name: Resolve Xcode package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies -project LiveContainer.xcodeproj
+
+      - name: Build only the LiveContainerSwiftUI framework target
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project LiveContainer.xcodeproj \
+            -target LiveContainerSwiftUI \
+            -sdk iphoneos \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/infinity-strata-derived" \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tee "$RUNNER_TEMP/infinity-strata-framework.log"
