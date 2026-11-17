@@ -156,7 +156,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("libANGLE-shared.dylib in Embed Frameworks", project)
         self.assertIn("ATTRIBUTES = (CodeSignOnCopy, );", project)
         app = re.search(
-            r"17DCE99C2C7067EC00731D42 /\\* LiveContainer \\*/ = \\{(.*?)\\n\\t\\t\\};",
+            r"17DCE99C2C7067EC00731D42 /\* LiveContainer \*/ = \{(.*?)\n\t\t\};",
             project,
             re.S
         )
