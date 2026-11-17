@@ -3,7 +3,6 @@ import Combine
 import QuartzCore
 
 /// Main-thread owner for the native Husk session embedded in Strata.
-/// This class only calls the INFINITY-owned C bridge; it never launches a demo surface.
 @MainActor
 final class INFINITYHuskRuntime: ObservableObject {
     enum Engine: Int32 {
@@ -29,28 +28,31 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     enum RuntimeError: LocalizedError {
         case javaRuntimeNotPrepared
-        case rejectedLaunch
         case graphicsRuntimeNotPrepared
+        case vulkanRuntimeNotPrepared
         case invalidSurface
-        case missingGraphicsRuntime
-        case missingVulkanRuntime
+        case rejectedLaunch
 
         var errorDescription: String? {
             switch self {
             case .javaRuntimeNotPrepared:
                 return "Android Java runtime assets are not prepared."
-            case .rejectedLaunch:
-                return "Husk rejected the launch request. Check the APK, data folder and runtime assets."
             case .graphicsRuntimeNotPrepared:
                 return "The ANGLE graphics runtime is missing or unreadable."
+            case .vulkanRuntimeNotPrepared:
+                return "The selected Unreal backend requires a readable MoltenVK library."
             case .invalidSurface:
                 return "The Android surface has an invalid size."
-            case .missingGraphicsRuntime:
-                return "Husk's ANGLE/GLES runtime library is missing."
-            case .missingVulkanRuntime:
-                return "The selected Unreal backend requires its Vulkan runtime library."
+            case .rejectedLaunch:
+                return "Husk rejected the launch request. Check the APK, data folder and runtime assets."
             }
         }
+    }
+
+    struct Performance {
+        let fps: Double
+        let meanMilliseconds: Double
+        let maxMilliseconds: Double
     }
 
     @Published private(set) var state: State = .idle
@@ -94,19 +96,6 @@ final class INFINITYHuskRuntime: ObservableObject {
         lastError = nil
     }
 
-    enum Engine: Int32 {
-        case unity = 0
-        case java = 1
-        case cocos = 2
-        case gameActivity = 3
-        case sdl = 4
-        case unreal = 5
-        case godot = 6
-        case grandTheftAuto = 7
-        case flutter = 8
-        case gameMaker = 9
-    }
-
     func launch(engine: Engine,
                 apk: URL,
                 dataDirectory: URL,
@@ -126,7 +115,7 @@ final class INFINITYHuskRuntime: ObservableObject {
         if engine == .unreal {
             guard let moltenVKLibrary,
                   FileManager.default.isReadableFile(atPath: moltenVKLibrary.path) else {
-                throw RuntimeError.graphicsRuntimeNotPrepared
+                throw RuntimeError.vulkanRuntimeNotPrepared
             }
         }
 
@@ -145,6 +134,7 @@ final class INFINITYHuskRuntime: ObservableObject {
             }
         }
         guard accepted else { throw RuntimeError.rejectedLaunch }
+        selectedEngine = engine
         lastError = nil
         beginPolling()
     }
@@ -174,46 +164,6 @@ final class INFINITYHuskRuntime: ObservableObject {
                    angleLibrary: angleLibrary, certificateBundle: certificateBundle)
     }
 
-    func launch(engine: Engine,
-                apk: URL,
-                dataDirectory: URL,
-                metalLayer: CAMetalLayer,
-                width: Int,
-                height: Int,
-                angleLibrary: URL,
-                certificateBundle: URL? = nil,
-                moltenVKLibrary: URL? = nil) throws {
-        guard width > 0, height > 0 else { throw RuntimeError.invalidSurface }
-        guard FileManager.default.fileExists(atPath: angleLibrary.path) else {
-            throw RuntimeError.missingGraphicsRuntime
-        }
-        if engine == .unreal {
-            guard let moltenVKLibrary,
-                  FileManager.default.fileExists(atPath: moltenVKLibrary.path) else {
-                throw RuntimeError.missingVulkanRuntime
-            }
-        }
-
-        let layer = Unmanaged.passUnretained(metalLayer).toOpaque()
-        let accepted = apk.path.withCString { apkPath in
-            dataDirectory.path.withCString { dataPath in
-                angleLibrary.path.withCString { angle in
-                    withOptionalCString(certificateBundle?.path) { certificates in
-                        withOptionalCString(moltenVKLibrary?.path) { moltenVK in
-                            infinity_husk_launch_engine(engine.rawValue, apkPath, dataPath, layer,
-                                                       Int32(width), Int32(height), angle,
-                                                       certificates, moltenVK)
-                        }
-                    }
-                }
-            }
-        }
-        guard accepted else { throw RuntimeError.rejectedLaunch }
-        selectedEngine = engine
-        lastError = nil
-        beginPolling()
-    }
-
     func setJavaInsets(left: Int, top: Int, right: Int, bottom: Int, keyboardBottom: Int) {
         infinity_husk_java_set_insets(Int32(left), Int32(top), Int32(right),
                                       Int32(bottom), Int32(keyboardBottom))
@@ -225,10 +175,6 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     func sendTouch(phase: Int, pointerID: Int, x: Float, y: Float) {
         infinity_husk_touch(Int32(phase), Int32(pointerID), x, y)
-    }
-
-    func sendUnityTouch(phase: Int, pointerID: Int, x: Float, y: Float) {
-        sendTouch(phase: phase, pointerID: pointerID, x: x, y: y)
     }
 
     func sendJavaKey(androidKeyCode: Int, down: Bool) {
@@ -251,65 +197,45 @@ final class INFINITYHuskRuntime: ObservableObject {
         infinity_husk_java_back()
     }
 
-    func setJavaPaused(_ paused: Bool) {
-        infinity_husk_java_set_paused(paused)
-    }
-
     func setPaused(_ paused: Bool) {
         infinity_husk_set_paused(paused)
     }
 
-    func setUnityPaused(_ paused: Bool) {
-        setPaused(paused)
-    }
-
-    struct Performance {
-        let fps: Double
-        let meanMilliseconds: Double
-        let maxMilliseconds: Double
-    }
-
-    func performanceSnapshot() -> Performance {
-        var fps = 0.0
-        var mean = 0.0
-        var maximum = 0.0
-        infinity_husk_performance_snapshot(&fps, &mean, &maximum)
-        return Performance(fps: fps, meanMilliseconds: mean, maxMilliseconds: maximum)
+    func setJavaPaused(_ paused: Bool) {
+        infinity_husk_java_set_paused(paused)
     }
 
     func stop() {
         pollingTask?.cancel()
         pollingTask = nil
-        let shouldStop = state != .idle
-        guard shouldStop else {
-            frameCount = 0
-            loadedAPK = nil
+        guard state != .idle else {
+            resetPublishedSession()
             return
         }
+
+        // Native shutdown may wait for engine threads; never block the SwiftUI main actor.
         Task { [weak self] in
             await Task.detached(priority: .userInitiated) {
                 infinity_husk_stop()
             }.value
             guard let self else { return }
             self.refreshState()
-            self.frameCount = 0
-            self.framesPerSecond = 0
-            self.meanFrameMilliseconds = 0
-            self.maxFrameMilliseconds = 0
-            self.loadedAPK = nil
+            self.resetPublishedSession()
         }
     }
 
     func refreshState() {
         state = State(rawValue: Int32(infinity_husk_get_state().rawValue)) ?? .failed
         frameCount = infinity_husk_frames()
-        var currentFPS = 0.0
-        var currentMean = 0.0
-        var currentMax = 0.0
-        infinity_husk_performance_snapshot(&currentFPS, &currentMean, &currentMax)
-        framesPerSecond = currentFPS
-        meanFrameMilliseconds = currentMean
-        maxFrameMilliseconds = currentMax
+
+        var fps = 0.0
+        var mean = 0.0
+        var maximum = 0.0
+        infinity_husk_performance_snapshot(&fps, &mean, &maximum)
+        framesPerSecond = fps
+        meanFrameMilliseconds = mean
+        maxFrameMilliseconds = maximum
+
         if let path = infinity_husk_loaded_apk() {
             loadedAPK = String(cString: path)
         } else {
@@ -318,6 +244,12 @@ final class INFINITYHuskRuntime: ObservableObject {
         if state == .failed {
             lastError = "The native Android runtime reported a launch or execution failure. Check the session log."
         }
+    }
+
+    func performanceSnapshot() -> Performance {
+        Performance(fps: framesPerSecond,
+                    meanMilliseconds: meanFrameMilliseconds,
+                    maxMilliseconds: maxFrameMilliseconds)
     }
 
     func apkOrientation(_ apk: URL) -> Int {
@@ -344,6 +276,15 @@ final class INFINITYHuskRuntime: ObservableObject {
                 try? await Task.sleep(nanoseconds: 400_000_000)
             }
         }
+    }
+
+    private func resetPublishedSession() {
+        frameCount = 0
+        framesPerSecond = 0
+        meanFrameMilliseconds = 0
+        maxFrameMilliseconds = 0
+        loadedAPK = nil
+        selectedEngine = nil
     }
 
     private func withOptionalCString<T>(_ value: String?,
