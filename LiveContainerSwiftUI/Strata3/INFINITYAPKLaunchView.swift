@@ -129,6 +129,16 @@ struct INFINITYAPKInstalledAppDetail: View {
                     LabeledContent("Launcher activity", value: activity)
                 }
             }
+            Section("Runtime readiness") {
+                LabeledContent("ANGLE graphics", value: INFINITYAPKStore.isANGLEEmbeddedAndReadable ? "Embedded" : "Missing")
+                LabeledContent("Android system assets", value: INFINITYAPKStore.runtimeDataReady() ? "Installed" : "Incomplete")
+                if app.detectedEngine == "java" {
+                    LabeledContent("Java / ART assets", value: INFINITYAPKStore.runtimeBundle() != nil ? "Ready" : "Incomplete")
+                }
+                if app.detectedEngine == "unreal" {
+                    LabeledContent("MoltenVK", value: INFINITYAPKStore.isMoltenVKEmbeddedAndReadable ? "Embedded" : "Missing")
+                }
+            }
             Section("Execution") {
                 if canLaunch {
                     NavigationLink {
