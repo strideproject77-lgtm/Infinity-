@@ -318,9 +318,9 @@ static int prepare_tar(const uint8_t *t, size_t n, const char *what, const char 
     if (conversion_failed) return -1;
     tl_log_line("aot: %s is a tar of Android libraries; ARM64 bundle %s", what,
                 found_arm64_library ? "prepared" : "contains no ARM64 libraries");
-    /* Count one APK-level bundle, not each inner .so, so the caller's
-       unique top-level library coverage check remains meaningful. */
-    return found_arm64_library ? 1 : 0;
+    /* Count one APK-level bundle, not each inner .so. A valid bundle with
+       no ARM64 members is also covered: it needs no ARM64 AOT output. */
+    return 1;
 }
 
 int husk_aot_prepare(const char *const *apks, int napks, const char *cache_dir, const uint8_t *p12, size_t p12_len,
