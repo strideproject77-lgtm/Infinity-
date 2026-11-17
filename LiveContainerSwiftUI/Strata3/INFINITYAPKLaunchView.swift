@@ -102,7 +102,8 @@ struct INFINITYAPKInstalledAppDetail: View {
     let app: INFINITYAPKInstalledApp
 
     private var canLaunch: Bool {
-        guard app.detectedEngine != nil,
+        guard !app.requiresSplits,
+              app.detectedEngine != nil,
               FileManager.default.isReadableFile(atPath: INFINITYAPKStore.angleLibraryURL.path) else {
             return false
         }
@@ -121,6 +122,7 @@ struct INFINITYAPKInstalledAppDetail: View {
                 LabeledContent("Package", value: app.packageName)
                 LabeledContent("Version", value: app.versionName ?? "Unknown")
                 LabeledContent("Engine", value: app.detectedEngine ?? "Not identified")
+                LabeledContent("Split APKs", value: app.requiresSplits ? "Required · not installed" : "Not required")
                 LabeledContent("APK size", value: ByteCountFormatter.string(fromByteCount: Int64(clamping: app.archiveBytes), countStyle: .file))
                 LabeledContent("Native libraries", value: "\(app.nativeLibraries.count)")
                 if let activity = app.launchActivity {
@@ -153,6 +155,9 @@ struct INFINITYAPKInstalledAppDetail: View {
     }
 
     private var runtimeBlocker: String {
+        if app.requiresSplits {
+            return "This app declares required split APKs. INFINITY currently imports one base APK only, so launch is blocked until split-package installation is implemented."
+        }
         guard app.detectedEngine != nil else {
             return "The package's native engine could not be identified safely. No engine has been guessed."
         }
