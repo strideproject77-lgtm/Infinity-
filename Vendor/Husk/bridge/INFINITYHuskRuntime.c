@@ -184,7 +184,7 @@ void infinity_husk_java_back(void)
 void infinity_husk_java_set_paused(bool paused)
 {
     if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_JAVA)
-        tl_javaapp_set_paused(paused);
+        husk_unity_set_paused(paused);
 }
 
 void infinity_husk_java_set_insets(int left, int top, int right, int bottom, int keyboard_bottom)
@@ -289,19 +289,26 @@ void infinity_husk_unity_set_paused(bool paused)
         husk_unity_set_paused(paused);
 }
 
+void infinity_husk_performance_snapshot(double *fps, double *mean_ms, double *max_ms)
+{
+    if (!fps || !mean_ms || !max_ms) return;
+    *fps = 0.0;
+    *mean_ms = 0.0;
+    *max_ms = 0.0;
+    int engine = atomic_load(&g_infinity_engine);
+    if (engine == INFINITY_ENGINE_JAVA || engine == INFINITY_ENGINE_UNITY) {
+        husk_unity_perf native = { 0 };
+        husk_unity_perf_snapshot(&native);
+        *fps = native.fps;
+        *mean_ms = native.mean_ms;
+        *max_ms = native.max_ms;
+    }
+}
+
 void infinity_husk_unity_performance(infinity_husk_performance *out)
 {
     if (!out) return;
-    out->fps = 0.0;
-    out->mean_ms = 0.0;
-    out->max_ms = 0.0;
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_UNITY) {
-        husk_unity_perf native = { 0 };
-        husk_unity_perf_snapshot(&native);
-        out->fps = native.fps;
-        out->mean_ms = native.mean_ms;
-        out->max_ms = native.max_ms;
-    }
+    infinity_husk_performance_snapshot(&out->fps, &out->mean_ms, &out->max_ms);
 }
 
 int infinity_husk_apk_orientation(const char *apk_path)
