@@ -38,6 +38,11 @@ class RuntimeAssetBuilderTests(unittest.TestCase):
         self.assertNotIn("build.yml", workflow)
         self.assertNotIn("ipa-builder", workflow.lower())
 
+    def test_gpt_partition_names_are_split_on_a_single_nul_byte(self):
+        script = self.read("scripts/build_infinity_runtime_assets.sh")
+        self.assertIn(r'entry[:36].split(b"\0", 1)[0]', script)
+        self.assertNotIn(r'entry[:36].split(b"\\0", 1)[0]', script)
+
     def test_workflow_verifies_pinned_image_and_uploads_data_artifact_only(self):
         workflow = self.read(".github/workflows/infinity-runtime-assets.yml")
         self.assertIn("vda-v12.qcow2", workflow)
