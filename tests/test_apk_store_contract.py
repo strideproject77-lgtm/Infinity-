@@ -84,5 +84,16 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("INFINITYAPKLibraryView()", app_list)
 
 
+    def test_runtime_manager_importer_accepts_android_formats_and_reports_results(self):
+        center = self.read("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
+        self.assertIn('UTType(filenameExtension: "apk") ?? .data', center)
+        self.assertIn('UTType(filenameExtension: "xapk") ?? .data', center)
+        self.assertIn('UTType(filenameExtension: "apks") ?? .data', center)
+        self.assertIn('UTType(filenameExtension: "apkm") ?? .data', center)
+        self.assertIn("INFINITYAPKStore.install(from: url)", center)
+        self.assertIn("apkInspectionError = error.localizedDescription", center)
+        self.assertIn("Imported \\(imported.0.displayName) successfully.", center)
+        self.assertIn("installedAPKs = (try? INFINITYAPKStore.installedApps()) ?? []", center)
+
 if __name__ == "__main__":
     unittest.main()
