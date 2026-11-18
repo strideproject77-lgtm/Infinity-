@@ -37,3 +37,14 @@
 - APK selections now go through `INFINITYAPKStore.install(from:)`, which copies into staging, inspects the manifest/DEX content, validates the package name, and commits the APK into persistent storage. IPA/TIPA selections continue through the original IPA installer unchanged.
 - Added an Android APK Library entry to the same `+` menu. It lists persisted APK imports, opens the existing app detail/launch view, and supports removal. File-URL open/share imports also route APK files into the APK store.
 - Added Python contract tests for the shared picker route and persisted APK library. These tests are committed but have not yet been run by GitHub Actions; no Xcode/macOS compile or IPA build was started. Runtime execution compatibility remains unverified.
+
+
+## Android package import expansion and Runtime Manager repair — 2026-11-18
+
+- Expanded the existing shared launcher import picker to accept APK, XAPK, APKS and APKM while preserving the existing IPA/TIPA install route. Android selections route to the INFINITY APK store; IPA/TIPA selections continue through the original Strata installer.
+- Added ZIP-entry streaming extraction for embedded APKs. XAPK/APKS/APKM containers are inspected, a unique base APK is required, and accompanying split APKs are retained in the installed package directory. The extraction path validates compression method, bounds, decompressed size and CRC, and removes incomplete output on failure.
+- Extended the installed-app record with a backward-compatible split APK count. The detail screen reports stored splits and continues to block launch because the current Husk launch adapter still accepts only a base APK; split loading is not claimed as implemented.
+- Repaired the separate Runtime Manager importer: it now advertises the four Android package extensions, validates the selected extension, shows an in-progress state and a success message, refreshes the installed list, and surfaces picker/import errors rather than silently leaving the user without feedback.
+- Added source contract coverage for archive extraction and the Runtime Manager import route.
+- Recent commits: `d68484b9`, `e7b7e29c`, `10301ebe`, `084d6f27`, `664e6769`, `9326a8c3`, `84ca4a11`, `ab894921`.
+- Verification is pending the GitHub Actions run triggered by these `main` pushes. No IPA build, signing, export, or workflow cancellation was performed. APK import/storage is not evidence that APK execution compatibility is verified.
