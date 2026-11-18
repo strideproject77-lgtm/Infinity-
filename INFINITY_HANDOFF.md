@@ -852,3 +852,14 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - The Objective-C declaration in `LiveContainerSwiftUI/Utilities/LCUtils.h` returns a non-optional `NSDictionary *`; the Swift picker incorrectly treated it as an optional dictionary. Updated `StrataInstalledAppPicker.swift` to receive an explicit `NSDictionary`, extract the `apps` array with a typed cast, explicitly type the mapped app array, and use an explicit closure for ID extraction.
 - Source change committed on `main` as `17a1d54d64a867885fe692eff89b89d3be5ffcbb`. No SideStore source was changed.
 - This is a source-level correction; compilation is not yet verified. The GitHub Actions build workflow is manual-only (`workflow_dispatch`). The available GitHub connection can inspect runs and rerun failed jobs but does not expose a workflow-dispatch action. Rerunning the previous run would use its old commit and cannot validate this fix. Start a fresh manual Xcode build on `main` to validate and package the IPA.
+
+
+## Cross-provider canonical IPA build pipeline — 2026-11-18
+
+- Added `scripts/build_ipa.sh` as the single shared build implementation called by both GitHub Actions and Codemagic.
+- The shared script verifies macOS and exact Xcode 26.2, prepares the same pinned StikJIT archive and canonical icon, resolves the same Xcode project/workspace packages, and runs the same arm64 Release archive command with one build job, single-file Swift compilation, and `SWIFT_OPTIMIZATION_LEVEL=-Onone`.
+- Both providers now invoke the unchanged `.github/build_github.sh` packaging implementation and verify that both expected IPA files exist. The packaging script and SideStore-related implementation were not edited.
+- GitHub Actions is pinned to Xcode 26.2 and now delegates preparation/archive/package to the shared script. Codemagic is also pinned to Xcode 26.2 and delegates to that same script. The previous Codemagic `latest` Xcode / `-O` mismatch is removed.
+- Provider-specific differences remain only where necessary: runner provisioning, checkout/submodule retry, log destination, and artifact upload. GitHub Actions remains manual-dispatch only; Codemagic remains governed by its configured changeset/dashboard behavior.
+- This establishes matching build inputs and commands; it does **not** guarantee byte-identical IPA files because runner images, signing state, external downloads, timestamps, and packaging environment can still differ. Both providers must complete successful builds and their IPA contents must be compared before claiming reproducibility.
+- No build was started by this configuration-only change. No IPA build/sign/export/device installation was performed. SideStore source, targets, entitlements, signing, installation, refresh, and packaging code were not changed.
