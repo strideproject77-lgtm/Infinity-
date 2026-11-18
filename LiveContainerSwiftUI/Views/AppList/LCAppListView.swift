@@ -371,7 +371,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         } message: {
             Text(errorInfo)
         }
-        .betterFileImporter(isPresented: $choosingIPA, types: [.ipa, .tipa, UTType(filenameExtension: "apk") ?? .data], multiple: false, callback: { fileUrls in
+        .betterFileImporter(isPresented: $choosingIPA, types: [.ipa, .tipa, UTType(filenameExtension: "apk") ?? .data, UTType(filenameExtension: "xapk") ?? .data, UTType(filenameExtension: "apks") ?? .data, UTType(filenameExtension: "apkm") ?? .data], multiple: false, callback: { fileUrls in
             guard let fileURL = fileUrls.first else { return }
             Task { await startInstallSelectedFile(fileURL) }
         }, onDismiss: {
@@ -764,7 +764,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
     
     func startInstallSelectedFile(_ fileURL: URL) async {
-        guard fileURL.pathExtension.lowercased() == "apk" else {
+        guard ["apk", "xapk", "apks", "apkm"].contains(fileURL.pathExtension.lowercased()) else {
             await startInstallApp(fileURL)
             return
         }
@@ -1069,7 +1069,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         if installUrl.isFileURL {
             // install from local, we directly call local install method
             let fileExtension = installUrl.pathExtension.lowercased()
-            if fileExtension == "apk" {
+            if ["apk", "xapk", "apks", "apkm"].contains(fileExtension) {
                 do {
                     selectedAPKForDetails = try INFINITYAPKStore.install(from: installUrl)
                 } catch {
@@ -1078,7 +1078,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 }
                 return
             }
-            if fileExtension != "ipa" && fileExtension != "tipa" {
+            if !["ipa", "tipa", "apk", "xapk", "apks", "apkm"].contains(fileExtension) {
                 errorInfo = "lc.appList.urlFileIsNotIpaError".loc
                 errorShow = true
                 return
