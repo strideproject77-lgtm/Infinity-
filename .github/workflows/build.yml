@@ -1,6 +1,10 @@
 name: Xcode - Build
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'LiveContainerSwiftUI/Views/StrataInstalledAppPicker.swift'
   workflow_dispatch:
     inputs: 
       release__nightly:
