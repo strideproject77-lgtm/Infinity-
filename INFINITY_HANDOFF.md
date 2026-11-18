@@ -27,3 +27,13 @@
 - Packaging validates the resulting ZIP with `unzip -t`. If either IPA or the Xcode archive is missing, packaging fails rather than publishing an incomplete ZIP.
 - Codemagic now declares only the combined ZIP as an artifact. The GitHub log mirror remains unchanged.
 - This is a configuration/script change only. No Codemagic run was started, and no IPA was built, signed, or exported to validate the new package yet.
+
+
+## Shared IPA / APK file-import entry — 2026-11-18
+
+- Audited the original `huzaifahshahid71-ops/Strata` `main` branch: `LiveContainerSwiftUI/Views/AppList/LCAppListView.swift` exposes an IPA picker with `.ipa` and `.tipa` only; its install path calls `installIpaFile`. No Android APK import/runtime pipeline was found in that original Strata tree.
+- INFINITY already contained APK ZIP inspection, manifest parsing, persistent storage under `Strata3/AndroidApps`, and the APK launch/detail surface. The existing IPA picker was not connected to those components.
+- Updated the existing `+` menu item to read “Import IPA / APK” and expanded its existing document picker to accept `.apk` alongside `.ipa` / `.tipa`. No second file-import button was added.
+- APK selections now go through `INFINITYAPKStore.install(from:)`, which copies into staging, inspects the manifest/DEX content, validates the package name, and commits the APK into persistent storage. IPA/TIPA selections continue through the original IPA installer unchanged.
+- Added an Android APK Library entry to the same `+` menu. It lists persisted APK imports, opens the existing app detail/launch view, and supports removal. File-URL open/share imports also route APK files into the APK store.
+- Added Python contract tests for the shared picker route and persisted APK library. These tests are committed but have not yet been run by GitHub Actions; no Xcode/macOS compile or IPA build was started. Runtime execution compatibility remains unverified.
