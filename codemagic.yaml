@@ -71,10 +71,10 @@ workflows:
       - name: Run canonical INFINITY build pipeline
         script: |
           set -euo pipefail
-          INFINITY_ARCHIVE_LOG=/tmp/xcodebuild-archive.log bash scripts/build_ipa.sh
+          bash scripts/run_codemagic_build.sh
 
     artifacts:
       - LiveContainer.ipa
       - LiveContainer+SideStore.ipa
       - archive.xcarchive
-      - /tmp/xcodebuild-archive.log
+      - /tmp/infinity-codemagic-logs/build.log\n      - /tmp/infinity-codemagic-logs/xcodebuild-archive.log\n      - /tmp/infinity-codemagic-logs/metadata.json

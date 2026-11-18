@@ -890,3 +890,13 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Corrected `StrataInstalledAppPicker.reload()` to let `Task.detached` infer the Objective-C method's optional dictionary return type, then safely read `result?["apps"]`.
 - Corrective source commit on `main`: `9caf96a8d01b6ff5a38cb92822dda0fa6c5eeb6a`.
 - This is a source-level correction only. It has not yet been compiled by Xcode/Codemagic; run a fresh Codemagic build from this exact commit before claiming the archive is fixed. No IPA build/export was started here.
+
+
+## Codemagic log mirroring to GitHub — 2026-11-18
+
+- Added a dedicated `codemagic-logs` branch so Codemagic log updates do not touch `main`, trigger Linux tests, or change the app source.
+- Codemagic now runs `scripts/run_codemagic_build.sh`, which captures the complete canonical build transcript and the separate raw Xcode archive transcript. It preserves the original build exit code even if log publication fails.
+- `scripts/publish_codemagic_logs.sh` publishes the latest log files to fixed paths: `latest/build.log`, `latest/xcodebuild-archive.log`, and `latest/metadata.json`. Each new Codemagic run replaces the current files at those paths; GitHub's normal commit history retains older revisions.
+- Common credential patterns and PEM private-key blocks are redacted before publication. The original logs remain available in Codemagic build artifacts. Because this repository is public, the mirrored logs are public too; do not publish private signing material or personal data.
+- Codemagic must have a secure environment variable named `INFINITY_LOGS_GITHUB_TOKEN`. Create a fine-grained GitHub token limited to this repository with Contents read/write permission, then add it in Codemagic's secure environment variables. Never commit the token or place it in `codemagic.yaml`.
+- No IPA build, signing, export, or device install was run as part of this logging setup. The publisher itself has not yet been exercised by a real Codemagic run; verify it with the next Codemagic build.
