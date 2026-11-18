@@ -18,6 +18,8 @@ workflows:
           - .gitmodules
           - .github/build_github.sh
           - codemagic.yaml
+          - scripts/run_codemagic_build.sh
+          - scripts/publish_codemagic_logs.sh
           - scripts/build_ipa.sh
           - scripts/prepare_stikjit_idevice.sh
           - scripts/prepare_infinity_app_icon.sh
@@ -77,4 +79,6 @@ workflows:
       - LiveContainer.ipa
       - LiveContainer+SideStore.ipa
       - archive.xcarchive
-      - /tmp/infinity-codemagic-logs/build.log\n      - /tmp/infinity-codemagic-logs/xcodebuild-archive.log\n      - /tmp/infinity-codemagic-logs/metadata.json
+      - /tmp/infinity-codemagic-logs/build.log
+      - /tmp/infinity-codemagic-logs/xcodebuild-archive.log
+      - /tmp/infinity-codemagic-logs/metadata.json

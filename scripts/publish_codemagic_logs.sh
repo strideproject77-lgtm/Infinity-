@@ -32,10 +32,10 @@ headers = {
 def redact(data: bytes) -> bytes:
     text = data.decode("utf-8", errors="replace")
     # Keep compiler diagnostics intact while removing common credential formats.
-    text = re.sub(r"(?i)(authorization\\s*[:=]\\s*bearer\\s+)[^\\s]+", r"\\1[REDACTED]", text)
-    text = re.sub(r"(?i)\\b(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\\b", "[REDACTED_GITHUB_TOKEN]", text)
-    text = re.sub(r"(?i)(\\b(?:token|password|passwd|client_secret|api[_-]?key)\\b\\s*[:=]\\s*)[^\\s,;]+", r"\\1[REDACTED]", text)
-    text = re.sub(r"\\bAKIA[0-9A-Z]{16}\\b", "[REDACTED_AWS_KEY]", text)
+    text = re.sub(r"(?i)(authorization\s*[:=]\s*bearer\s+)[^\s]+", r"\1[REDACTED]", text)
+    text = re.sub(r"(?i)\b(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b", "[REDACTED_GITHUB_TOKEN]", text)
+    text = re.sub(r"(?i)(\b(?:token|password|passwd|client_secret|api[_-]?key)\b\s*[:=]\s*)[^\s,;]+", r"\1[REDACTED]", text)
+    text = re.sub(r"\bAKIA[0-9A-Z]{16}\b", "[REDACTED_AWS_KEY]", text)
     text = re.sub(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", "[REDACTED_PRIVATE_KEY]", text, flags=re.S)
     return text.encode("utf-8")
 
