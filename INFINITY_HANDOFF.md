@@ -920,3 +920,12 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - User action still required: create a Codemagic personal API token in Account settings > API token, save it in GitHub Actions Secrets as `CODEMAGIC_API_TOKEN`, then run the manual workflow with the Codemagic app ID (from the URL `https://codemagic.io/app/<APP_ID>/settings`). The existing GitHub PAT secret stays named `INFINITY_LOGS_GITHUB_TOKEN`; never paste either token into chat.
 - After the bootstrap workflow succeeds, restore `environment.groups: [infinity-github-logs]` in `codemagic.yaml` in a separate source commit. Until then the Codemagic wrapper safely captures artifacts but skips GitHub publication because the group is not yet configured.
 - No Codemagic build, IPA build, signing, or export was triggered by this bootstrap implementation. The API bootstrap itself has not yet been run against the user's account; no group creation or secret import is claimed as completed.
+
+
+## Codemagic log-mirror group enabled — 2026-11-18
+
+- The user manually created the Codemagic variable group `infinity-github-logs` and added the GitHub log-publishing token variable there. The token value is not stored in the repository or this handoff.
+- Re-enabled `environment.groups: [infinity-github-logs]` in `codemagic.yaml`, so Codemagic injects the group variable into the build environment. The variable must be named exactly `INFINITY_LOGS_GITHUB_TOKEN` and marked Secret/secure in Codemagic.
+- Removed the now-obsolete `.github/workflows/bootstrap-codemagic-logs.yml` workflow. Codemagic group setup is now manual; no GitHub Actions bootstrap secrets are needed for ongoing log mirroring.
+- The GitHub Actions repository secrets `CODEMAGIC_API_TOKEN` and `INFINITY_LOGS_GITHUB_TOKEN` are no longer required by the removed bootstrap workflow. The available GitHub connection cannot delete repository Actions secrets, so the repository owner must remove those two secret entries manually in Settings → Secrets and variables → Actions. Do not delete any unrelated secrets.
+- No Codemagic build or IPA packaging was started. The first real Codemagic run must verify that logs publish successfully to the `codemagic-logs` branch; this has not yet been tested.
