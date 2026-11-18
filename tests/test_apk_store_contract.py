@@ -53,6 +53,22 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("layer.drawableSize.height > 0", view)
         self.assertIn("isMultipleTouchEnabled = true", view)
 
+    def test_existing_ipa_picker_also_routes_apk_imports_to_the_android_store(self):
+        view = self.read("LiveContainerSwiftUI/Views/AppList/LCAppListView.swift")
+        self.assertIn('types: [.ipa, .tipa, UTType(filenameExtension: "apk") ?? .data]', view)
+        self.assertIn("startInstallSelectedFile(fileURL)", view)
+        self.assertIn('fileURL.pathExtension.lowercased() == "apk"', view)
+        self.assertIn("INFINITYAPKStore.install(from: fileURL)", view)
+        self.assertIn('Button("Import IPA / APK"', view)
+
+    def test_android_apk_library_lists_and_removes_persisted_imports(self):
+        view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        app_list = self.read("LiveContainerSwiftUI/Views/AppList/LCAppListView.swift")
+        self.assertIn("struct INFINITYAPKLibraryView", view)
+        self.assertIn("INFINITYAPKStore.installedApps()", view)
+        self.assertIn("INFINITYAPKStore.remove(packageName:", view)
+        self.assertIn("INFINITYAPKLibraryView()", app_list)
+
 
 if __name__ == "__main__":
     unittest.main()
