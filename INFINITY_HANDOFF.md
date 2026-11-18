@@ -882,3 +882,11 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Reviewed the canonical build entry point, Xcode 26.2 pin, StikJIT archive validation, icon preparation, Codemagic workflow filters, and GitHub Actions manual-dispatch configuration. Both providers call scripts/build_ipa.sh; packaging remains delegated to the existing .github/build_github.sh.
 - No edits were made to SideStore source, signing/refresh/install logic, targets, entitlements, or packaging implementation. The legacy packaging script was inspected but left unchanged because it is part of the protected SideStore packaging path.
 - Verification limit: this environment has no macOS/Xcode runner or Codemagic dispatch control. The source-level fix is committed but not compile-verified. Start a fresh Codemagic run on this exact main commit; an old run cannot validate it. No archive or IPA success is claimed.
+
+
+## Codemagic compiler fix correction — 2026-11-18
+
+- The next exact compiler diagnostic showed that the prior `NSDictionary` closure annotation was incompatible with Swift's imported return type `[AnyHashable: Any]?`. This supersedes the attempted explicit-`NSDictionary` fix documented above.
+- Corrected `StrataInstalledAppPicker.reload()` to let `Task.detached` infer the Objective-C method's optional dictionary return type, then safely read `result?["apps"]`.
+- Corrective source commit on `main`: `9caf96a8d01b6ff5a38cb92822dda0fa6c5eeb6a`.
+- This is a source-level correction only. It has not yet been compiled by Xcode/Codemagic; run a fresh Codemagic build from this exact commit before claiming the archive is fixed. No IPA build/export was started here.
