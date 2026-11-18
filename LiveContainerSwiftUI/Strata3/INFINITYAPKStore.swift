@@ -10,11 +10,12 @@ struct INFINITYAPKInstalledApp: Codable, Hashable, Identifiable, Sendable {
     let nativeLibraries: [String]
     let detectedEngine: String?
     let requiresSplits: Bool
+    let splitAPKCount: Int
     let installedAt: Date
 
     private enum CodingKeys: String, CodingKey {
         case packageName, displayName, versionName, versionCode, launchActivity
-        case archiveBytes, nativeLibraries, detectedEngine, requiresSplits, installedAt
+        case archiveBytes, nativeLibraries, detectedEngine, requiresSplits, splitAPKCount, installedAt
     }
 
     init(packageName: String,
@@ -26,6 +27,7 @@ struct INFINITYAPKInstalledApp: Codable, Hashable, Identifiable, Sendable {
          nativeLibraries: [String],
          detectedEngine: String?,
          requiresSplits: Bool,
+         splitAPKCount: Int = 0,
          installedAt: Date) {
         self.packageName = packageName
         self.displayName = displayName
@@ -36,6 +38,7 @@ struct INFINITYAPKInstalledApp: Codable, Hashable, Identifiable, Sendable {
         self.nativeLibraries = nativeLibraries
         self.detectedEngine = detectedEngine
         self.requiresSplits = requiresSplits
+        self.splitAPKCount = splitAPKCount
         self.installedAt = installedAt
     }
 
@@ -50,6 +53,7 @@ struct INFINITYAPKInstalledApp: Codable, Hashable, Identifiable, Sendable {
         nativeLibraries = try values.decode([String].self, forKey: .nativeLibraries)
         detectedEngine = try values.decodeIfPresent(String.self, forKey: .detectedEngine)
         requiresSplits = try values.decodeIfPresent(Bool.self, forKey: .requiresSplits) ?? false
+        splitAPKCount = try values.decodeIfPresent(Int.self, forKey: .splitAPKCount) ?? 0
         installedAt = try values.decode(Date.self, forKey: .installedAt)
     }
 
@@ -78,6 +82,9 @@ enum INFINITYAPKStore {
         case incompleteArchive
         case missingInstalledAPK
         case missingRuntimeAssets
+        case unsupportedPackageFormat
+        case missingBaseAPK
+        case ambiguousBaseAPK
 
         var errorDescription: String? {
             switch self {
@@ -86,6 +93,9 @@ enum INFINITYAPKStore {
             case .incompleteArchive: return "The selected archive is missing its Android manifest or executable content."
             case .missingInstalledAPK: return "The installed APK file is missing. Remove this entry and import it again."
             case .missingRuntimeAssets: return "The Android Java runtime or ANGLE graphics assets are not installed yet."
+            case .unsupportedPackageFormat: return "Supported Android packages are .apk, .xapk, .apks and .apkm. Android App Bundles (.aab) and OBB files are not directly installable."
+            case .missingBaseAPK: return "The selected package archive does not contain a base APK."
+            case .ambiguousBaseAPK: return "The selected package archive contains multiple possible base APKs and cannot be imported safely."
             }
         }
     }
@@ -152,6 +162,12 @@ enum INFINITYAPKStore {
 
     @discardableResult
     static func install(from source: URL) throws -> INFINITYAPKInstalledApp {
+        let fileExtension = source.pathExtension.lowercased()
+        guard ["apk", "xapk", "apks", "apkm"].contains(fileExtension) else {
+            throw StoreError.unsupportedPackageFormat
+        }
+        if fileExtension != "apk" { return try installPackageArchive(from: source) }
+
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
 
@@ -191,6 +207,111 @@ enum INFINITYAPKStore {
                 try fileManager.moveItem(at: finalDirectory, to: backupDirectory)
             }
 
+            do {
+                try fileManager.moveItem(at: stage, to: finalDirectory)
+                var records = try Self.readIndex()
+                records.removeAll { $0.packageName == record.packageName }
+                records.append(record)
+                try Self.writeIndex(records)
+                if hadPrevious { try? fileManager.removeItem(at: backupDirectory) }
+            } catch {
+                try? fileManager.removeItem(at: finalDirectory)
+                if hadPrevious, fileManager.fileExists(atPath: backupDirectory.path) {
+                    try? fileManager.moveItem(at: backupDirectory, to: finalDirectory)
+                }
+                throw error
+            }
+            return record
+        } catch {
+            try? fileManager.removeItem(at: stage)
+            throw error
+        }
+    }
+
+
+    /// Imports XAPK, APKS and APKM ZIP containers. The base APK and every
+    /// accompanying split APK are preserved in the package directory. The
+    /// current Husk launch adapter accepts only a base APK, so split packages
+    /// remain visible in Library but are correctly blocked from launch.
+    private static func installPackageArchive(from source: URL) throws -> INFINITYAPKInstalledApp {
+        let scoped = source.startAccessingSecurityScopedResource()
+        defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+
+        let container = try INFINITYAPKInspection.inspect(url: source)
+        let apkEntries = container.entries.filter { $0.path.lowercased().hasSuffix(".apk") }
+        guard !apkEntries.isEmpty else { throw StoreError.missingBaseAPK }
+
+        let preferred = apkEntries.filter {
+            let name = URL(fileURLWithPath: $0.path).lastPathComponent.lowercased()
+            return name == "base.apk" || name == "base-master.apk"
+        }
+        let baseEntry: INFINITYAPKInspection.Entry
+        if preferred.count == 1 {
+            baseEntry = preferred[0]
+        } else if preferred.count > 1 {
+            throw StoreError.ambiguousBaseAPK
+        } else if apkEntries.count == 1, let only = apkEntries.first {
+            baseEntry = only
+        } else {
+            throw StoreError.missingBaseAPK
+        }
+
+        try ensureRoot()
+        let stage = root.appendingPathComponent(".staging-\(UUID().uuidString)", isDirectory: true)
+        let baseURL = stage.appendingPathComponent("base.apk")
+        let splitEntries = apkEntries.filter { $0.path != baseEntry.path }
+        let splitDirectory = stage.appendingPathComponent("splits", isDirectory: true)
+        try fileManager.createDirectory(at: stage, withIntermediateDirectories: true)
+        do {
+            if !splitEntries.isEmpty {
+                try fileManager.createDirectory(at: splitDirectory, withIntermediateDirectories: true)
+            }
+            let entries = [baseEntry] + splitEntries
+            for (index, entry) in entries.enumerated() {
+                let destination = index == 0
+                    ? baseURL
+                    : splitDirectory.appendingPathComponent(String(format: "split-%03d.apk", index))
+                let status = source.path.withCString { archivePath in
+                    entry.path.withCString { entryName in
+                        destination.path.withCString { outputPath in
+                            infinity_apk_extract_entry_to_file(archivePath, entryName, outputPath)
+                        }
+                    }
+                }
+                guard status == 0 else {
+                    throw StoreError.incompleteArchive
+                }
+            }
+
+            let inspection = try INFINITYAPKInspection.inspect(url: baseURL)
+            guard inspection.hasManifest, !inspection.dexFiles.isEmpty, !inspection.entries.isEmpty else {
+                throw StoreError.incompleteArchive
+            }
+            guard let manifest = inspection.manifest else { throw StoreError.invalidManifest }
+            guard Self.isValidPackageName(manifest.packageName) else { throw StoreError.invalidPackageName }
+            let engine = Self.detectEngine(inspection)
+            let requiresSplits = !splitEntries.isEmpty ||
+                baseURL.path.withCString { infinity_husk_apk_requires_splits($0) }
+            let record = INFINITYAPKInstalledApp(
+                packageName: manifest.packageName,
+                displayName: manifest.applicationLabel?.isEmpty == false
+                    ? manifest.applicationLabel!
+                    : source.deletingPathExtension().lastPathComponent,
+                versionName: manifest.versionName,
+                versionCode: manifest.versionCode,
+                launchActivity: manifest.launchActivity,
+                archiveBytes: inspection.archiveBytes,
+                nativeLibraries: inspection.nativeLibraries,
+                detectedEngine: engine,
+                requiresSplits: requiresSplits,
+                splitAPKCount: splitEntries.count,
+                installedAt: Date()
+            )
+
+            let finalDirectory = root.appendingPathComponent(record.packageName, isDirectory: true)
+            let backupDirectory = root.appendingPathComponent(".rollback-\(UUID().uuidString)", isDirectory: true)
+            let hadPrevious = fileManager.fileExists(atPath: finalDirectory.path)
+            if hadPrevious { try fileManager.moveItem(at: finalDirectory, to: backupDirectory) }
             do {
                 try fileManager.moveItem(at: stage, to: finalDirectory)
                 var records = try Self.readIndex()
