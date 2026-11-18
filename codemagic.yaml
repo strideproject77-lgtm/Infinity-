@@ -7,8 +7,6 @@ workflows:
     max_build_duration: 120
 
     environment:
-      groups:
-        - infinity-github-logs
       xcode: '26.2'
       vars:
         scheme: LiveContainer
