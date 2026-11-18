@@ -844,3 +844,11 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Xcode is pinned to 26.2 from the preceding workflow-only commit. The combination of Xcode 26.2 and `-Onone` is not yet build-verified.
 - Required validation: start a fresh manual workflow run on this commit and inspect the complete archive log. A rerun of an older run uses its original commit and cannot validate this change.
 - No IPA success, device launch, or APK execution is claimed. SideStore remains untouched.
+
+
+## Installed-app picker compile repair — 2026-11-18
+
+- GitHub Actions run `44226387921` reached the Xcode archive step and exposed incorrect Swift assumptions about `LCUtils.strataPhoneApplications()`.
+- The Objective-C declaration in `LiveContainerSwiftUI/Utilities/LCUtils.h` returns a non-optional `NSDictionary *`; the Swift picker incorrectly treated it as an optional dictionary. Updated `StrataInstalledAppPicker.swift` to receive an explicit `NSDictionary`, extract the `apps` array with a typed cast, explicitly type the mapped app array, and use an explicit closure for ID extraction.
+- Source change committed on `main` as `17a1d54d64a867885fe692eff89b89d3be5ffcbb`. No SideStore source was changed.
+- This is a source-level correction; compilation is not yet verified. The GitHub Actions build workflow is manual-only (`workflow_dispatch`). The available GitHub connection can inspect runs and rerun failed jobs but does not expose a workflow-dispatch action. Rerunning the previous run would use its old commit and cannot validate this fix. Start a fresh manual Xcode build on `main` to validate and package the IPA.
