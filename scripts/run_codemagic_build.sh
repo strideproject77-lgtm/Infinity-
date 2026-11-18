@@ -13,6 +13,7 @@ mkdir -p "$LOG_DIR"
 : > "$ARCHIVE_LOG"
 
 export INFINITY_ARCHIVE_LOG="$ARCHIVE_LOG"
+export INFINITY_XCODE_VERSION="$(xcodebuild -version | sed -n '1s/^Xcode //p')"
 
 echo "INFINITY Codemagic build wrapper"
 echo "Logs: $LOG_DIR"

@@ -1,6 +1,6 @@
 # INFINITY Handoff
 
-Last updated: 2026-11-17
+Last updated: 2026-11-18
 
 ## Project direction
 
@@ -9,9 +9,9 @@ INFINITY combines the existing Strata iOS host/launcher with the licensed Husk A
 ## Repository safety
 
 - Repository: `strideproject77-lgtm/Infinity-`
-- Active branch: `main` (the only branch found during this audit).
+- Active development branch: `main`. The separate `codemagic-logs` branch is infrastructure-only and contains only the latest mirrored build logs; do not use it for source development.
 - Baseline commit: `3221d76e332ceb1330882b4d55fdb6a1bf565cb0` — Strata 4.0.
-- Do not create a second development branch unless the project owner changes this instruction.
+- Do not create a second development branch unless the project owner changes this instruction. The `codemagic-logs` branch is the sole exception and must remain logs-only.
 - Do not force-push or reset `main`.
 - Do not build, sign, or export an IPA without explicit permission.
 
@@ -896,7 +896,7 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 
 - Added a dedicated `codemagic-logs` branch so Codemagic log updates do not touch `main`, trigger Linux tests, or change the app source.
 - Codemagic now runs `scripts/run_codemagic_build.sh`, which captures the complete canonical build transcript and the separate raw Xcode archive transcript. It preserves the original build exit code even if log publication fails.
-- `scripts/publish_codemagic_logs.sh` publishes the latest log files to fixed paths: `latest/build.log`, `latest/xcodebuild-archive.log`, and `latest/metadata.json`. Each new Codemagic run replaces the current files at those paths; GitHub's normal commit history retains older revisions.
+- `scripts/publish_codemagic_logs.sh` publishes the latest log files to fixed paths: `latest/build.log`, `latest/xcodebuild-archive.log`, and `latest/metadata.json`. Each new Codemagic run force-updates the dedicated branch to a new root commit containing only those three files, so previous log snapshots are no longer reachable from that branch.
 - Common credential patterns and PEM private-key blocks are redacted before publication. The original logs remain available in Codemagic build artifacts. Because this repository is public, the mirrored logs are public too; do not publish private signing material or personal data.
 - Codemagic must have a secure environment variable named `INFINITY_LOGS_GITHUB_TOKEN`. Create a fine-grained GitHub token limited to this repository with Contents read/write permission, then add it in Codemagic's secure environment variables. Never commit the token or place it in `codemagic.yaml`. The repository is public, so mirrored log files are publicly readable; the publisher redacts common token/password patterns and PEM private-key blocks, but logs must still be reviewed for accidental personal or signing data.
 - No IPA build, signing, export, or device install was run as part of this logging setup. The publisher itself has not yet been exercised by a real Codemagic run; verify it with the next Codemagic build.
