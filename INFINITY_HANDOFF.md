@@ -835,3 +835,12 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Icon asset catalog includes the primary, dark, and tinted appearances. Confirm the target's `ASSETCATALOG_COMPILER_APPICON_NAME` and on-device appearance after a successful build; repository-side PNG rendering and actual iOS icon display are not yet device-verified.
 - Build permission: user explicitly authorized starting the Codemagic IPA build on 2026-11-17. This does not authorize modifying SideStore internals or changing its signing/refresh/install behavior.
 - IPA size estimate must be treated as a range until the archive/export exists; final size depends on embedded frameworks, architectures, symbols, compression, and packaging.
+
+## Swift archive compiler-crash mitigation — 2026-11-18
+
+- The latest GitHub Actions archive log failed inside Swift 6.2.4 / LLVM IR verification while compiling the existing `SideStoreSupport/SideStoreClient.swift` wrapper around the underscored `_getTypeByMangledNameInContext` runtime API. The verifier reported mismatched pointer/integer PHI and call parameter types.
+- The repository handoff explicitly protects `SideStoreSupport/`; therefore no SideStore source, target settings, entitlements, packaging, signing, installation, or refresh implementation was changed.
+- Updated only the existing archive workflow's command-line Swift optimization override from `-O` to `-Onone`. This bypasses optimized Swift IR generation, which is where the recorded verifier crash occurred, while retaining the Release archive configuration and single-file compilation. It is a targeted CI workaround and may reduce runtime performance in this test IPA; restore optimization only after a compiler/toolchain fix is verified.
+- Xcode is pinned to 26.2 from the preceding workflow-only commit. The combination of Xcode 26.2 and `-Onone` is not yet build-verified.
+- Required validation: start a fresh manual workflow run on this commit and inspect the complete archive log. A rerun of an older run uses its original commit and cannot validate this change.
+- No IPA success, device launch, or APK execution is claimed. SideStore remains untouched.
