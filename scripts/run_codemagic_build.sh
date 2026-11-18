@@ -8,6 +8,8 @@ cd "$ROOT"
 LOG_DIR="${INFINITY_CODEMAGIC_LOG_DIR:-/tmp/infinity-codemagic-logs}"
 BUILD_LOG="$LOG_DIR/build.log"
 ARCHIVE_LOG="$LOG_DIR/xcodebuild-archive.log"
+# build_ipa.sh reads this exact variable for the raw xcodebuild archive transcript.
+export INFINITY_ARCHIVE_LOG="$ARCHIVE_LOG"
 SUBMODULE_LOG="$LOG_DIR/submodules.log"
 mkdir -p "$LOG_DIR"
 : > "$BUILD_LOG"
