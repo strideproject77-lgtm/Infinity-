@@ -378,3 +378,63 @@ struct INFINITYAPKLaunchView: View {
         }
     }
 }
+
+
+@available(iOS 16.0, *)
+struct INFINITYAPKLibraryView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var apps: [INFINITYAPKInstalledApp] = []
+    @State private var loadError: String?
+
+    var body: some View {
+        List {
+            if let loadError {
+                Section {
+                    Text(loadError).foregroundStyle(.red)
+                }
+            }
+            if apps.isEmpty && loadError == nil {
+                ContentUnavailableView("No APKs imported", systemImage: "tray",
+                                       description: Text("Use the + button and choose Import IPA / APK to add an Android app."))
+            } else {
+                ForEach(apps) { app in
+                    NavigationLink {
+                        INFINITYAPKInstalledAppDetail(app: app)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(app.displayName).font(.headline)
+                            Text(app.packageName).font(.caption).foregroundStyle(.secondary)
+                            Text(app.detectedEngine ?? "Engine not identified")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .onDelete(perform: removeApps)
+            }
+        }
+        .navigationTitle("Android APKs")
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { EditButton() } }
+        .onAppear(perform: reload)
+    }
+
+    private func reload() {
+        do {
+            apps = try INFINITYAPKStore.installedApps()
+            loadError = nil
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    private func removeApps(at offsets: IndexSet) {
+        let selected = offsets.map { apps[$0] }
+        for app in selected {
+            do {
+                try INFINITYAPKStore.remove(packageName: app.packageName)
+            } catch {
+                loadError = error.localizedDescription
+            }
+        }
+        reload()
+    }
+}
