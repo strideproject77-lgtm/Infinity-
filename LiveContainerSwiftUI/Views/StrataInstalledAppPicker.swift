@@ -116,12 +116,11 @@ struct StrataInstalledAppPicker: View {
     }
     private func reload() async {
         loading = true
-        // Keep the Objective-C dictionary return type explicit inside the
-        // detached operation so Swift does not infer a Void/throwing task.
-        let result: NSDictionary = await Task.detached(priority: .userInitiated) { () -> NSDictionary in
-            return LCUtils.strataPhoneApplications()
+        // Preserve the nullable Swift dictionary type imported from Objective-C.
+        let result = await Task.detached(priority: .userInitiated) {
+            LCUtils.strataPhoneApplications()
         }.value
-        let rawApps: [[String: String]] = result["apps"] as? [[String: String]] ?? []
+        let rawApps: [[String: String]] = result?["apps"] as? [[String: String]] ?? []
         let values: [StrataInstalledPhoneApp] = rawApps.compactMap { value in
             guard let id = value["id"],
                   let name = value["name"],
