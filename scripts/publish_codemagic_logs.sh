@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Replace the dedicated log branch with one fresh snapshot containing only the latest Codemagic logs.
+# Publish a verified, sanitized snapshot of the latest Codemagic logs.
 set -euo pipefail
 BUILD_LOG="${INFINITY_CODEMAGIC_BUILD_LOG:-/tmp/infinity-codemagic-logs/build.log}"
 ARCHIVE_LOG="${INFINITY_CODEMAGIC_ARCHIVE_LOG:-/tmp/infinity-codemagic-logs/xcodebuild-archive.log}"
-python3 - "$BUILD_LOG" "$ARCHIVE_LOG" <<'PY'
+SUBMODULE_LOG="${INFINITY_CODEMAGIC_SUBMODULE_LOG:-/tmp/infinity-codemagic-logs/submodules.log}"
+python3 - "$BUILD_LOG" "$ARCHIVE_LOG" "$SUBMODULE_LOG" <<'PY'
 import base64
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -56,8 +58,33 @@ def create_blob(data: bytes) -> str:
     })
     return result["sha"]
 
-build_path, archive_path = sys.argv[1:3]
+build_path, archive_path, submodule_path = sys.argv[1:4]
+if not os.path.isfile(build_path) or os.path.getsize(build_path) == 0:
+    raise RuntimeError(f"Refusing to publish an empty or missing build log: {build_path}")
+if not os.path.isfile(archive_path):
+    raise RuntimeError(f"Required archive log is missing: {archive_path}")
+if not os.path.isfile(submodule_path):
+    raise RuntimeError(f"Required submodule log is missing: {submodule_path}")
+
 status = int(os.environ.get("INFINITY_CODEMAGIC_BUILD_EXIT_CODE", "1"))
+log_sources = {
+    "build.log": build_path,
+    "xcodebuild-archive.log": archive_path,
+    "submodules.log": submodule_path,
+}
+log_data = {}
+log_stats = {}
+for name, path in log_sources.items():
+    with open(path, "rb") as handle:
+        raw = handle.read()
+    clean = redact(raw)
+    log_data[name] = clean
+    log_stats[name] = {
+        "bytes": len(clean),
+        "lines": clean.count(b"\n"),
+        "sha256": hashlib.sha256(clean).hexdigest(),
+    }
+
 now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 metadata = {
     "provider": "Codemagic",
@@ -67,32 +94,28 @@ metadata = {
     "build_id": os.environ.get("CM_BUILD_ID", "unknown"),
     "build_number": os.environ.get("CM_BUILD_NUMBER", "unknown"),
     "workflow": os.environ.get("CM_WORKFLOW_NAME", "INFINITY IPA (Codemagic backup)"),
-    "xcode": os.environ.get("INFINITY_XCODE_VERSION", "26.2 (configured)"),
+    "xcode": os.environ.get("INFINITY_XCODE_VERSION", "unknown"),
     "exit_code": status,
     "result": "success" if status == 0 else "failed",
     "uploaded_at_utc": now,
+    "logs": log_stats,
     "redaction": "Common credential/token patterns and PEM private-key blocks are redacted before publication.",
 }
 files = [
-    ("latest/xcodebuild-archive.log", archive_path),
-    ("latest/build.log", build_path),
-    ("latest/metadata.json", None),
+    ("latest/build.log", log_data["build.log"]),
+    ("latest/xcodebuild-archive.log", log_data["xcodebuild-archive.log"]),
+    ("latest/submodules.log", log_data["submodules.log"]),
+    ("latest/metadata.json", (json.dumps(metadata, indent=2) + "\n").encode("utf-8")),
 ]
 tree_entries = []
-for path, local in files:
-    if local:
-        if not os.path.isfile(local):
-            raise RuntimeError(f"Required log file is missing: {local}")
-        content = redact(open(local, "rb").read())
-    else:
-        content = (json.dumps(metadata, indent=2) + "\n").encode("utf-8")
+for path, content in files:
     tree_entries.append({
         "path": path,
         "mode": "100644",
         "type": "blob",
         "sha": create_blob(content),
     })
-    print(f"Prepared {path}: {len(content)} bytes")
+    print(f"Prepared {path}: {len(content)} bytes, {content.count(b'\n')} lines")
 
 tree = api_request("POST", "git/trees", {"tree": tree_entries})
 commit = api_request("POST", "git/commits", {
@@ -106,5 +129,5 @@ api_request("PATCH", "git/refs/" + ref, {
     "force": True,
 })
 print(f"Published latest logs to {repo}/tree/{branch}/latest")
-print("The log branch now contains only this build's three latest files.")
+print("Verified non-empty build log; snapshot contains build, archive, submodule logs and metadata.")
 PY
