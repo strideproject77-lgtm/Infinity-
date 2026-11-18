@@ -122,7 +122,7 @@ struct INFINITYAPKInstalledAppDetail: View {
                 LabeledContent("Package", value: app.packageName)
                 LabeledContent("Version", value: app.versionName ?? "Unknown")
                 LabeledContent("Engine", value: app.detectedEngine ?? "Not identified")
-                LabeledContent("Split APKs", value: app.requiresSplits ? "Required · not installed" : "Not required")
+                LabeledContent("Split APKs", value: app.splitAPKCount > 0 ? "\(app.splitAPKCount) stored · runtime loading pending" : (app.requiresSplits ? "Required · missing" : "Not required"))
                 LabeledContent("APK size", value: ByteCountFormatter.string(fromByteCount: Int64(clamping: app.archiveBytes), countStyle: .file))
                 LabeledContent("Native libraries", value: "\(app.nativeLibraries.count)")
                 if let activity = app.launchActivity {
@@ -166,7 +166,7 @@ struct INFINITYAPKInstalledAppDetail: View {
 
     private var runtimeBlocker: String {
         if app.requiresSplits {
-            return "This app declares required split APKs. INFINITY currently imports one base APK only, so launch is blocked until split-package installation is implemented."
+            return "This package needs split APKs. INFINITY preserves the imported split files, but the current Husk launch adapter still accepts only base.apk. Split loading must be connected to the native runtime before this app can launch."
         }
         guard app.detectedEngine != nil else {
             return "The package's native engine could not be identified safely. No engine has been guessed."
