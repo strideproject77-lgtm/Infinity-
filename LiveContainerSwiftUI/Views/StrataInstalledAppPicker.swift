@@ -116,8 +116,11 @@ struct StrataInstalledAppPicker: View {
     }
     private func reload() async {
         loading = true
-        // Preserve the nullable Swift dictionary type imported from Objective-C.
-        let result = await Task.detached(priority: .userInitiated) {
+        // LCUtils.h has no NS_ASSUME_NONNULL annotation, so Swift imports this
+        // Objective-C NSDictionary return as an optional [AnyHashable: Any].
+        // Keep that exact imported type explicit so Task.detached cannot infer Void.
+        let result: [AnyHashable: Any]? = await Task.detached(priority: .userInitiated) {
+            () -> [AnyHashable: Any]? in
             LCUtils.strataPhoneApplications()
         }.value
         let rawApps: [[String: String]] = result?["apps"] as? [[String: String]] ?? []
