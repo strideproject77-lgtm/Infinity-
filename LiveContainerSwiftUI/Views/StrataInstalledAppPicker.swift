@@ -116,16 +116,22 @@ struct StrataInstalledAppPicker: View {
     }
     private func reload() async {
         loading = true
-        let result = await Task.detached(priority: .userInitiated) { LCUtils.strataPhoneApplications() }.value
-        let values = (result?["apps"] as? [[String: String]] ?? []).compactMap { value -> StrataInstalledPhoneApp? in
-            guard let id = value["id"], let name = value["name"], StrataPhoneAppPolicy.validBundleIdentifier(id), id != Bundle.main.bundleIdentifier else { return nil }
-            return .init(id: id, name: String(name.prefix(120)))
+        let result: NSDictionary = await Task.detached(priority: .userInitiated) {
+            LCUtils.strataPhoneApplications()
+        }.value
+        let rawApps = result["apps"] as? [[String: String]] ?? []
+        let values: [StrataInstalledPhoneApp] = rawApps.compactMap { value in
+            guard let id = value["id"],
+                  let name = value["name"],
+                  StrataPhoneAppPolicy.validBundleIdentifier(id),
+                  id != Bundle.main.bundleIdentifier else { return nil }
+            return StrataInstalledPhoneApp(id: id, name: String(name.prefix(120)))
         }
         let imported = (try? Data(contentsOf: catalog)).flatMap { try? Self.validated($0) } ?? []
         var merged = Dictionary(imported.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for app in values { merged[app.id] = app }
         apps = merged.values.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        let nativeIDs = Set(values.map(\.id))
+        let nativeIDs = Set(values.map { $0.id })
         importedCatalog = imported.contains { !nativeIDs.contains($0.id) }
         loading = false
     }
