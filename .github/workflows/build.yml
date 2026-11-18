@@ -16,10 +16,10 @@ jobs:
       scheme: LiveContainer
       archive_path: archive
     outputs:
-      scheme: ${{ steps.scheme.outputs.scheme }}
+      scheme: LiveContainer
       archive_path: ${{ env.archive_path }}
-      artifact: ${{ env.scheme }}.ipa
-      artifact2: ${{ env.scheme }}+SideStore.ipa
+      artifact: LiveContainer.ipa
+      artifact2: LiveContainer+SideStore.ipa
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
