@@ -929,3 +929,13 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Removed the now-obsolete `.github/workflows/bootstrap-codemagic-logs.yml` workflow. Codemagic group setup is now manual; no GitHub Actions bootstrap secrets are needed for ongoing log mirroring.
 - The GitHub Actions repository secrets `CODEMAGIC_API_TOKEN` and `INFINITY_LOGS_GITHUB_TOKEN` are no longer required by the removed bootstrap workflow. The available GitHub connection cannot delete repository Actions secrets, so the repository owner must remove those two secret entries manually in Settings → Secrets and variables → Actions. Do not delete any unrelated secrets.
 - No Codemagic build or IPA packaging was started. The first real Codemagic run must verify that logs publish successfully to the `codemagic-logs` branch; this has not yet been tested.
+
+
+## Codemagic empty-log capture repair — 2026-11-18
+
+- Replaced the build wrapper's shell `tee`/pipeline capture with a Python byte-streaming subprocess. Build stdout and stderr are copied directly to the log file and Codemagic console, flushed before publication, and the original build exit code is preserved.
+- The wrapper now records build identity and a terminal exit-code marker in `build.log`. Xcode version detection no longer runs before the build and cannot silently short-circuit log capture.
+- Submodule synchronization/update output is captured independently in `submodules.log`, streamed to the Codemagic console, and included in the artifact set and GitHub snapshot.
+- The publisher refuses to replace the previous snapshot when `build.log` is missing or empty. Metadata now records byte counts, line counts, and SHA-256 checksums for each sanitized log. Empty archive output is allowed only for failures occurring before archive starts and is explicitly reported as zero bytes.
+- The dedicated `codemagic-logs` snapshot now contains `build.log`, `xcodebuild-archive.log`, `submodules.log`, and `metadata.json`. Credentials continue to be redacted before public publication.
+- Source changes committed on `main`; no Codemagic run was started here, no IPA was built/exported, and the new capture path still requires the next real Codemagic run to verify end-to-end receipt. The previous empty snapshot is not represented as repaired retroactively.
