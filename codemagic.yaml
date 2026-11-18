@@ -43,34 +43,44 @@ workflows:
     scripts:
       - name: Restore pinned Git submodules
         script: |
-          set -euo pipefail
-          export GIT_TERMINAL_PROMPT=0
-          git submodule sync --recursive
-          max_attempts=5
-          attempt=1
-          while [ "$attempt" -le "$max_attempts" ]; do
-            echo "Submodule restore attempt $attempt/$max_attempts"
-            if git -c http.version=HTTP/1.1 \
-              -c http.lowSpeedLimit=1000 \
-              -c http.lowSpeedTime=30 \
-              submodule update --init --recursive; then
-              break
-            fi
-            if [ "$attempt" -eq "$max_attempts" ]; then
-              echo "Submodule restore failed after $max_attempts attempts." >&2
-              git submodule status --recursive || true
+          set -uo pipefail
+          LOG_DIR=/tmp/infinity-codemagic-logs
+          mkdir -p "$LOG_DIR"
+          SUBMODULE_LOG="$LOG_DIR/submodules.log"
+          : > "$SUBMODULE_LOG"
+          set +e
+          (
+            set -euo pipefail
+            export GIT_TERMINAL_PROMPT=0
+            git submodule sync --recursive
+            max_attempts=5
+            attempt=1
+            while [ "$attempt" -le "$max_attempts" ]; do
+              echo "Submodule restore attempt $attempt/$max_attempts"
+              if git -c http.version=HTTP/1.1 \
+                -c http.lowSpeedLimit=1000 \
+                -c http.lowSpeedTime=30 \
+                submodule update --init --recursive; then
+                break
+              fi
+              if [ "$attempt" -eq "$max_attempts" ]; then
+                echo "Submodule restore failed after $max_attempts attempts." >&2
+                git submodule status --recursive || true
+                exit 1
+              fi
+              delay=$((attempt * 15))
+              echo "Transient submodule/network failure; retrying in ${delay}s."
+              sleep "$delay"
+              attempt=$((attempt + 1))
+            done
+            git submodule status --recursive
+            if git submodule status --recursive | grep -E '^[+-U]'; then
+              echo "Submodules are not at their superproject-pinned revisions." >&2
               exit 1
             fi
-            delay=$((attempt * 15))
-            echo "Transient submodule/network failure; retrying in ${delay}s."
-            sleep "$delay"
-            attempt=$((attempt + 1))
-          done
-          git submodule status --recursive
-          if git submodule status --recursive | grep -E '^[+-U]'; then
-            echo "Submodules are not at their superproject-pinned revisions." >&2
-            exit 1
-          fi
+          ) 2>&1 | tee "$SUBMODULE_LOG"
+          SUBMODULE_STATUS=${PIPESTATUS[0]}
+          exit "$SUBMODULE_STATUS"
 
       - name: Run canonical INFINITY build pipeline
         script: |
@@ -83,4 +93,5 @@ workflows:
       - archive.xcarchive
       - /tmp/infinity-codemagic-logs/build.log
       - /tmp/infinity-codemagic-logs/xcodebuild-archive.log
+      - /tmp/infinity-codemagic-logs/submodules.log
       - /tmp/infinity-codemagic-logs/metadata.json
