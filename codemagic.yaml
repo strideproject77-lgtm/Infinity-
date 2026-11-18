@@ -1,6 +1,5 @@
 # Independent macOS backup builder for INFINITY.
-# GitHub Actions remains the primary builder. This workflow produces the same
-# unsigned IPA artifacts through the repository's existing packaging script.
+# Both providers call scripts/build_ipa.sh; only checkout/runner orchestration differs.
 workflows:
   infinity-ipa-backup:
     name: INFINITY IPA (Codemagic backup)
@@ -8,18 +7,21 @@ workflows:
     max_build_duration: 120
 
     environment:
-      xcode: latest
+      xcode: 26.2
       vars:
         scheme: LiveContainer
         archive_path: archive
-
 
     when:
       changeset:
         includes:
           - .gitmodules
-          - .github/workflows/build.yml
           - .github/build_github.sh
+          - codemagic.yaml
+          - scripts/build_ipa.sh
+          - scripts/prepare_stikjit_idevice.sh
+          - scripts/prepare_infinity_app_icon.sh
+          - Branding/INFINITY-AppIcon.svg
           - LiveContainerSwiftUI/**
           - LiveContainer/**
           - LiveProcess/**
@@ -33,18 +35,13 @@ workflows:
           - LiveContainer.xcodeproj/**
           - Scripts/embed-jit-helper.py
           - Vendor/StikJIT/**
-          - scripts/prepare_stikjit_idevice.sh
-          - scripts/prepare_infinity_app_icon.sh
-          - Branding/INFINITY-AppIcon.svg
 
     scripts:
-      - name: Restore Git submodules (retry transient network failures)
+      - name: Restore pinned Git submodules
         script: |
           set -euo pipefail
           export GIT_TERMINAL_PROMPT=0
           git submodule sync --recursive
-
-          # Retry transient DNS/network failures without changing pinned SHAs.
           max_attempts=5
           attempt=1
           while [ "$attempt" -le "$max_attempts" ]; do
@@ -55,85 +52,26 @@ workflows:
               submodule update --init --recursive; then
               break
             fi
-
             if [ "$attempt" -eq "$max_attempts" ]; then
               echo "Submodule restore failed after $max_attempts attempts." >&2
               git submodule status --recursive || true
               exit 1
             fi
-
             delay=$((attempt * 15))
             echo "Transient submodule/network failure; retrying in ${delay}s."
             sleep "$delay"
             attempt=$((attempt + 1))
           done
-
           git submodule status --recursive
           if git submodule status --recursive | grep -E '^[+-U]'; then
-            echo "One or more submodules are not at their pinned revisions." >&2
+            echo "Submodules are not at their superproject-pinned revisions." >&2
             exit 1
           fi
 
-      - name: Provision pinned StikJIT idevice FFI archive
+      - name: Run canonical INFINITY build pipeline
         script: |
           set -euo pipefail
-          bash scripts/prepare_stikjit_idevice.sh
-
-      - name: Render canonical INFINITY app icon
-        script: |
-          set -euo pipefail
-          bash scripts/prepare_infinity_app_icon.sh
-
-      - name: Resolve Xcode packages
-        script: |
-          set -euo pipefail
-          PROJECT=$(find . -maxdepth 1 -name '*.xcodeproj' -print -quit)
-          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
-          if [ -n "$WORKSPACE" ]; then
-            xcodebuild -resolvePackageDependencies -workspace "$WORKSPACE" -scheme "$scheme"
-          elif [ -n "$PROJECT" ]; then
-            xcodebuild -resolvePackageDependencies -project "$PROJECT" -scheme "$scheme"
-          else
-            echo "No Xcode project or workspace found" >&2
-            exit 1
-          fi
-
-      - name: Archive INFINITY
-        script: |
-          set -euo pipefail
-          PROJECT=$(find . -maxdepth 1 -name '*.xcodeproj' -print -quit)
-          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)
-          if [ -n "$WORKSPACE" ]; then
-            XCODE_CONTAINER=(-workspace "$WORKSPACE")
-          elif [ -n "$PROJECT" ]; then
-            XCODE_CONTAINER=(-project "$PROJECT")
-          else
-            echo "No Xcode project or workspace found" >&2
-            exit 1
-          fi
-          xcodebuild archive \
-            -archivePath "$archive_path" \
-            -scheme "$scheme" \
-            "${XCODE_CONTAINER[@]}" \
-            -sdk iphoneos \
-            -arch arm64 \
-            -configuration Release \
-            -jobs 1 \
-            SWIFT_COMPILATION_MODE=singlefile \
-            SWIFT_OPTIMIZATION_LEVEL=-O \
-            2>&1 | tee /tmp/xcodebuild-archive.log
-
-      - name: Install wget required by the existing packaging script
-        script: |
-          set -euo pipefail
-          if ! command -v wget >/dev/null 2>&1; then
-            brew install wget
-          fi
-
-      - name: Package IPA using the existing repository script
-        script: |
-          set -euo pipefail
-          sh .github/build_github.sh
+          INFINITY_ARCHIVE_LOG=/tmp/xcodebuild-archive.log bash scripts/build_ipa.sh
 
     artifacts:
       - LiveContainer.ipa
