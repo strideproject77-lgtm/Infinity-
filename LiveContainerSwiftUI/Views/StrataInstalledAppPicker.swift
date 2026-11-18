@@ -116,10 +116,13 @@ struct StrataInstalledAppPicker: View {
     }
     private func reload() async {
         loading = true
-        let result: NSDictionary = await Task.detached(priority: .userInitiated) {
+        // Preserve the Objective-C method's imported optional dictionary type.
+        // Giving Task.detached an NSDictionary contextual result caused the
+        // Xcode 26.2 compiler error seen in the Codemagic archive log.
+        let result = await Task.detached(priority: .userInitiated) {
             LCUtils.strataPhoneApplications()
         }.value
-        let rawApps: [[String: String]] = result["apps"] as? [[String: String]] ?? []
+        let rawApps: [[String: String]] = result?["apps"] as? [[String: String]] ?? []
         let values: [StrataInstalledPhoneApp] = rawApps.compactMap { value in
             guard let id = value["id"],
                   let name = value["name"],
