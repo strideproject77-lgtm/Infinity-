@@ -119,7 +119,7 @@ struct StrataInstalledAppPicker: View {
         let result: NSDictionary = await Task.detached(priority: .userInitiated) {
             LCUtils.strataPhoneApplications()
         }.value
-        let rawApps = result["apps"] as? [[String: String]] ?? []
+        let rawApps: [[String: String]] = result["apps"] as? [[String: String]] ?? []
         let values: [StrataInstalledPhoneApp] = rawApps.compactMap { value in
             guard let id = value["id"],
                   let name = value["name"],
