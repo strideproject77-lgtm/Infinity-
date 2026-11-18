@@ -3,6 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
+#include <stdio.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #define APK_MAX_ENTRY_BYTES (16u * 1024u * 1024u)
 #define APK_EOCD_SIGNATURE 0x06054b50u
@@ -138,4 +143,147 @@ int infinity_apk_extract_entry(const uint8_t *archive, size_t archive_length,
     *output = result;
     *output_length = uncompressed_size;
     return 0;
+}
+
+
+/* Stream one ZIP entry to disk so XAPK/APKS/APKM containers do not require
+   allocating an entire embedded APK in memory. The caller supplies a private
+   staging path; the output is removed on every failure. ZIP64 is rejected. */
+int infinity_apk_extract_entry_to_file(const char *archive_path,
+                                       const char *entry_name,
+                                       const char *output_path) {
+    if (!archive_path || !entry_name || !output_path) return 1;
+    int fd = open(archive_path, O_RDONLY);
+    if (fd < 0) return 1;
+    struct stat st;
+    if (fstat(fd, &st) != 0 || st.st_size < 22) { close(fd); return 1; }
+    size_t length = (size_t)st.st_size;
+    const uint8_t *data = (const uint8_t *)mmap(NULL, length, PROT_READ, MAP_PRIVATE, fd, 0);
+    close(fd);
+    if (data == MAP_FAILED) return 1;
+
+    int result = 1;
+    size_t lower = length > 65557u ? length - 65557u : 0;
+    size_t eocd = (size_t)-1;
+    for (size_t p = length - 22;; --p) {
+        if (apk_range(length, p, 22) && apk_u32(data + p) == APK_EOCD_SIGNATURE) {
+            uint16_t comment = apk_u16(data + p + 20);
+            if (apk_range(length, p, 22u + comment) && p + 22u + comment == length) {
+                eocd = p; break;
+            }
+        }
+        if (p == lower) break;
+    }
+    if (eocd == (size_t)-1) goto done;
+    uint16_t disk = apk_u16(data + eocd + 4);
+    uint16_t dir_disk = apk_u16(data + eocd + 6);
+    uint16_t disk_entries = apk_u16(data + eocd + 8);
+    uint16_t total_entries = apk_u16(data + eocd + 10);
+    uint32_t dir_size = apk_u32(data + eocd + 12);
+    uint32_t dir_offset = apk_u32(data + eocd + 16);
+    if (disk || dir_disk || disk_entries != total_entries ||
+        total_entries == 0xffffu || dir_size == 0xffffffffu ||
+        dir_offset == 0xffffffffu ||
+        !apk_range(length, dir_offset, dir_size)) goto done;
+
+    size_t cursor = dir_offset, dir_end = cursor + dir_size;
+    size_t wanted = strlen(entry_name);
+    uint32_t local_offset = 0, compressed = 0, uncompressed = 0, expected_crc = 0;
+    uint16_t method = 0, flags = 0;
+    int found = 0;
+    for (uint32_t i = 0; i < total_entries; ++i) {
+        if (!apk_range(dir_end, cursor, 46) ||
+            apk_u32(data + cursor) != APK_CENTRAL_SIGNATURE) goto done;
+        uint16_t name_len = apk_u16(data + cursor + 28);
+        uint16_t extra_len = apk_u16(data + cursor + 30);
+        uint16_t comment_len = apk_u16(data + cursor + 32);
+        size_t record = 46u + name_len + extra_len + comment_len;
+        if (!name_len || !apk_range(dir_end, cursor, record)) goto done;
+        if (name_len == wanted && memcmp(data + cursor + 46, entry_name, wanted) == 0) {
+            flags = apk_u16(data + cursor + 8);
+            method = apk_u16(data + cursor + 10);
+            compressed = apk_u32(data + cursor + 20);
+            uncompressed = apk_u32(data + cursor + 24);
+            expected_crc = apk_u32(data + cursor + 16);
+            local_offset = apk_u32(data + cursor + 42);
+            found = 1; break;
+        }
+        cursor += record;
+    }
+    if (!found || (flags & 1u) || (method != 0 && method != 8) ||
+        compressed == 0xffffffffu || uncompressed == 0xffffffffu ||
+        uncompressed > 1024u * 1024u * 1024u ||
+        !apk_range(length, local_offset, 30) ||
+        apk_u32(data + local_offset) != APK_LOCAL_SIGNATURE) goto done;
+
+    uint16_t local_flags = apk_u16(data + local_offset + 6);
+    uint16_t local_method = apk_u16(data + local_offset + 8);
+    uint16_t local_name = apk_u16(data + local_offset + 26);
+    uint16_t local_extra = apk_u16(data + local_offset + 28);
+    if ((local_flags & 1u) || local_method != method || local_name != wanted ||
+        !apk_range(length, (size_t)local_offset + 30u, local_name) ||
+        memcmp(data + (size_t)local_offset + 30u, entry_name, wanted) != 0) goto done;
+    size_t input_offset = (size_t)local_offset + 30u + local_name + local_extra;
+    if (!apk_range(length, input_offset, compressed)) goto done;
+
+    FILE *out = fopen(output_path, "wb");
+    if (!out) { result = 2; goto done; }
+    uint32_t crc = (uint32_t)crc32(0L, Z_NULL, 0);
+    uint64_t written = 0;
+    uint8_t output[65536];
+    if (method == 0) {
+        if (compressed != uncompressed) { fclose(out); goto remove_output; }
+        size_t offset = input_offset, remaining = compressed;
+        while (remaining) {
+            size_t chunk = remaining < sizeof(output) ? remaining : sizeof(output);
+            if (fwrite(data + offset, 1, chunk, out) != chunk) { fclose(out); goto remove_output; }
+            crc = (uint32_t)crc32(crc, data + offset, (uInt)chunk);
+            offset += chunk; remaining -= chunk; written += chunk;
+        }
+    } else {
+        z_stream stream;
+        memset(&stream, 0, sizeof(stream));
+        if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) { fclose(out); goto remove_output; }
+        size_t consumed = 0;
+        int status = Z_OK;
+        while (status == Z_OK) {
+            if (stream.avail_in == 0 && consumed < compressed) {
+                size_t chunk = (compressed - consumed) < 65536u ? (compressed - consumed) : 65536u;
+                stream.next_in = (Bytef *)(data + input_offset + consumed);
+                stream.avail_in = (uInt)chunk;
+                consumed += chunk;
+            }
+            stream.next_out = output;
+            stream.avail_out = (uInt)sizeof(output);
+            status = inflate(&stream, Z_NO_FLUSH);
+            size_t produced = sizeof(output) - stream.avail_out;
+            if (produced) {
+                if (written + produced > uncompressed ||
+                    fwrite(output, 1, produced, out) != produced) {
+                    inflateEnd(&stream); fclose(out); goto remove_output;
+                }
+                crc = (uint32_t)crc32(crc, output, (uInt)produced);
+                written += produced;
+            }
+            if (status == Z_BUF_ERROR && stream.avail_in == 0 && consumed == compressed) break;
+            if (status != Z_OK && status != Z_STREAM_END) {
+                inflateEnd(&stream); fclose(out); goto remove_output;
+            }
+        }
+        int valid = status == Z_STREAM_END && written == uncompressed &&
+                    stream.total_in == compressed;
+        inflateEnd(&stream);
+        if (!valid) { fclose(out); goto remove_output; }
+    }
+    if (fclose(out) != 0) goto remove_output;
+    if (written != uncompressed || crc != expected_crc) goto remove_output;
+    result = 0;
+    goto done;
+
+remove_output:
+    unlink(output_path);
+    result = 3;
+done:
+    munmap((void *)data, length);
+    return result;
 }
