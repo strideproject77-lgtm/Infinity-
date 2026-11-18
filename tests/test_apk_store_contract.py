@@ -19,7 +19,7 @@ class APKStoreContractTests(unittest.TestCase):
     def test_split_required_apps_are_not_offered_for_base_apk_only_launch(self):
         view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
         self.assertIn("guard !app.requiresSplits", view)
-        self.assertIn("launch is blocked until split-package installation is implemented", view)
+        self.assertIn("Split loading must be connected to the native runtime before this app can launch", view)
 
     def test_native_graphics_are_required_inside_the_signed_app_bundle(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
@@ -55,11 +55,25 @@ class APKStoreContractTests(unittest.TestCase):
 
     def test_existing_ipa_picker_also_routes_apk_imports_to_the_android_store(self):
         view = self.read("LiveContainerSwiftUI/Views/AppList/LCAppListView.swift")
-        self.assertIn('types: [.ipa, .tipa, UTType(filenameExtension: "apk") ?? .data]', view)
+        self.assertIn('UTType(filenameExtension: "xapk") ?? .data', view)
+        self.assertIn('UTType(filenameExtension: "apks") ?? .data', view)
+        self.assertIn('UTType(filenameExtension: "apkm") ?? .data', view)
         self.assertIn("startInstallSelectedFile(fileURL)", view)
-        self.assertIn('fileURL.pathExtension.lowercased() == "apk"', view)
+        self.assertIn('["apk", "xapk", "apks", "apkm"].contains(fileURL.pathExtension.lowercased())', view)
         self.assertIn("INFINITYAPKStore.install(from: fileURL)", view)
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        self.assertIn("installPackageArchive(from: source)", store)
+        self.assertIn("infinity_apk_extract_entry_to_file", store)
+        self.assertIn("splitAPKCount: splitEntries.count", store)
         self.assertIn('Button("Import IPA / APK"', view)
+
+    def test_archive_extractor_streams_embedded_apks_without_large_heap_allocations(self):
+        source = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.c")
+        header = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h")
+        self.assertIn("infinity_apk_extract_entry_to_file", source)
+        self.assertIn("inflateInit2(&stream, -MAX_WBITS)", source)
+        self.assertIn("munmap((void *)data, length)", source)
+        self.assertIn("infinity_apk_extract_entry_to_file", header)
 
     def test_android_apk_library_lists_and_removes_persisted_imports(self):
         view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
