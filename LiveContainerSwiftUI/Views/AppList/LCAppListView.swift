@@ -43,6 +43,8 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @State var didAppear = false
     // ipa choosing stuff
     @State var choosingIPA = false
+    @State private var showingAPKLibrary = false
+    @State private var selectedAPKForDetails: INFINITYAPKInstalledApp?
     @State var errorShow = false
     @State var errorInfo = ""
     
@@ -289,9 +291,12 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                         if !installprogressVisible {
                             Menu {
                                 
-                                Button("lc.appList.installFromIpa".loc, systemImage: "doc.badge.plus", action: {
+                                Button("Import IPA / APK", systemImage: "doc.badge.plus", action: {
                                     choosingIPA = true
                                 })
+                                Button("Android APK Library", systemImage: "gamecontroller") {
+                                    showingAPKLibrary = true
+                                }
                                 Button("lc.appList.installFromUrl".loc, systemImage: "link.badge.plus", action: {
                                     Task{ await startInstallFromUrl() }
                                 })
@@ -366,11 +371,24 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         } message: {
             Text(errorInfo)
         }
-        .betterFileImporter(isPresented: $choosingIPA, types: [.ipa, .tipa], multiple: false, callback: { fileUrls in
-            Task { await startInstallApp(fileUrls[0]) }
+        .betterFileImporter(isPresented: $choosingIPA, types: [.ipa, .tipa, UTType(filenameExtension: "apk") ?? .data], multiple: false, callback: { fileUrls in
+            guard let fileURL = fileUrls.first else { return }
+            Task { await startInstallSelectedFile(fileURL) }
         }, onDismiss: {
             choosingIPA = false
         })
+        .sheet(isPresented: $showingAPKLibrary) {
+            NavigationView { INFINITYAPKLibraryView() }
+        }
+        .sheet(item: $selectedAPKForDetails) { app in
+            NavigationView {
+                if #available(iOS 16.0, *) {
+                    INFINITYAPKInstalledAppDetail(app: app)
+                } else {
+                    Text("APK details require iOS 16 or later.")
+                }
+            }
+        }
         .alert("lc.appList.installation".loc, isPresented: $installReplaceAlert.show) {
             ForEach(installOptions, id: \.self) { installOption in
                 Button(role: installOption.isReplace ? .destructive : nil, action: {
@@ -745,6 +763,25 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
 
     
+    func startInstallSelectedFile(_ fileURL: URL) async {
+        guard fileURL.pathExtension.lowercased() == "apk" else {
+            await startInstallApp(fileURL)
+            return
+        }
+        guard !installprogressVisible else { return }
+        installprogressVisible = true
+        defer { installprogressVisible = false }
+        do {
+            let installed = try await Task.detached(priority: .userInitiated) {
+                try INFINITYAPKStore.install(from: fileURL)
+            }.value
+            selectedAPKForDetails = installed
+        } catch {
+            errorInfo = error.localizedDescription
+            errorShow = true
+        }
+    }
+
     func startInstallApp(_ fileUrl:URL) async {
         do {
             self.installprogressVisible = true
@@ -1032,6 +1069,15 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         if installUrl.isFileURL {
             // install from local, we directly call local install method
             let fileExtension = installUrl.pathExtension.lowercased()
+            if fileExtension == "apk" {
+                do {
+                    selectedAPKForDetails = try INFINITYAPKStore.install(from: installUrl)
+                } catch {
+                    errorInfo = error.localizedDescription
+                    errorShow = true
+                }
+                return
+            }
             if fileExtension != "ipa" && fileExtension != "tipa" {
                 errorInfo = "lc.appList.urlFileIsNotIpaError".loc
                 errorShow = true
