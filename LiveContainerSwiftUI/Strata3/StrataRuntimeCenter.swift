@@ -14,6 +14,7 @@ struct StrataRuntimeCenter: View {
     @State private var apkInspectionError: String?
     @State private var installedAPKs: [INFINITYAPKInstalledApp] = []
     @State private var apkStoreError: String?
+    @State private var apkImportStatus: String?
     @State private var importingRuntimeAssets = false
     @State private var installingRuntimeAssets = false
     @State private var runtimeAssetsStatus: String?
@@ -42,14 +43,20 @@ struct StrataRuntimeCenter: View {
             }
             Section("Android APK intake") {
                 Button {
+                    apkInspectionError = nil
+                    apkStoreError = nil
+                    apkImportStatus = nil
                     importingAPK = true
                 } label: {
-                    Label("Import APK", systemImage: "square.and.arrow.down")
+                    Label("Import Android package", systemImage: "square.and.arrow.down")
                 }
-                .disabled(inspectingAPK)
+                .disabled(inspectingAPK || importingAPK)
 
                 if inspectingAPK {
-                    ProgressView("Installing APK…")
+                    ProgressView("Inspecting and importing Android package…")
+                }
+                if let apkImportStatus {
+                    Text(apkImportStatus).font(.caption).foregroundStyle(.secondary)
                 }
                 if let report = apkInspection {
                     VStack(alignment: .leading, spacing: 5) {
@@ -89,7 +96,7 @@ struct StrataRuntimeCenter: View {
                 if let error = apkInspectionError {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }
-                Text("Imports a private copy of the APK and records its package metadata. Launch is enabled only when the matching native runtime assets are present.")
+                Text("Supports .apk, .xapk, .apks and .apkm. Split files are preserved; split-package launch remains gated until Husk's split loading path is connected. Importing does not mean execution compatibility is verified.")
                     .font(.caption).foregroundStyle(.secondary)
                 if let apkStoreError {
                     Text(apkStoreError).font(.caption).foregroundStyle(.red)
@@ -154,31 +161,54 @@ struct StrataRuntimeCenter: View {
         .navigationTitle("Runtime Manager")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { installedAPKs = (try? INFINITYAPKStore.installedApps()) ?? [] }
-        .fileImporter(isPresented: $importingAPK, allowedContentTypes: [.data]) { result in
-            do {
-                let url = try result.get()
+        .fileImporter(
+            isPresented: $importingAPK,
+            allowedContentTypes: [
+                UTType(filenameExtension: "apk") ?? .data,
+                UTType(filenameExtension: "xapk") ?? .data,
+                UTType(filenameExtension: "apks") ?? .data,
+                UTType(filenameExtension: "apkm") ?? .data
+            ],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else {
+                    apkInspectionError = "No Android package was selected."
+                    return
+                }
+                let ext = url.pathExtension.lowercased()
+                guard ["apk", "xapk", "apks", "apkm"].contains(ext) else {
+                    apkInspectionError = "Unsupported file type. Choose APK, XAPK, APKS or APKM."
+                    return
+                }
                 apkInspection = nil
                 apkInspectionError = nil
+                apkStoreError = nil
+                apkImportStatus = "Selected \(url.lastPathComponent)"
                 inspectingAPK = true
                 Task {
                     defer { inspectingAPK = false }
                     do {
-                        let result = try await Task.detached(priority: .userInitiated) {
+                        let imported = try await Task.detached(priority: .userInitiated) {
                             let installed = try INFINITYAPKStore.install(from: url)
                             let storedAPK = INFINITYAPKStore.apkURL(for: installed)
                             let report = try INFINITYAPKInspection.inspect(url: storedAPK)
                             return (installed, report)
                         }.value
                         installedAPKs = (try? INFINITYAPKStore.installedApps()) ?? []
-                        apkInspection = result.1
+                        apkInspection = imported.1
+                        apkImportStatus = "Imported \(imported.0.displayName) successfully."
                         apkStoreError = nil
                     } catch {
                         apkInspectionError = error.localizedDescription
                         apkStoreError = error.localizedDescription
+                        apkImportStatus = nil
                     }
                 }
-            } catch {
+            case .failure(let error):
                 apkInspectionError = error.localizedDescription
+                apkImportStatus = nil
             }
         }
         .fileImporter(isPresented: $importingRuntimeAssets, allowedContentTypes: [.folder]) { result in
