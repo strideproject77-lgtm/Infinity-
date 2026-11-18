@@ -909,3 +909,14 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - GitHub log publication remains disabled until the same GitHub token is securely added as an application-level Secret environment variable in Codemagic, in a variable group named `infinity-github-logs`. Codemagic's official app-level variable setup supports creating a group from the group-name field; this does not require a paid Team global-variable group.
 - Do not place the token in `codemagic.yaml`, repository files, build inputs, or chat. Do not claim GitHub Actions secrets can be fetched by Codemagic.
 - Source/configuration commit: `9f59d290838bf25837bc624abae84cb4736cf143` (removes the unresolved Codemagic group reference). No IPA build, signing, export, or device install was initiated as part of this correction.
+
+
+## Codemagic app-group API bootstrap — 2026-11-18
+
+- The user cannot create an app-level variable group in their current Codemagic UI; do not keep instructing them to use a missing UI button. Team-level global groups are not suitable because the user has a personal/free account.
+- Added manual GitHub Actions workflow `.github/workflows/bootstrap-codemagic-logs.yml`. It uses the user's existing GitHub Actions secret `INFINITY_LOGS_GITHUB_TOKEN` plus a separate `CODEMAGIC_API_TOKEN` secret and a manually supplied Codemagic app ID.
+- The workflow calls Codemagic REST API v3 to find or create the app-level group `infinity-github-logs`, then imports/updates `INFINITY_LOGS_GITHUB_TOKEN` as a secure variable. It does not print either secret. API reference: `POST /api/v3/apps/{app_id}/variable-groups` and `POST /api/v3/variable-groups/{variable_group_id}/variables`.
+- Workflow file commits: `3f21933cb078f258484b219eb91cc7c95e1556bb` and response-parsing hardening `409666a7b11dabdf864e25a3c6b785f0f23bf7ad`.
+- User action still required: create a Codemagic personal API token in Account settings > API token, save it in GitHub Actions Secrets as `CODEMAGIC_API_TOKEN`, then run the manual workflow with the Codemagic app ID (from the URL `https://codemagic.io/app/<APP_ID>/settings`). The existing GitHub PAT secret stays named `INFINITY_LOGS_GITHUB_TOKEN`; never paste either token into chat.
+- After the bootstrap workflow succeeds, restore `environment.groups: [infinity-github-logs]` in `codemagic.yaml` in a separate source commit. Until then the Codemagic wrapper safely captures artifacts but skips GitHub publication because the group is not yet configured.
+- No Codemagic build, IPA build, signing, or export was triggered by this bootstrap implementation. The API bootstrap itself has not yet been run against the user's account; no group creation or secret import is claimed as completed.
