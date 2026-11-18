@@ -382,7 +382,6 @@ struct INFINITYAPKLaunchView: View {
 
 @available(iOS 16.0, *)
 struct INFINITYAPKLibraryView: View {
-    @Environment(\.dismiss) private var dismiss
     @State private var apps: [INFINITYAPKInstalledApp] = []
     @State private var loadError: String?
 
@@ -394,8 +393,12 @@ struct INFINITYAPKLibraryView: View {
                 }
             }
             if apps.isEmpty && loadError == nil {
-                ContentUnavailableView("No APKs imported", systemImage: "tray",
-                                       description: Text("Use the + button and choose Import IPA / APK to add an Android app."))
+                VStack(spacing: 10) {
+                    Image(systemName: "tray").font(.largeTitle).foregroundStyle(.secondary)
+                    Text("No APKs imported").font(.headline)
+                    Text("Use the + button and choose Import IPA / APK to add an Android app.")
+                        .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                }.frame(maxWidth: .infinity).padding(.vertical, 28)
             } else {
                 ForEach(apps) { app in
                     NavigationLink {
