@@ -863,3 +863,12 @@ This section supersedes the earlier 13% snapshot above. It records the larger im
 - Provider-specific differences remain only where necessary: runner provisioning, checkout/submodule retry, log destination, and artifact upload. GitHub Actions remains manual-dispatch only; Codemagic remains governed by its configured changeset/dashboard behavior.
 - This establishes matching build inputs and commands; it does **not** guarantee byte-identical IPA files because runner images, signing state, external downloads, timestamps, and packaging environment can still differ. Both providers must complete successful builds and their IPA contents must be compared before claiming reproducibility.
 - No build was started by this configuration-only change. No IPA build/sign/export/device installation was performed. SideStore source, targets, entitlements, signing, installation, refresh, and packaging code were not changed.
+
+
+## Codemagic installed-app picker compiler repair — 2026-11-18
+
+- Codemagic archive log identified the blocking Xcode 26.2 error in `LiveContainerSwiftUI/Views/StrataInstalledAppPicker.swift`: the explicitly annotated `NSDictionary` result conflicted with the Objective-C method's imported optional dictionary type `[AnyHashable: Any]?` inside the `Task.detached` closure.
+- Removed the incorrect contextual `NSDictionary` result annotation and allowed Swift to infer the Objective-C imported type. The `apps` value is now read with optional dictionary subscripting. The asynchronous background reload behavior and downstream app validation/merge logic are preserved.
+- Fix committed on `main`: `132dff6b88b6b5d8f01e8d7b000411af09e0bc21`.
+- Codemagic is the requested validation provider for this repair. The changed SwiftUI path is included in `codemagic.yaml` changeset filters; the workflow must run on the new commit for compile verification. The connected GitHub integration does not expose a Codemagic build-trigger action. GitHub Actions remains manual-dispatch only and was not triggered by this change.
+- No Xcode compile result, IPA export, or device validation is claimed until the Codemagic run completes. SideStore source and packaging implementation remain unchanged.
