@@ -311,6 +311,7 @@ struct INFINITYAPKLaunchView: View {
                     ? "JIT-less AOT ready · required libraries signed"
                     : "No ARM64 native libraries require JIT-less AOT preparation."
             } catch {
+                jitlessEnabled = false
                 try? INFINITYJITLess.configure(enabled: false)
                 jitlessPreparationNote = "JIT-less AOT not enabled: \(error.localizedDescription)"
             }
