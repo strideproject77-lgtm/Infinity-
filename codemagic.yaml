@@ -21,6 +21,7 @@ workflows:
           - .github/build_github.sh
           - codemagic.yaml
           - scripts/run_codemagic_build.sh
+          - scripts/package_codemagic_artifacts.sh
           - scripts/publish_codemagic_logs.sh
           - scripts/build_ipa.sh
           - scripts/prepare_stikjit_idevice.sh
@@ -87,11 +88,10 @@ workflows:
           set -euo pipefail
           bash scripts/run_codemagic_build.sh
 
+      - name: Package all outputs into one ZIP
+        script: |
+          set -euo pipefail
+          bash scripts/package_codemagic_artifacts.sh
+
     artifacts:
-      - LiveContainer.ipa
-      - LiveContainer+SideStore.ipa
-      - archive.xcarchive
-      - /tmp/infinity-codemagic-logs/build.log
-      - /tmp/infinity-codemagic-logs/xcodebuild-archive.log
-      - /tmp/infinity-codemagic-logs/submodules.log
-      - /tmp/infinity-codemagic-logs/metadata.json
+      - INFINITY-Complete-Artifacts.zip
