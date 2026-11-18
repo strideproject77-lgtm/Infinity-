@@ -17,6 +17,11 @@ int infinity_apk_extract_entry(const uint8_t *archive, size_t archive_length,
                                uint8_t **output, size_t *output_length);
 void infinity_apk_free(void *pointer);
 
+/* Safely stream one ZIP entry to a caller-controlled staging file. */
+int infinity_apk_extract_entry_to_file(const char *archive_path,
+                                       const char *entry_name,
+                                       const char *output_path);
+
 #ifdef __cplusplus
 }
 #endif
