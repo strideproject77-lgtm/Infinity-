@@ -86,6 +86,7 @@ for name, path in log_sources.items():
     }
 
 now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+metadata_path = os.environ.get("INFINITY_CODEMAGIC_METADATA_LOG", os.path.join(os.path.dirname(build_path), "metadata.json"))
 metadata = {
     "provider": "Codemagic",
     "repository": repo,
@@ -101,11 +102,16 @@ metadata = {
     "logs": log_stats,
     "redaction": "Common credential/token patterns and PEM private-key blocks are redacted before publication.",
 }
+metadata_bytes = (json.dumps(metadata, indent=2) + "\n").encode("utf-8")
+os.makedirs(os.path.dirname(metadata_path) or ".", exist_ok=True)
+with open(metadata_path, "wb") as handle:
+    handle.write(metadata_bytes)
+
 files = [
     ("latest/build.log", log_data["build.log"]),
     ("latest/xcodebuild-archive.log", log_data["xcodebuild-archive.log"]),
     ("latest/submodules.log", log_data["submodules.log"]),
-    ("latest/metadata.json", (json.dumps(metadata, indent=2) + "\n").encode("utf-8")),
+    ("latest/metadata.json", metadata_bytes),
 ]
 tree_entries = []
 for path, content in files:
@@ -115,7 +121,8 @@ for path, content in files:
         "type": "blob",
         "sha": create_blob(content),
     })
-    print(f"Prepared {path}: {len(content)} bytes, {content.count(b'\n')} lines")
+    line_count = content.count(bytes([10]))
+    print(f"Prepared {path}: {len(content)} bytes, {line_count} lines")
 
 tree = api_request("POST", "git/trees", {"tree": tree_entries})
 commit = api_request("POST", "git/commits", {
