@@ -199,16 +199,6 @@ final class INFINITYHuskRuntime: ObservableObject {
     func attachSessionLogger(_ logger: INFINITYHuskSessionLogger) {
         sessionLogger = logger
         lastRecordedState = state
-        lastMetricsLogDate = .distantPast
-    }
-
-    func recordSessionEvent(_ event: String, details: String = "") {
-        sessionLogger?.record(event, details)
-    }
-
-    func attachSessionLogger(_ logger: INFINITYHuskSessionLogger) {
-        sessionLogger = logger
-        lastRecordedState = state
         lastMetricsLogDate = Date.distantPast
     }
 
