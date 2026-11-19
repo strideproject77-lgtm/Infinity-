@@ -259,7 +259,7 @@ static uint8_t esz_of(char t)
 
 jobj *tl_jni_new_prim_array(char etype, uint32_t len)
 {
-    if (etype == 'Z' || etype == 'B' || etype == 'C' || etype == 'S' || etype == 'I' || etype == 'J' || etype == 'F' || etype == 'D') { /* ok */ }
+    if (!strchr("ZBCSIJFD", etype)) return NULL;
     char cn[4] = { '[', etype, 0 };
     jobj *o = obj_alloc(TL_K_PRIM_ARRAY, tl_jni_class(cn));
     if (!o) return NULL;
@@ -1338,10 +1338,24 @@ static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
     (void)env;
     if (!a || a->kind != TL_K_OBJ_ARRAY) { tl_jni_throw("java/lang/IllegalArgumentException", "SetObjectArrayElement requires an object array"); return; }
     if (i < 0 || (uint32_t)i >= a->oarr.len) { tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "object array index out of bounds"); return; }
-    if (v && a->cls && a->cls->name[0] == '[' && !jni_IsInstanceOf(env, v, tl_jni_class_object(a->cls->name + 2))) {
-        /* The array's component-class check is handled below without manufacturing a guest-visible handle. */
-        tl_jclass *component = tl_jni_class(a->cls->name + 2);
-        if (!component || !v->cls || !assignable(v->cls, component)) { tl_jni_throw("java/lang/ArrayStoreException", "object is not assignable to array component type"); return; }
+    if (v && a->cls && a->cls->name[0] == '[') {
+        const char *descriptor = a->cls->name + 1;
+        tl_jclass *component = NULL;
+        if (*descriptor == 'L') {
+            size_t n = strlen(descriptor);
+            if (n > 2 && descriptor[n - 1] == ';' && n - 2 < 1024) {
+                char name[1024];
+                memcpy(name, descriptor + 1, n - 2);
+                name[n - 2] = 0;
+                component = tl_jni_class(name);
+            }
+        } else if (*descriptor == '[') {
+            component = tl_jni_class(descriptor);
+        }
+        if (component && !jni_IsInstanceOf(env, v, component->mirror)) {
+            tl_jni_throw("java/lang/ArrayStoreException", "object is not assignable to array component type");
+            return;
+        }
     }
     tl_jni_unref(a->oarr.v[i]);
     a->oarr.v[i] = tl_jni_ref(v);
@@ -1352,7 +1366,7 @@ static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
     X(Int, int32_t, 'I') X(Long, int64_t, 'J') X(Float, float, 'F') X(Double, double, 'D')
 
 #define GEN_ARRAYS(T, CT, K) \
-    static jo jni_New##T##Array(void *env, int32_t len) { (void)env; return local_frame_adopt(tl_jni_new_prim_array(K, (uint32_t)len)); } \
+    static jo jni_New##T##Array(void *env, int32_t len) { (void)env; if (len < 0) { tl_jni_throw("java/lang/IllegalArgumentException", "negative primitive array length"); return NULL; } jo a = tl_jni_new_prim_array(K, (uint32_t)len); if (!a) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating primitive array"); return NULL; } return local_frame_adopt(a); } \
     static CT *jni_Get##T##ArrayElements(void *env, jo a, uint8_t *copy) { (void)env; if (copy) *copy = 0; return a ? a->arr.data : NULL; } \
     static void jni_Release##T##ArrayElements(void *env, jo a, CT *e, int32_t mode) { (void)env; (void)a; (void)e; (void)mode; } \
     static void jni_Get##T##ArrayRegion(void *env, jo a, int32_t s, int32_t n, CT *buf) { (void)env; \
