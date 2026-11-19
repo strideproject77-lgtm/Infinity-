@@ -267,6 +267,24 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("s && symbol_is_exported(s)", loader)
         self.assertNotIn("STT_GNU_IFUNC_) { *failed = true; return 0; }", loader)
 
+    def test_elf_gnu_symbol_versioning_and_dlvsym_are_wired_end_to_end(self):
+        loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.h")
+        bionic = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic.c")
+        for marker in (
+            "DT_VERSYM_", "DT_VERDEF_", "DT_VERNEED_",
+            "validate_version_tables", "symbol_version_name",
+            "lib_find_version", "lookup_for_version",
+            "tl_ld_sym_version", "tl_ld_sym_deep_version",
+            "unresolved GNU version requirement"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, loader)
+        self.assertIn("tl_ld_sym_version", header)
+        self.assertIn("bionic_dlvsym", bionic)
+        self.assertIn('TL_WRAP("dlvsym", bionic_dlvsym)', bionic)
+        self.assertNotIn("(void)ver; (void)caller; return bionic_dlsym(handle, name);", bionic)
+
     def test_package_dependency_is_attached_to_strata_swiftui_not_sidestore(self):
         project = self.read("LiveContainer.xcodeproj/project.pbxproj")
         swiftui = re.search(
