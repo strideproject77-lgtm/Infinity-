@@ -134,6 +134,17 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("invalid static field index", dvm)
         self.assertIn("IncompatibleClassChangeError", dvm)
 
+    def test_elf_loader_checks_file_ranges_before_reading_segments(self):
+        loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
+        self.assertIn("static bool file_range_fits(size_t total, uint64_t offset, uint64_t length)", loader)
+        self.assertIn("!file_range_fits(flen, eh->e_phoff", loader)
+        self.assertIn("eh->e_ehsize < sizeof(*eh)", loader)
+        self.assertIn("p->p_filesz > p->p_memsz", loader)
+        self.assertIn("p->p_vaddr > UINT64_MAX - p->p_memsz", loader)
+        self.assertIn("invalid or excessive PT_LOAD segment", loader)
+        self.assertIn("dynamic table is outside the mapped image or truncated", loader)
+        self.assertNotIn("eh->e_phoff + (uint64_t)eh->e_phnum * eh->e_phentsize > flen", loader)
+
     def test_jni_field_ids_resolve_by_exact_descriptor(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         hook = dvm.split("static bool hook_find_field(", 1)[1].split(
