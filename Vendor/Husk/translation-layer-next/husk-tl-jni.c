@@ -1339,7 +1339,10 @@ static char *jni_mutf8_to_utf8(const char *input)
             if ((b & 0xc0) != 0x80) { free(units); return NULL; }
             c = (uint16_t)(((a & 0x1f) << 6) | (b & 0x3f));
             if (c != 0 && c < 0x80) { free(units); return NULL; }
-            if (c == 0 && (a != 0xc0 || b != 0x80)) { free(units); return NULL; }
+            /* The current guest string store is NUL-terminated UTF-8 and cannot
+             * represent an embedded U+0000 without truncation. Reject it rather
+             * than silently changing the Java string. */
+            if (c == 0) { free(units); return NULL; }
         } else if ((a & 0xf0) == 0xe0) {
             if (i + 1 >= bytes) { free(units); return NULL; }
             unsigned char b = (unsigned char)input[i++], c2 = (unsigned char)input[i++];
@@ -1425,9 +1428,10 @@ static void jni_GetStringUTFRegion(void *env, jo s, int32_t start, int32_t len, 
     if ((size_t)start > n || (size_t)len > n - (size_t)start) {
         tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "UTF string region out of bounds");
     } else {
-        char *out = jni_mutf8_encode(u + start, (size_t)len, NULL);
+        size_t out_len = 0;
+        char *out = jni_mutf8_encode(u + start, (size_t)len, &out_len);
         if (!out) tl_jni_throw("java/lang/OutOfMemoryError", "encoding Modified UTF-8 string region");
-        else { if (len || out[0]) strcpy(buf, out); free(out); }
+        else { if (out_len) memcpy(buf, out, out_len); free(out); }
     }
     free(u);
 }
