@@ -292,6 +292,28 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn('TL_WRAP("pthread_attr_setstack", b_attr_setstack)', pthread)
         self.assertIn("if (stack_result) { pthread_attr_destroy(&a); return rc(stack_result); }", pthread)
 
+    def test_jni_object_method_returns_are_local_refs_and_vm_env_is_thread_owned(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            "static jo call_object_a",
+            "static jo call_object_v",
+            "local_frame_adopt(call_a(kind, receiver, mid, args).l)",
+            "jni_CallObjectMethodA",
+            "jni_CallNonvirtualObjectMethodA",
+            "jni_CallStaticObjectMethodA",
+            "static env_t t_env, g_vm",
+            "static __thread bool t_vm_attached",
+            "JNI_EDETACHED (-2)",
+            "JNI_EVERSION (-3)",
+            "if (!t_vm_attached) { *penv = NULL; return JNI_EDETACHED; }",
+            "local_frames_detach();",
+            "return thread_env();"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+        self.assertNotIn("static env_t g_env, g_vm;", jni)
+        self.assertNotIn("static int32_t vm_GetEnv(void *vm, void **penv, int32_t version) { (void)vm; (void)version; *penv = &g_env; return 0; }", jni)
+
     def test_jni_local_reference_frames_are_thread_scoped_and_released_on_detach(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
