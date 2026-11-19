@@ -917,3 +917,42 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Complete JNI return-reference coverage and per-thread VM attach/detach semantics without breaking existing internal JNI callers.
 - Implement or explicitly gate a genuine NativeActivity input queue with Android NDK event semantics; do not pass opaque placeholders.
 - Continue the robust pthread mutex/owner-death audit against Darwin host capabilities.
+
+
+## 2026-11-20 — JNI object-return coverage and per-thread VM environments
+
+### Audit and correctness fixes
+- The prior JNI frame batch still left all three object-returning `Call*Method` families using generic raw-pointer return wrappers. These results were not registered as local references.
+- The JNI VM exposed one process-global `JNIEnv` pointer to every thread. `GetEnv` also returned success even for unattached threads and ignored the requested JNI version.
+- During integration, class mirrors were distinguished from newly allocated objects: borrowed class mirrors now acquire a reference before being owned by a local frame. The internal `tl_jni_class_object` helper remains a borrowed-pointer helper and is not incorrectly enrolled in JNI local frames.
+- Removed the stale global-environment initialization after switching to thread-local `JNIEnv` storage.
+
+### Implemented on main
+- Added explicit object-returning wrappers for virtual, nonvirtual, and static `CallObjectMethodA/V` and native variadic entry points; returned objects are retained and enrolled in the active local-reference frame.
+- Replaced the shared global `JNIEnv` storage with per-thread environment records.
+- Added per-thread VM attachment state for `AttachCurrentThread`, `DetachCurrentThread`, and `GetEnv`.
+- `GetEnv` now returns JNI_EDETACHED for unattached threads and JNI_EVERSION for unsupported JNI versions; detach releases the calling thread's local frames.
+- Attachment now fails cleanly if the initial local-frame allocation fails.
+- Corrected ownership of borrowed class mirrors so frame teardown cannot accidentally free class-singleton objects.
+- Added source-contract coverage for object-return wrappers, thread-local environment state, attach/detach results, and borrowed-reference ownership.
+
+### Commits
+- Object-returning JNI wrappers: `0eb8cdbc6195b3236276843f8571c69f4f689925`
+- Per-thread JNI environments and attachment state: `c8af132974216c96954ea9ed022e6a9efcd3be5c`
+- JNI contract tests: `7fa62855f23ba34a0d862baa9827f8bafe1d1a0d`
+- Remove stale global environment initialization: `54ccf54e5df4e6fdb1ec6155437cc9ca62b08f66`
+- Correct borrowed-reference ownership: `60273e4e29bd1ab28e7480b8438dd837291ce738`
+- Handle attachment allocation failure: `dda4f7f9aa30015dcbe1c02d2a3819811e0b9728`
+- Extend ownership/attachment contract tests: `ffc5a38d154d1d1037f5387a05f8982e9090321f`
+
+### Integration status and evidence
+- **Overall Husk source integration estimate: 84%** (previous: 83%; +1 percentage point). This reflects concrete JNI call-return and per-thread VM attachment source coverage, not full JNI conformance.
+- Remaining JNI gaps include raw-pointer local/global handle identity, comprehensive local-reference registration for every JNI object-return API, and full Android VM lifecycle semantics (including safe VM destruction).
+- NativeActivity's genuine NDK input queue remains unimplemented and explicitly withheld; no fake queue is passed to apps.
+- Source-contract tests were added but not run. No compile, test, workflow, IPA build/export, signing, or device test was started.
+- SideStore and Strata host architecture were not modified. Husk license and attribution notices remain intact.
+
+### Next large batch
+- Audit all remaining JNI object-returning APIs and internal-vs-JNI ownership boundaries; introduce a handle representation only if needed to separate local/global identity safely.
+- Continue genuine NativeActivity input delivery only with a real NDK-compatible queue/event contract.
+- Audit robust pthread mutex owner-death behavior against Darwin host capabilities; explicitly report unsupported semantics rather than emulate them incorrectly.
