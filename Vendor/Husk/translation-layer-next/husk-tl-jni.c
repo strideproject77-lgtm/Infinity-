@@ -492,6 +492,7 @@ static jvalue g_zero;
 static jvalue invoke(jobj *self, tl_jmeth *m, bool nonvirtual, const jvalue *args)
 {
     if (!m || !m->valid_sig) { tl_jni_throw("java/lang/NoSuchMethodError", "invalid or unresolved JNI method descriptor"); return g_zero; }
+    if (m->nargs > 0 && !args) { tl_jni_throw("java/lang/IllegalArgumentException", "JNI call has a null argument array"); return g_zero; }
     /* A host implementation wins over the APK's bytecode: Subway's AnalyticsBridge.SetupWorkerForAppClosed
      * is in the DEX and throws if WorkManager is missing. */
     tl_jcall c = { .self = self, .cls = m->cls, .args = args };
@@ -826,8 +827,12 @@ static jo new_object(jo cls, void *mid, int how, const jvalue *a, tl_va_list *ap
     if (m) {
         jvalue local[16];
         jvalue *args = how == 1 ? va_arguments(m, ap, local) : (jvalue *)a;
-        if (!m->valid_sig || (m->nargs > 0 && !args)) {
-            if (!tl_jni_pending()) tl_jni_throw("java/lang/NoSuchMethodError", "invalid JNI constructor arguments");
+        if (!m->valid_sig) {
+            tl_jni_throw("java/lang/NoSuchMethodError", "invalid JNI constructor descriptor");
+            tl_jni_unref(o); return NULL;
+        }
+        if (m->nargs > 0 && !args) {
+            tl_jni_throw("java/lang/IllegalArgumentException", "JNI constructor has a null argument array");
             tl_jni_unref(o); return NULL;
         }
         if (cls->klass.jc->dvm && !strcmp(cls->klass.jc->name, "java/lang/String") && !strcmp(m->name, "<init>")) {
