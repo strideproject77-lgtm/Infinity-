@@ -1283,17 +1283,80 @@ static jo jni_NewString(void *env, const uint16_t *chars, int32_t len)
     return local_frame_adopt(o);
 }
 static int32_t jni_GetStringLength(void *env, jo s) { (void)env; return (int32_t)utf16_len(tl_jni_string(s) ? tl_jni_string(s) : ""); }
+typedef enum {
+    JNI_STRING_ACCESS_UTF16 = 1,
+    JNI_STRING_ACCESS_MUTF8 = 2,
+    JNI_STRING_ACCESS_CRITICAL = 3
+} jni_string_access_kind;
+
+typedef struct jni_string_access {
+    jobj *string;
+    void *buffer;
+    jni_string_access_kind kind;
+    struct jni_string_access *next;
+} jni_string_access;
+static __thread jni_string_access *t_string_accesses;
+
+static bool jni_string_access_track(jobj *string, void *buffer, jni_string_access_kind kind)
+{
+    if (!string || !buffer) return false;
+    jni_string_access *access = malloc(sizeof(*access));
+    if (!access) return false;
+    access->string = string;
+    access->buffer = buffer;
+    access->kind = kind;
+    access->next = t_string_accesses;
+    t_string_accesses = access;
+    return true;
+}
+
+static bool jni_string_access_release(jobj *string, const void *buffer, jni_string_access_kind kind)
+{
+    if (!buffer) return true;
+    jni_string_access **slot = &t_string_accesses;
+    while (*slot && ((*slot)->string != string || (*slot)->buffer != buffer || (*slot)->kind != kind))
+        slot = &(*slot)->next;
+    if (!*slot) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "JNI string buffer is not outstanding for this string and access kind");
+        return false;
+    }
+    jni_string_access *access = *slot;
+    *slot = access->next;
+    free(access->buffer);
+    free(access);
+    return true;
+}
+
+static void jni_string_accesses_detach(void)
+{
+    while (t_string_accesses) {
+        jni_string_access *access = t_string_accesses;
+        t_string_accesses = access->next;
+        free(access->buffer);
+        free(access);
+    }
+}
+
 static const uint16_t *jni_GetStringChars(void *env, jo s, uint8_t *copy)
 {
     (void)env;
     const char *value = tl_jni_string(s);
     if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringChars received a null or non-string reference"); return NULL; }
     uint16_t *chars = to_utf16(value, NULL);
-    if (!chars) tl_jni_throw("java/lang/OutOfMemoryError", "allocating UTF-16 string characters");
+    if (!chars) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating UTF-16 string characters"); return NULL; }
+    if (!jni_string_access_track(s, chars, JNI_STRING_ACCESS_UTF16)) {
+        free(chars);
+        tl_jni_throw("java/lang/OutOfMemoryError", "tracking UTF-16 string characters");
+        return NULL;
+    }
     if (copy) *copy = 1;
     return chars;
 }
-static void jni_ReleaseStringChars(void *env, jo s, const uint16_t *c) { (void)env; (void)s; free((void *)c); }
+static void jni_ReleaseStringChars(void *env, jo s, const uint16_t *c)
+{
+    (void)env;
+    (void)jni_string_access_release(s, c, JNI_STRING_ACCESS_UTF16);
+}
 /* JNI strings use Modified UTF-8: U+0000 is C0 80 and supplementary
  * characters are encoded as two three-byte surrogate sequences. */
 static char *jni_mutf8_encode(const uint16_t *units, size_t count, size_t *out_len)
@@ -1401,11 +1464,20 @@ static const char *jni_GetStringUTFChars(void *env, jo s, uint8_t *copy)
     const char *value = tl_jni_string(s);
     if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringUTFChars received a null or non-string reference"); return NULL; }
     char *chars = jni_mutf8_from_utf8(value, NULL);
-    if (!chars) tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI Modified UTF-8 characters");
+    if (!chars) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI Modified UTF-8 characters"); return NULL; }
+    if (!jni_string_access_track(s, chars, JNI_STRING_ACCESS_MUTF8)) {
+        free(chars);
+        tl_jni_throw("java/lang/OutOfMemoryError", "tracking JNI Modified UTF-8 characters");
+        return NULL;
+    }
     if (copy) *copy = 1;
     return chars;
 }
-static void jni_ReleaseStringUTFChars(void *env, jo s, const char *c) { (void)env; (void)s; free((void *)c); }
+static void jni_ReleaseStringUTFChars(void *env, jo s, const char *c)
+{
+    (void)env;
+    (void)jni_string_access_release(s, c, JNI_STRING_ACCESS_MUTF8);
+}
 static void jni_GetStringRegion(void *env, jo s, int32_t start, int32_t len, uint16_t *buf)
 {
     (void)env;
@@ -1705,8 +1777,26 @@ static void jni_critical_array_accesses_detach(void)
         free(access);
     }
 }
-static const uint16_t *jni_GetStringCritical(void *env, jo s, uint8_t *copy) { return jni_GetStringChars(env, s, copy); }
-static void jni_ReleaseStringCritical(void *env, jo s, const uint16_t *c) { jni_ReleaseStringChars(env, s, c); }
+static const uint16_t *jni_GetStringCritical(void *env, jo s, uint8_t *copy)
+{
+    (void)env;
+    const char *value = tl_jni_string(s);
+    if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringCritical received a null or non-string reference"); return NULL; }
+    uint16_t *chars = to_utf16(value, NULL);
+    if (!chars) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating critical UTF-16 string characters"); return NULL; }
+    if (!jni_string_access_track(s, chars, JNI_STRING_ACCESS_CRITICAL)) {
+        free(chars);
+        tl_jni_throw("java/lang/OutOfMemoryError", "tracking critical UTF-16 string characters");
+        return NULL;
+    }
+    if (copy) *copy = 1;
+    return chars;
+}
+static void jni_ReleaseStringCritical(void *env, jo s, const uint16_t *c)
+{
+    (void)env;
+    (void)jni_string_access_release(s, c, JNI_STRING_ACCESS_CRITICAL);
+}
 
 /* --- natives, monitors, misc --- */
 
@@ -1929,6 +2019,7 @@ static int32_t vm_Detach(void *vm)
     if (!t_vm_attached) return JNI_EDETACHED;
     jni_critical_array_accesses_detach();
     jni_array_accesses_detach();
+    jni_string_accesses_detach();
     local_frames_detach();
     t_pending = NULL;
     t_vm_attached = false;
