@@ -1000,3 +1000,39 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Audit object-array assignability across interfaces/class loaders and implement proper modified UTF-8 behavior.
 - Evaluate whether a genuine NDK input queue can be supplied through the current iOS host architecture; otherwise keep the feature explicitly unsupported.
 - Continue pthread/NativeActivity audits without claiming unsupported Android behavior.
+
+
+## 2026-11-20 — JNI Modified UTF-8 and native registration lifecycle
+
+### Implemented on main
+- Added JNI Modified UTF-8 encoding from the runtime's UTF-8 string representation, including NUL-free BMP characters and supplementary characters encoded as UTF-16 surrogate pairs.
+- Added Modified UTF-8 decoding for `NewStringUTF`, including validation of continuation bytes, overlong sequences, and surrogate-pair structure.
+- `GetStringUTFLength` now reports Modified UTF-8 byte length rather than ordinary UTF-8 `strlen`.
+- `GetStringUTFChars` now returns Modified UTF-8 data, and `GetStringUTFRegion` now encodes the requested UTF-16 code-unit region using Modified UTF-8.
+- Added explicit allocation and malformed-input error paths.
+- Native registrations now retain the class through which each registration was made, separately from the class that owns the declared method. `UnregisterNatives` removes registrations originating from the requested class, including registrations attached to inherited method owners.
+- `RegisterNatives` now validates the class, count, method table, names/signatures/function pointers, checks allocation failures, and advances the native-generation counter only when methods were registered.
+- Added source-contract coverage for Modified UTF-8 conversion and native registration/unregistration lifecycle.
+
+### Commits
+- Modified UTF-8 conversion and decoding: `03d6463fdcde436220e7df9239d9b63f1ca4e7c7`
+- Modified UTF-8 length and region APIs: `6af2f08e1f21f1b914a4c255cd3e257e6357cd1a`
+- Embedded-NUL/surrogate validation: `c56f251faf01bed95856b38abc972d28d7cdbee4`
+- Correct surrogate-pair decoding: `ada51d188672119b6521b993f3be3f64d392e7e0`
+- Native registration-origin tracking: `a265835273098ab05cdaa3b1cdab570e1c8cf693`
+- Registration validation and real UnregisterNatives: `100daf853a4fbaa8a316f7bb52f6eea18565251b`
+- JNI contract tests: `a1331bbe40087908d68cb3576f4382b8ca11f0bb`
+
+### Integration status and limitations
+- **Overall Husk source integration estimate: 87%** (previous: 85%; +2 percentage points). This is a source-coverage engineering estimate, not a runtime compatibility score.
+- Modified UTF-8 is not yet fully conformant for embedded U+0000 because the current guest string representation is NUL-terminated; that input is explicitly rejected rather than silently truncated. Unpaired surrogate code units are also rejected. A length-aware guest string representation is needed to close this gap.
+- Local/global JNI reference identity remains unresolved because JNI handles are still raw object pointers; `GetObjectRefType` is conservative and weak-global references are not implemented.
+- Native registration is now reversible by registering class, but the full ART class-loader and native-method resolution lifecycle still requires further work.
+- NativeActivity's genuine NDK input queue remains unavailable; no fake queue is passed to guest code.
+- Source-contract assertions were checked against the current source markers; **the test suite was not run**. No compile, workflow, IPA build/export, signing, or device test was started.
+- SideStore and Strata host architecture were not modified. Husk license and attribution notices remain intact.
+
+### Next batch toward 90%
+- Introduce length-aware guest string storage to support embedded U+0000 and complete JNI Modified UTF-8 semantics without C-string truncation.
+- Replace raw JNI object pointers with explicit local/global/weak handle records, preserving internal runtime pointer APIs through conversion helpers.
+- Continue NativeActivity input delivery only if a real NDK-compatible queue can be implemented end-to-end; otherwise keep it explicitly unsupported.
