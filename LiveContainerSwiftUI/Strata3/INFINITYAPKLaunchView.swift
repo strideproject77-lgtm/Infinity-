@@ -148,6 +148,54 @@ struct INFINITYAPKInstalledAppDetail: View {
 }
 
 @available(iOS 16.0, *)
+struct INFINITYHuskSessionLogView: View {
+    @ObservedObject var logger: INFINITYHuskSessionLogger
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Launch and runtime events")
+                    .font(.headline)
+                Text(logger.contents.isEmpty ? "No session events captured yet." : logger.contents)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Divider()
+                Text("Husk native output")
+                    .font(.headline)
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    let nativeLines = INFINITYHuskNativeLog.recentLines(800)
+                    Text(nativeLines.isEmpty ? "Native output will appear here after runtime startup." : nativeLines.joined(separator: "\n"))
+                        .font(.system(.caption2, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding()
+        }
+        .navigationTitle("Session Log")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                if let url = logger.logURL {
+                    ShareLink(item: url) { Image(systemName: "doc.text") }
+                        .accessibilityLabel("Export session events")
+                }
+                ShareLink(item: INFINITYHuskNativeLog.logFileURL) {
+                    Image(systemName: "terminal")
+                }
+                .accessibilityLabel("Export Husk log")
+                ShareLink(item: INFINITYHuskNativeLog.nativeLogURL) {
+                    Image(systemName: "waveform.path")
+                }
+                .accessibilityLabel("Export native stderr log")
+            }
+        }
+    }
+}
+
+
+@available(iOS 16.0, *)
 struct INFINITYAPKLaunchView: View {
     let app: INFINITYAPKInstalledApp
 
