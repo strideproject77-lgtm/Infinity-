@@ -182,6 +182,24 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn('runtime_directory(system_fonts_root, "fonts")', adapter)
         self.assertIn('runtime_file(system_fonts_root, "etc/fonts.xml")', adapter)
         self.assertIn('runtime_file(system_fonts_root, "etc/font_fallback.xml")', adapter)
+        self.assertIn('runtime_directory(runtime_root, "com.android.i18n/etc/icu")', adapter)
+        self.assertIn('runtime_directory(runtime_root, "com.android.tzdata/etc")', adapter)
+
+    def test_java_runtime_builder_preflights_and_atomically_promotes_complete_assets(self):
+        builder = self.read("Vendor/Husk/build-support/build_java_runtime.sh")
+        for marker in (
+            "ANDROID_APEX_ROOT", "HUSK_ANDROID_ROOT", "require_file",
+            "com.android.i18n/etc/icu", "com.android.tzdata/etc",
+            "husk-framework-core.dex", "strip_framework_res.py",
+            'mktemp -d "$BUILD_ROOT/.java-runtime.XXXXXX"',
+            'mv "$STAGED" "$OUT"',
+            "previous runtime restored"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, builder)
+        self.assertLess(builder.index('require_dir "$APEX"'), builder.index('WORK="$(mktemp'))
+        self.assertLess(builder.index('require_file "$FRAMEWORK_RES"'), builder.index('WORK="$(mktemp'))
+        self.assertNotIn('rm -rf "$OUT"; mkdir', builder)
 
     def test_swift_runtime_controller_uses_real_native_entrypoints(self):
         swift = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
