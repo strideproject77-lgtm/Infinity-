@@ -879,3 +879,41 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Implement an actual NDK-compatible input queue/event contract and connect touch/key events, or keep NativeActivity input-queue apps explicitly unsupported until that complete path exists.
 - Continue JNI per-thread local-reference frames and correct `AttachCurrentThread` / `DetachCurrentThread` ownership.
 - Audit robust mutex attributes and owner-death behavior; never claim robust semantics that the Darwin host cannot provide.
+
+
+## 2026-11-20 — JNI local-reference frame implementation (partial API coverage)
+
+### Audit finding
+- JNI `PushLocalFrame` / `PopLocalFrame` were no-ops. `NewLocalRef` merely incremented the object refcount, and `EnsureLocalCapacity` always returned success.
+- JNI handles in this compatibility VM are raw `jobj *` pointers. That prevents reliable distinction between local and global handles to the same object without a handle-wrapper redesign.
+- JNI `Call*ObjectMethod` return paths and full per-thread `JNIEnv` / `AttachCurrentThread` ownership still need a separate audit. This batch does not claim full JNI reference semantics or full VM thread attachment.
+
+### Implemented on main
+- Added a thread-local JNI local-reference frame stack with nested parent frames.
+- Implemented `PushLocalFrame` with capacity reservation and allocation-failure reporting.
+- Implemented `PopLocalFrame`: release current-frame references and preserve the requested result in the parent frame.
+- Implemented `NewLocalRef` tracking, `DeleteLocalRef` slot removal, and `EnsureLocalCapacity` growth with overflow protection.
+- Adopted local references returned by key JNI object-creation/access APIs, including class lookup, object construction, strings, arrays, reflected members, and direct byte buffers.
+- `DetachCurrentThread` now releases the calling thread's tracked local-frame stack.
+- Added source-contract assertions for frame operations, JNI return adoption, capacity checks, and detach cleanup.
+
+### Commits
+- Initial JNI local-reference frame implementation: `5a8f2d8d1d03264fd06c640abc68a90c50683568`
+- Removed unused declaration: `33a7bd6623a2230a72fba5f1de797c71ba06a22c`
+- Added JNI local-frame contract tests: `2ba1f18812c829f40deae9efb5869d4d5151d70a`
+- Adopt JNI-created references into active frames: `e32fde574d544a47d3ed72b25a5e1d3b998c3d04`
+- Handle local-frame allocation failures: `f9ba4b5bed1786278a3e219f428e1d165eec8a43`
+- Expand source-contract coverage: `ad1e76f9f15c4696bc6b5b93b2e11de71eafeced`
+- Guard local-frame allocation-size overflow: `d11d478ff2f8455881379f99b4ebd6fbcef2f296`
+
+### Integration status and evidence
+- **Overall Husk source integration estimate: 83%** (previous: 82%; +1 percentage point). The increase represents real JNI frame-stack behavior and integration into key object-return paths, not complete JNI conformance.
+- Remaining JNI gaps: raw-pointer local/global handle identity, object-returning `Call*Method` wrappers, full automatic local-ref registration coverage, and true per-thread `JNIEnv` attachment ownership.
+- NativeActivity's actual NDK input queue is still not implemented; apps requiring it remain explicitly unsupported rather than receiving a fake queue.
+- Source-contract tests were added but not run. No build, workflow, IPA export, signing, or device test was started.
+- SideStore and Strata host architecture were not modified. Husk license and attribution notices remain intact.
+
+### Next large batch
+- Complete JNI return-reference coverage and per-thread VM attach/detach semantics without breaking existing internal JNI callers.
+- Implement or explicitly gate a genuine NativeActivity input queue with Android NDK event semantics; do not pass opaque placeholders.
+- Continue the robust pthread mutex/owner-death audit against Darwin host capabilities.
