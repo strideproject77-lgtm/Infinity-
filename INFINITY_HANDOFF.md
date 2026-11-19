@@ -435,3 +435,13 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 
 
 - Final API guards in this batch: controller state reads reject null output pointers, controller updates reject null state input, and executable/writable alias delta calculation now uses an explicit signed address difference.
+
+
+## 2026-11-19 — DEX frame validation and JNI native argument expansion
+
+- Added interpreter-entry validation for malformed DEX method frames: register counts must be internally consistent, incoming register slots must match the receiver plus the prototype's parameter widths, wide values count as two slots, and truncated/oversized prototypes are rejected with a Java VerifyError rather than being copied into an invalid frame.
+- Added an explicit OutOfMemoryError path when allocating a large interpreted register frame fails.
+- Replaced the JNI native-call bridge's fixed 256-slot overflow argument buffer with a per-call buffer sized to the method's declared parameter count. Floating-point and general-purpose argument spills are retained in order and passed to the existing ARM64 call trampoline; the buffer is released after the native call.
+- Added a source-contract regression check for frame validation and dynamic JNI argument storage.
+- These are defensive DEX/JNI execution-path changes. They do not claim to add missing Android framework APIs or prove the 2048 app now launches.
+- No tests were executed, no GitHub Actions workflow was started, and no Xcode/Codemagic/IPA build, signing, export or device run was performed. Source-contract test added but not run. SideStore systems remain untouched.
