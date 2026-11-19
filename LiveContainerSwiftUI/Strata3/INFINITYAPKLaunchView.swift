@@ -265,7 +265,7 @@ struct INFINITYAPKLaunchView: View {
             }
             runtime.recordSessionEvent("APK_VALIDATED", details: "bytes=\((try? apk.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)")
             let dataDirectory = try INFINITYAPKStore.dataURL(for: app)
-            runtime.recordSessionEvent("APP_DATA", details: "directoryReady=\(FileManager.default.isDirectory(at: dataDirectory))")
+            runtime.recordSessionEvent("APP_DATA", details: "directoryReady=\((try? dataDirectory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false)")
             guard let nativeBundle = INFINITYAPKStore.nativeRuntimeBundle() else {
                 throw INFINITYHuskRuntime.RuntimeError.nativeRuntimeNotPrepared
             }
