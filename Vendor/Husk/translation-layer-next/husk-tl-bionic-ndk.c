@@ -722,18 +722,27 @@ void tl_bionic_input_queue_destroy(void *queue)
 }
 static void iq_push(tl_ievent *e)
 {
+    if (!e) return;
     pthread_mutex_lock(&IQ.mu);
+    if (!IQ.attached || !IQ.ready) {
+        pthread_mutex_unlock(&IQ.mu);
+        free(e);
+        return;
+    }
     if (IQ.tail) IQ.tail->next = e; else IQ.head = e;
     IQ.tail = e;
+    int wake_fd = IQ.wr;
     pthread_mutex_unlock(&IQ.mu);
-    char c = 1; (void)!write(IQ.wr, &c, 1);
+    char c = 1;
+    if (wake_fd >= 0) (void)!write(wake_fd, &c, 1);
 }
 /* A touch in surface pixels: phase 0 down, 1 move, 2 up, 3 cancel -- the same words the other engines are given. Safe from any thread. */
 void tl_inq_touch(int phase, int id, float x, float y)
 {
     iq_init();
-    if (!IQ.ready || !IQ.attached) return;
+    if (!IQ.ready) return;
     pthread_mutex_lock(&IQ.mu);
+    if (!IQ.attached) { pthread_mutex_unlock(&IQ.mu); return; }
     tl_ievent *e = calloc(1, sizeof(*e));
     if (!e) { pthread_mutex_unlock(&IQ.mu); return; }
     int idx = -1;
@@ -763,7 +772,7 @@ void tl_inq_touch(int phase, int id, float x, float y)
 void tl_inq_key(int device, int source, int action, int keycode)
 {
     iq_init();
-    if (!IQ.ready || !IQ.attached) return;
+    if (!IQ.ready) return;
     tl_ievent *e = calloc(1, sizeof(*e));
     if (!e) return;
     e->type = 1; e->source = source; e->device = device; e->action = action; e->keycode = keycode;
@@ -773,7 +782,7 @@ void tl_inq_key(int device, int source, int action, int keycode)
 void tl_inq_axes(int device, const float *axes48)
 {
     iq_init();
-    if (!IQ.ready || !IQ.attached) return;
+    if (!IQ.ready) return;
     if (!axes48) return;
     tl_ievent *e = calloc(1, sizeof(*e));
     if (!e) return;
