@@ -1423,8 +1423,22 @@ static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
         if (n) memcpy((CT *)a->arr.data + s, buf, (size_t)n * sizeof(CT)); }
 PRIM_ARRAYS(GEN_ARRAYS)
 
-static void *jni_GetPrimitiveArrayCritical(void *env, jo a, uint8_t *copy) { (void)env; if (copy) *copy = 0; return a ? a->arr.data : NULL; }
-static void jni_ReleasePrimitiveArrayCritical(void *env, jo a, void *p, int32_t mode) { (void)env; (void)a; (void)p; (void)mode; }
+static void *jni_GetPrimitiveArrayCritical(void *env, jo a, uint8_t *copy)
+{
+    (void)env;
+    if (!a || a->kind != TL_K_PRIM_ARRAY) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "GetPrimitiveArrayCritical requires a primitive array");
+        return NULL;
+    }
+    if (copy) *copy = 0;
+    return a->arr.data;
+}
+static void jni_ReleasePrimitiveArrayCritical(void *env, jo a, void *p, int32_t mode)
+{
+    (void)env; (void)p; (void)mode;
+    if (!a || a->kind != TL_K_PRIM_ARRAY)
+        tl_jni_throw("java/lang/IllegalArgumentException", "ReleasePrimitiveArrayCritical requires a primitive array");
+}
 static const uint16_t *jni_GetStringCritical(void *env, jo s, uint8_t *copy) { return jni_GetStringChars(env, s, copy); }
 static void jni_ReleaseStringCritical(void *env, jo s, const uint16_t *c) { jni_ReleaseStringChars(env, s, c); }
 
@@ -1549,6 +1563,7 @@ static int32_t vm_Detach(void *vm)
     (void)vm;
     if (!t_vm_attached) return JNI_EDETACHED;
     local_frames_detach();
+    t_pending = NULL;
     t_vm_attached = false;
     return JNI_OK;
 }
