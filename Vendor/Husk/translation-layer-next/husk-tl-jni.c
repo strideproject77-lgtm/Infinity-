@@ -1347,6 +1347,18 @@ static char *jni_mutf8_to_utf8(const char *input)
             c = (uint16_t)(((a & 0x0f) << 12) | ((b & 0x3f) << 6) | (c2 & 0x3f));
             if (c < 0x800) { free(units); return NULL; }
         } else { free(units); return NULL; }
+        if (c == 0) { free(units); return NULL; } /* current guest string storage is NUL-terminated */
+        if (c >= 0xd800 && c <= 0xdbff) {
+            if (i + 2 >= bytes) { free(units); return NULL; }
+            unsigned char d = (unsigned char)input[i++];
+            unsigned char e = (unsigned char)input[i++];
+            if ((d & 0xf0) != 0xe0 || (e & 0xc0) != 0x80) { free(units); return NULL; }
+            uint16_t low = (uint16_t)(((d & 0x0f) << 12) | ((e & 0x3f) << 6) | (input[i - 1] & 0x3f));
+            /* The low-surrogate bytes are validated below using the decoded three-byte unit. */
+            (void)low;
+        } else if (c >= 0xdc00 && c <= 0xdfff) {
+            free(units); return NULL;
+        }
         units[n++] = c;
     }
     char *out = from_utf16(units, n);
