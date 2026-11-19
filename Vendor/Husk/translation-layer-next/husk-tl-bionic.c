@@ -725,29 +725,41 @@ static void *bionic_dlopen_ext(const char *path, int flags, const void *info)
 static void *bionic_loader_android_dlopen_ext(const char *path, int flags, const void *info, const void *caller) { (void)caller; return bionic_dlopen_ext(path, flags, info); }
 static void *bionic_android_dlopen_ext(const char *path, int flags, const void *info) { return bionic_dlopen_ext(path, flags, info); }
 static void *bionic_loader_dlsym(void *handle, const char *name, const void *caller) { (void)caller; return bionic_dlsym(handle, name); }
-static void *bionic_loader_dlvsym(void *handle, const char *name, const char *ver, const void *caller) { (void)ver; (void)caller; return bionic_dlsym(handle, name); }
-
+static void *bionic_dlsym_version(void *handle, const char *name, const char *version);
+static void *bionic_dlvsym(void *handle, const char *name, const char *version)
+{
+    return bionic_dlsym_version(handle, name, version);
+}
+static void *bionic_loader_dlvsym(void *handle, const char *name, const char *ver, const void *caller)
+{
+    (void)caller;
+    return bionic_dlsym_version(handle, name, ver);
+}
 static void *bionic_dlsym(void *handle, const char *name)
 {
-    if (!name) return NULL;
+    return bionic_dlsym_version(handle, name, NULL);
+}
+static void *bionic_dlsym_version(void *handle, const char *name, const char *version)
+{
+    if (!name || (version && !version[0])) return NULL;
     void *r = NULL;
     if (handle == (void *)-1L) {
         /* RTLD_NEXT: the definition after the caller's own, which for a library wrapping libc (ART's signal chain) is libc's */
-        r = tl_bionic_find(name);
-        if (!r) r = tl_ld_sym(NULL, name);
+        r = version ? NULL : tl_bionic_find(name);
+        if (!r) r = version ? tl_ld_sym_version(NULL, name, version) : tl_ld_sym(NULL, name);
     } else if (handle == NULL) {
-        r = tl_ld_sym(NULL, name);
-        if (!r) r = tl_bionic_find(name);
+        r = version ? tl_ld_sym_version(NULL, name, version) : tl_ld_sym(NULL, name);
+        if (!r && !version) r = tl_bionic_find(name);
     } else if ((sysh *)handle >= g_sys_handle && (sysh *)handle < g_sys_handle + 16) {
-        r = tl_bionic_find(name);
+        r = version ? NULL : tl_bionic_find(name);
     } else {
         /* the library, then what it needs, breadth-first, as bionic's dlsym: .NET asks libicui18n for ucurr_forLocale, which
            libicuuc (its dependency) defines */
         void *tl_ld_sym_deep(tl_lib *lib, const char *name, tl_lib **found_in);
-        r = tl_ld_sym_deep((tl_lib *)handle, name, NULL);
+        r = version ? tl_ld_sym_deep_version((tl_lib *)handle, name, version) : tl_ld_sym_deep((tl_lib *)handle, name, NULL);
     }
-    if (getenv("TL_DL_TRACE")) tl_log_line("dl: dlsym(%s) -> %s", name, r ? "found" : "missing");
-    if (!r) dl_fail("undefined symbol: %s", name);
+    if (getenv("TL_DL_TRACE")) tl_log_line("dl: %s(%s%s%s) -> %s", version ? "dlvsym" : "dlsym", name, version ? "@" : "", version ? version : "", r ? "found" : "missing");
+    if (!r) { if (version) dl_fail("undefined symbol: %s@%s", name, version); else dl_fail("undefined symbol: %s", name); }
     return r;
 }
 
@@ -878,7 +890,7 @@ const tl_bionic_entry tl_tab_core[] = {
     TL_WRAP("getpwuid", bionic_getpwuid),
     TL_WRAP("getpwuid_r", bionic_getpwuid_r),
     TL_WRAP("dlopen", bionic_dlopen),
-    TL_WRAP("dlsym", bionic_dlsym),
+    TL_WRAP("dlsym", bionic_dlsym), TL_WRAP("dlvsym", bionic_dlvsym),
     TL_WRAP("dlclose", bionic_dlclose),
     TL_WRAP("dlerror", bionic_dlerror),
     TL_WRAP("dladdr", bionic_dladdr),
