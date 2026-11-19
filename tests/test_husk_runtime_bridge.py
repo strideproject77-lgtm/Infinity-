@@ -297,7 +297,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         for marker in (
             "static jo call_object_a",
             "static jo call_object_v",
-            "local_frame_adopt(call_a(kind, receiver, mid, args).l)",
+            "local_frame_adopt(tl_jni_ref(call_a(kind, receiver, mid, args).l))",
             "jni_CallObjectMethodA",
             "jni_CallNonvirtualObjectMethodA",
             "jni_CallStaticObjectMethodA",
@@ -307,7 +307,11 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "JNI_EVERSION (-3)",
             "if (!t_vm_attached) { *penv = NULL; return JNI_EDETACHED; }",
             "local_frames_detach();",
-            "return thread_env();"
+            "return thread_env();",
+            "jobj *tl_jni_class_object(const char *name) { return tl_jni_class(name)->mirror; }",
+            "local_frame_adopt(tl_jni_ref(tl_jni_class(name)->mirror))",
+            "if (!local_frame_current()) return JNI_ERR;",
+            "if (!local_frame_current()) return NULL;",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
