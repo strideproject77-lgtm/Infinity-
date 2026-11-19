@@ -660,18 +660,60 @@ typedef struct tl_ievent {
 static struct {
     int rd, wr, ident;
     bool ready, attached;
+    tl_looper *looper;                    /* the looper actually attached to this queue */
     pthread_mutex_t mu;
     tl_ievent *head, *tail;
     int nptr, pid[10]; float px[10], py[10];    /* the fingers down now, to say who else is touching when one changes */
 } IQ = { .rd = -1, .wr = -1, .mu = PTHREAD_MUTEX_INITIALIZER };
+static pthread_mutex_t IQ_init_mu = PTHREAD_MUTEX_INITIALIZER;
 
 static void iq_init(void)
 {
-    if (IQ.ready) return;
+    pthread_mutex_lock(&IQ_init_mu);
+    if (IQ.ready) { pthread_mutex_unlock(&IQ_init_mu); return; }
     int fds[2];
-    if (pipe(fds) != 0) return;
-    fcntl(fds[0], F_SETFL, O_NONBLOCK); fcntl(fds[1], F_SETFL, O_NONBLOCK);
+    if (pipe(fds) != 0) { pthread_mutex_unlock(&IQ_init_mu); return; }
+    (void)fcntl(fds[0], F_SETFL, O_NONBLOCK);
+    (void)fcntl(fds[1], F_SETFL, O_NONBLOCK);
     IQ.rd = fds[0]; IQ.wr = fds[1]; IQ.ready = true;
+    pthread_mutex_unlock(&IQ_init_mu);
+}
+
+/* The NativeActivity callback receives this stable opaque queue handle. The
+ * event records and wake pipe are the backing queue consumed by the NDK API. */
+void *tl_bionic_input_queue_create(void)
+{
+    iq_init();
+    if (!IQ.ready) return NULL;
+    pthread_mutex_lock(&IQ.mu);
+    bool attached = IQ.attached;
+    tl_looper *looper = IQ.looper;
+    IQ.attached = false;
+    IQ.looper = NULL;
+    tl_ievent *pending = IQ.head;
+    IQ.head = IQ.tail = NULL;
+    IQ.nptr = 0;
+    pthread_mutex_unlock(&IQ.mu);
+    if (attached && looper) b_ALooper_removeFd(looper, IQ.rd);
+    while (pending) { tl_ievent *next = pending->next; free(pending); pending = next; }
+    char drain[128]; while (read(IQ.rd, drain, sizeof(drain)) > 0) {}
+    return &IQ;
+}
+
+void tl_bionic_input_queue_destroy(void *queue)
+{
+    if (queue != &IQ || !IQ.ready) return;
+    pthread_mutex_lock(&IQ.mu);
+    tl_looper *looper = IQ.looper;
+    IQ.attached = false;
+    IQ.looper = NULL;
+    tl_ievent *pending = IQ.head;
+    IQ.head = IQ.tail = NULL;
+    IQ.nptr = 0;
+    pthread_mutex_unlock(&IQ.mu);
+    if (looper) b_ALooper_removeFd(looper, IQ.rd);
+    while (pending) { tl_ievent *next = pending->next; free(pending); pending = next; }
+    char drain[128]; while (read(IQ.rd, drain, sizeof(drain)) > 0) {}
 }
 static void iq_push(tl_ievent *e)
 {
@@ -735,27 +777,54 @@ void tl_inq_axes(int device, const float *axes48)
 
 static void b_AInputQueue_attachLooper(void *q, void *looper, int ident, void *cb, void *data)
 {
-    (void)q;
+    if (q != &IQ || !looper) return;
     iq_init();
-    if (!IQ.ready || !looper) return;
-    IQ.ident = ident; IQ.attached = true;
-    b_ALooper_addFd(looper, IQ.rd, ident, ALOOPER_EVENT_INPUT, cb, data);
+    if (!IQ.ready) return;
+    pthread_mutex_lock(&IQ.mu);
+    tl_looper *old = IQ.looper;
+    IQ.attached = false;
+    IQ.looper = NULL;
+    pthread_mutex_unlock(&IQ.mu);
+    if (old) b_ALooper_removeFd(old, IQ.rd);
+    if (b_ALooper_addFd(looper, IQ.rd, ident, ALOOPER_EVENT_INPUT, cb, data) != 1) return;
+    pthread_mutex_lock(&IQ.mu);
+    IQ.ident = ident;
+    IQ.looper = looper;
+    IQ.attached = true;
+    pthread_mutex_unlock(&IQ.mu);
 }
-static void b_AInputQueue_detachLooper(void *q) { (void)q; IQ.attached = false; if (t_looper && IQ.ready) b_ALooper_removeFd(t_looper, IQ.rd); }
-static int32_t b_AInputQueue_hasEvents(void *q) { (void)q; return IQ.head != NULL; }
+static void b_AInputQueue_detachLooper(void *q)
+{
+    if (q != &IQ) return;
+    pthread_mutex_lock(&IQ.mu);
+    tl_looper *looper = IQ.looper;
+    IQ.looper = NULL;
+    IQ.attached = false;
+    pthread_mutex_unlock(&IQ.mu);
+    if (looper && IQ.ready) b_ALooper_removeFd(looper, IQ.rd);
+}
+static int32_t b_AInputQueue_hasEvents(void *q)
+{
+    if (q != &IQ) return 0;
+    pthread_mutex_lock(&IQ.mu);
+    int has_events = IQ.head != NULL;
+    pthread_mutex_unlock(&IQ.mu);
+    return has_events;
+}
 static int32_t b_AInputQueue_getEvent(void *q, void **ev)
 {
-    (void)q;
+    if (ev) *ev = NULL;
+    if (q != &IQ || !ev) return -1;
     pthread_mutex_lock(&IQ.mu);
     tl_ievent *e = IQ.head;
     if (e) { IQ.head = e->next; if (!IQ.head) IQ.tail = NULL; }
     pthread_mutex_unlock(&IQ.mu);
-    if (ev) *ev = e;
+    *ev = e;
     if (e && IQ.ready) { char c; (void)!read(IQ.rd, &c, 1); }
     return e ? 0 : -1;
 }
-static int32_t b_AInputQueue_preDispatchEvent(void *q, void *ev) { (void)q; (void)ev; return 0; }
-static void b_AInputQueue_finishEvent(void *q, void *ev, int handled) { (void)q; (void)handled; free(ev); }
+static int32_t b_AInputQueue_preDispatchEvent(void *q, void *ev) { (void)ev; return q == &IQ ? 0 : -1; }
+static void b_AInputQueue_finishEvent(void *q, void *ev, int handled) { (void)handled; if (q == &IQ) free(ev); }
 
 static int32_t b_AInputEvent_getType(const tl_ievent *e) { return e->type; }
 static int32_t b_AInputEvent_getSource(const tl_ievent *e) { return e->source; }
