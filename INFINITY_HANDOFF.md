@@ -545,3 +545,23 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Verification and constraints
 - Source-contract tests were added but **not run**. No workflow, Xcode compile, device launch, IPA build, Codemagic job, signing or export was started.
 - All changes are on `main`; Strata remains intact, SideStore systems were not modified, and Husk attribution/license notices remain preserved.
+
+
+## 2026-11-19 — JNI exact field descriptor resolution (2048 R$* path)
+
+### Implemented
+- Fixed the DVM-to-JNI field lookup hook to use the existing descriptor-aware resolver instead of name-only lookup.
+- JNI field lookups now match the requested field name and exact JNI descriptor, while retaining superclass/interface lookup behavior.
+- Added explicit lookup-class and declaring-class initialization failure handling.
+- Added trace-level diagnostics naming the class, field and descriptor when JNI field lookup fails.
+- Added a source-contract regression check to prevent the JNI hook from reverting to name-only field lookup.
+
+### Why this matters for 2048
+- Generated Android resource fields such as R$layout.activity_main:I are looked up through JNI field APIs in some framework paths. Descriptor-aware lookup prevents a same-name field with another descriptor from being selected and returning the wrong slot.
+- This is a concrete fix in the JNI field-resolution path, but it does not prove the APK resource ID or layout can be loaded; the next real blocker must be established from a fresh 2048 runtime log.
+
+### Status and constraints
+- 2048-specific source readiness is now an engineering estimate of approximately 48% (previous 45% estimate superseded by this focused field-resolution fix); successful iPhone execution remains 0% demonstrated.
+- Overall Husk source integration remains approximately 60%. No basis for increasing the overall figure from this JNI change alone.
+- Regression test added but not run. No GitHub Actions workflow was manually started, no Xcode/macOS build, device launch, IPA build, Codemagic, signing or export was performed.
+- Work remains on main; Strata preserved; SideStore untouched.
