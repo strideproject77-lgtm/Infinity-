@@ -723,3 +723,9 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Regression tests were added but **not run**. No workflow was manually dispatched; no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device test was started.
 - Work remains on main. Strata host code and SideStore systems were not modified. Husk license and attribution notices remain preserved.
 - Next large runtime batch: implement GNU symbol-version metadata and version-aware dlvsym/dependency binding, then broaden Bionic NDK API coverage and continue ART/JNI lifecycle completion.
+
+
+### IFUNC cache consistency follow-up
+- Unified relocation-cache reads/writes with acquire/release atomics, matching the IFUNC resolver path.
+- Relocation binding now detects the IFUNC in-progress sentinel rather than accidentally treating it as a callable address if a resolver recursively re-enters symbol binding.
+- Extended the source-contract assertion for the recursive-binding guard. Tests remain unrun.
