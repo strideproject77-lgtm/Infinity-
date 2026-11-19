@@ -101,21 +101,6 @@ private struct INFINITYHuskSurface: UIViewRepresentable {
 struct INFINITYAPKInstalledAppDetail: View {
     let app: INFINITYAPKInstalledApp
 
-    private var canLaunch: Bool {
-        guard !app.requiresSplits,
-              app.detectedEngine != nil,
-              INFINITYAPKStore.nativeRuntimeBundle() != nil else {
-            return false
-        }
-        if app.detectedEngine == "java" {
-            return INFINITYAPKStore.runtimeBundle() != nil
-        }
-        if app.detectedEngine == "unreal" {
-            return INFINITYAPKStore.isMoltenVKEmbeddedAndReadable
-        }
-        return true
-    }
-
     var body: some View {
         List {
             Section("Android app") {
@@ -140,18 +125,14 @@ struct INFINITYAPKInstalledAppDetail: View {
                 }
             }
             Section("Execution") {
-                if canLaunch {
-                    NavigationLink {
-                        INFINITYAPKLaunchView(app: app)
-                    } label: {
-                        Label("Launch", systemImage: "play.fill")
-                    }
-                } else {
-                    Label("Runtime assets required", systemImage: "exclamationmark.triangle")
-                    Text(runtimeBlocker)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                NavigationLink {
+                    INFINITYAPKLaunchView(app: app)
+                } label: {
+                    Label("Launch", systemImage: "play.fill")
                 }
+                Text("Launch is always available here. If a runtime component is missing, the launch screen will show the exact blocker instead of hiding the button.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section("Storage") {
                 Text("APK: \(INFINITYAPKStore.apkURL(for: app).lastPathComponent)")
@@ -164,24 +145,6 @@ struct INFINITYAPKInstalledAppDetail: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private var runtimeBlocker: String {
-        if app.requiresSplits {
-            return "This package needs split APKs. INFINITY preserves the imported split files, but the current Husk launch adapter still accepts only base.apk. Split loading must be connected to the native runtime before this app can launch."
-        }
-        guard app.detectedEngine != nil else {
-            return "The package's native engine could not be identified safely. No engine has been guessed."
-        }
-        guard INFINITYAPKStore.nativeRuntimeBundle() != nil else {
-            return "The Android system files, fonts, certificates or signed ANGLE graphics library are missing."
-        }
-        if app.detectedEngine == "java" && INFINITYAPKStore.runtimeBundle() == nil {
-            return "The Java APEX libraries, ICU/time-zone data, framework resources, or generated DEX files are incomplete."
-        }
-        if app.detectedEngine == "unreal" {
-            return "The MoltenVK graphics library is not embedded and signed in this app build."
-        }
-        return "Required engine assets are not installed."
-    }
 }
 
 @available(iOS 16.0, *)
@@ -258,6 +221,9 @@ struct INFINITYAPKLaunchView: View {
 
     private func prepareAndLaunch(on layer: CAMetalLayer) async {
         do {
+            guard !app.requiresSplits else {
+                throw INFINITYHuskRuntime.RuntimeError.splitPackageNotSupported
+            }
             guard let engine = selectedEngine else {
                 throw INFINITYHuskRuntime.RuntimeError.rejectedLaunch
             }
