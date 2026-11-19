@@ -29,6 +29,7 @@ typedef struct motion {
     int64_t down_ms, event_ms;
     int source, device;                     /* 0: a touch screen, device 0 */
     bool joystick;                          /* the values are in axes[], by Android axis number */
+    bool pooled;                             /* controller events use a reusable ring; touch/copy events own their record */
     float axes[MAX_AXES];
     int keycode, repeat, meta, scan;
 } motion;
@@ -98,24 +99,39 @@ static void ME_obtainCopy(tl_jcall *c)
     const motion *m = c->args[0].l ? ((const jobj *)c->args[0].l)->native : NULL;
     if (!m) return;
     jobj *o = tl_jni_new_object(tl_jni_class("android/view/MotionEvent"));
+    if (!o) return;
     motion *copy = malloc(sizeof(*copy));
+    if (!copy) return;
     memcpy(copy, m, sizeof(*copy));
+    copy->pooled = false;
     o->native = copy;
     c->ret.l = o;
 }
-static void ME_recycle(tl_jcall *c) { (void)c; }
+static void ME_recycle(tl_jcall *c)
+{
+    jobj *self = c ? c->self : NULL;
+    motion *m = self ? (motion *)self->native : NULL;
+    if (!m || m->pooled) return;
+    free(m);
+    self->native = NULL;
+}
 static void ME_isTrue(tl_jcall *c)      { c->ret = vz(1); }
 
 /* The event for the pointers currently down; `action` already carries any pointer index. */
 jobj *tl_input_motion_event(int action, int count, const int *ids, const float *xs, const float *ys, int64_t down_ms, int64_t event_ms)
 {
+    if (count < 0) count = 0;
+    if (count > MAX_POINTERS) count = MAX_POINTERS;
+    if (count && (!ids || !xs || !ys)) return NULL;
     motion *m = calloc(1, sizeof(*m));
+    if (!m) return NULL;
     m->action = action;
-    m->count = count > MAX_POINTERS ? MAX_POINTERS : count;
+    m->count = count;
     for (int i = 0; i < m->count; i++) { m->ids[i] = ids[i]; m->x[i] = xs[i]; m->y[i] = ys[i]; }
     m->down_ms = down_ms;
     m->event_ms = event_ms;
     jobj *o = tl_jni_new_object(tl_jni_class("android/view/MotionEvent"));
+    if (!o) { free(m); return NULL; }
     o->native = m;
     return o;
 }
@@ -132,12 +148,15 @@ static jobj *pooled(const char *cls, jobj **ring, unsigned *next, motion **rec)
 {
     pthread_mutex_lock(&g_pool_lock);
     unsigned i = (*next)++ % POOL;
-    if (!ring[i]) {
-        ring[i] = tl_jni_new_object(tl_jni_class(cls));
-        ring[i]->native = calloc(1, sizeof(motion));
+    if (!ring[i]) ring[i] = tl_jni_new_object(tl_jni_class(cls));
+    if (ring[i] && !ring[i]->native) ring[i]->native = calloc(1, sizeof(motion));
+    if (!ring[i] || !ring[i]->native) {
+        pthread_mutex_unlock(&g_pool_lock);
+        return NULL;
     }
     *rec = ring[i]->native;
     memset(*rec, 0, sizeof(motion));
+    (*rec)->pooled = true;
     jobj *o = tl_jni_ref(ring[i]);
     pthread_mutex_unlock(&g_pool_lock);
     return o;
@@ -148,6 +167,7 @@ jobj *tl_input_key_event(int action, int keycode, int device, int source, int re
     static jobj *ring[POOL]; static unsigned next;
     motion *m;
     jobj *o = pooled("android/view/KeyEvent", ring, &next, &m);
+    if (!o || !m) return NULL;
     m->action = action; m->keycode = keycode; m->device = device; m->source = source; m->repeat = repeat;
     m->down_ms = down_ms; m->event_ms = event_ms; m->scan = 0;
     return o;
@@ -159,6 +179,7 @@ jobj *tl_input_joystick_event(int device, int source, int64_t down_ms, int64_t e
     static jobj *ring[POOL]; static unsigned next;
     motion *m;
     jobj *o = pooled("android/view/MotionEvent", ring, &next, &m);
+    if (!o || !m) return NULL;
     m->action = ACTION_MOVE; m->count = 1; m->ids[0] = 0; m->device = device; m->source = source; m->joystick = true;
     memcpy(m->axes, axes, sizeof(m->axes));
     m->x[0] = axes[0]; m->y[0] = axes[1];
@@ -170,7 +191,7 @@ jobj *tl_input_joystick_event(int device, int source, int64_t down_ms, int64_t e
 bool tl_input_event_axes(const jobj *ev, float *out)
 {
     const motion *m = ev ? (const motion *)ev->native : NULL;
-    if (!m || !m->joystick) return false;
+    if (!m || !m->joystick || !out) return false;
     memcpy(out, m->axes, sizeof(m->axes));
     return true;
 }
