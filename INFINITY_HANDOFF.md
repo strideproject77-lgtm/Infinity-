@@ -751,3 +751,9 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Regression tests were added but NOT run. No workflow was manually dispatched, no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device launch was started.
 - Work remains on main. Strata host code and SideStore systems were not modified. Husk license and attribution notices remain preserved.
 - Next major batch: broaden Bionic pthread/NDK surface with ABI-correct wrappers and implement missing lifecycle behavior in JNI/ART. No name-only stubs should be treated as compatibility; unsupported APIs must remain explicit and diagnosable.
+
+
+### GNU version-index extent correction
+- Corrected the VERSYM extent to cover the full validated dynamic-symbol cache bound, not only the hash-covered exported-symbol count. Android shared objects commonly place undefined imports after the hash-covered definitions, so their version requirement indexes must also be addressable.
+- Added overflow rejection for 64-bit VERDEFNUM/VERNEEDNUM values before narrowing to the loader's 32-bit counters.
+- Added a regression contract for import-side version-index coverage. Tests remain unrun.
