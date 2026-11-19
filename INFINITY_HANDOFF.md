@@ -625,3 +625,24 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Verification and constraints
 - Tests were added but not run in this session. No workflow was manually dispatched, no Xcode/macOS build, IPA packaging, Codemagic build, signing/export or device launch was started.
 - Work remains on `main`. Next project-wide targets are a full native runtime dependency/ABI audit and closing the remaining Swift/C/Husk lifecycle and diagnostic propagation gaps.
+
+
+## 2026-11-19 — Project-wide Husk ELF loader hardening
+
+### Implemented on main
+- Added an overflow-safe file-range predicate and applied it to the ELF program-header table, section-header table, executable section ranges, and executable segment file ranges.
+- ELF64 headers now require a complete ELF header size and a non-empty, fully file-backed program-header table before any header indexing.
+- Every ARM64 PT_LOAD segment is checked for file-size versus memory-size consistency, a valid file-backed range, virtual-address overflow, and the loader's segment-count limit.
+- The mapped segment copy now uses subtraction-based bounds checks instead of potentially overflowing offset-plus-length expressions.
+- The dynamic table must be fully inside the mapped image and have a whole number of ELF dynamic entries before the loader parses it.
+- Added a source-contract regression test for these shared loader invariants. This is project-wide ELF loader work; it is not tied to one APK.
+
+### Integration status
+- **Overall Husk source integration estimate remains approximately 60%.** This loader hardening closes malformed-input and boundary-check gaps but does not add a new execution backend or establish new app compatibility, so the overall estimate is intentionally unchanged.
+- **Verified real-device execution remains 0% demonstrated in this batch.** No APK was launched and no device result is claimed.
+- The existing ARM64 ELF loader, ARM32 translation path, Bionic shim, DEX/JNI runtime, and native engine adapters remain partial upstream-derived components requiring broader completion and end-to-end validation.
+
+### Validation and operating constraints
+- Regression test was added but **not run**. No manual workflow dispatch, IPA build, Xcode/macOS build, signing/export, Codemagic run, or device test was started.
+- Work remains on `main`; Strata and SideStore systems were not modified. Husk license and attribution notices remain preserved.
+- Next project-wide priorities: finish ELF dynamic metadata/relocation validation, broaden Bionic/API coverage, close ART/JNI lifecycle and garbage-collection gaps, and complete graphics/audio/platform integration before consolidated testing.
