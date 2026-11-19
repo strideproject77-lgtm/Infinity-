@@ -1043,3 +1043,30 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Consolidated the Modified UTF-8/native-registration source assertions into one uniquely named test method (removing a duplicate Python method definition so no assertions are shadowed).
 - Follow-up commits: exact-length UTF region write and embedded-NUL guard `e69d0669f2839bae2aa3340e7565bbf5f1097b10`; initial supplementary source-contract assertions `c6b508714a11d9cfdf13e99292881aacf19fe427`; duplicate-test consolidation `419abb11a1d26ba53b5d4073da17ac74d8197ccb`.
 - These are source inspections/contracts only. No test suite or compiler was run.
+
+## 2026-11-20 — Transactional JNI native registration hardening
+
+### Implemented on main
+- Reworked `RegisterNatives` into a staged transaction: all method names/signatures are copied and validated before any binding is published.
+- Resolve every method's declaration owner first, then reserve capacity for every affected class table before appending entries. Allocation failure leaves all visible native bindings unchanged; a prior successful `realloc` may only leave spare capacity.
+- Added overflow checks for batch allocation, native-table counts, and allocation sizes.
+- Validate every JNI method descriptor with the existing descriptor parser before registration; reject empty names, null function pointers, malformed descriptors, and invalid tables/counts.
+- Keep per-registration origin metadata so `UnregisterNatives` removes the matching registration set and increments the method-resolution generation.
+- Added source-contract assertions for transaction staging, capacity reservation, descriptor validation, and error paths.
+
+### Commits
+- Transactional `RegisterNatives`: `b42e67d4fe3e9e376e5314537ae5f34500a2873c`
+- Transactional registration source-contract coverage: `7f9e870afcb1f635fac254c03fe57bbe19157274`
+- Integer-limit include for bounded registration tables: `bc9c126e28a2d1af556de2966d48920ab6326a87`
+- JNI method descriptor validation: `7221f2d8fadd07c0f951725a41385efcb3fad5f3`
+- Descriptor/batch-bound source-contract assertions: `a96b02812e5cfbd3e70f2d7c95274ec9267c56af`
+
+### Integration status and verification
+- **Overall Husk source integration estimate: 89%** (previous: 87%; +2 percentage points). This is a source-coverage engineering estimate, not a runtime compatibility score.
+- The registration transaction and descriptor checks have source-contract coverage only. **No tests were run and no compilation was performed.** No workflow, IPA build/export, signing, or device test was started.
+- Remaining major gaps include raw-pointer JNI local/global/weak reference identity, full embedded-NUL Java string storage, complete ART exception and class-loader semantics, and a genuine NDK NativeActivity input queue.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next batch toward 90%
+- Continue the JNI reference-handle redesign only after mapping all internal raw-pointer consumers and adding a compatibility conversion layer; do not fake `GetObjectRefType` or weak-global semantics.
+- Continue auditing DEX interface/class-loader assignability and NativeActivity event delivery; keep unsupported paths explicit until the full contracts exist.
