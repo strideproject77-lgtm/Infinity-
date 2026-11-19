@@ -24,27 +24,23 @@ jobs:
 
       - name: Resolve Xcode package dependencies
         run: |
-          xcodebuild -resolvePackageDependencies -project LiveContainer.xcodeproj
+          xcodebuild -resolvePackageDependencies \
+            -project LiveContainer.xcodeproj \
+            -derivedDataPath "$RUNNER_TEMP/infinity-strata-derived"
 
       - name: Build only the LiveContainerSwiftUI framework target
         run: |
           set -o pipefail
-          ASN1_SWIFT_MODULE_DIR="$(find "$HOME/Library/Developer/Xcode/DerivedData" -type d -path '*/SourcePackages/checkouts/swift-asn1/build/Debug-iphoneos' -print -quit)"
-          if [ -z "$ASN1_SWIFT_MODULE_DIR" ]; then
-            echo "::error::SwiftASN1 build module directory was not found after package resolution."
-            exit 1
-          fi
-          echo "Using SwiftASN1 module search path: $ASN1_SWIFT_MODULE_DIR"
           xcodebuild \
             -project LiveContainer.xcodeproj \
             -target LiveContainerSwiftUI \
             -sdk iphoneos \
             -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/infinity-strata-derived" \
             -SYMROOT="$RUNNER_TEMP/infinity-strata-products" \
             -OBJROOT="$RUNNER_TEMP/infinity-strata-objects" \
             COMPILER_INDEX_STORE_ENABLE=NO \
             SWIFT_ENABLE_EXPLICIT_MODULES=NO \
-            SWIFT_INCLUDE_PATHS="$ASN1_SWIFT_MODULE_DIR" \
             -jobs 1 \
             CODE_SIGNING_ALLOWED=NO \
             build | tee "$RUNNER_TEMP/infinity-strata-framework.log"
