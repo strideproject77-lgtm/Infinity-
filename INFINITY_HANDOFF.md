@@ -648,3 +648,28 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Next project-wide priorities: finish ELF dynamic metadata/relocation validation, broaden Bionic/API coverage, close ART/JNI lifecycle and garbage-collection gaps, and complete graphics/audio/platform integration before consolidated testing.
 
 - Follow-up in the same project-wide batch: the ELF loader now checks allocation of its library metadata object and exits through a controlled load failure rather than dereferencing a null allocation; the regression contract covers this path.
+
+
+## 2026-11-20 — Project-wide ELF dynamic metadata and Bionic lookup hardening
+
+### Implemented on main
+- Replaced permissive ELF dynamic-tag parsing with a bounded parser that requires a terminating `DT_NULL` inside the declared dynamic segment and rejects dependency-table overflow.
+- Added a shared mapped-image range validator and bounded dynamic-string lookup. `DT_NEEDED` and `DT_SONAME` offsets must resolve to NUL-terminated strings fully inside `DT_STRTAB/DT_STRSZ`.
+- Validate dynamic string/symbol tables and pointer-size pairs for RELA, PLT RELA, Android packed RELA, RELR, and init arrays before downstream linker code consumes them.
+- Validate SysV hash table dimensions and GNU hash bucket/chain termination against mapped image bounds.
+- Bionic symbol lookup now rejects null/empty names and safely reports an unavailable lookup table if its allocation fails, rather than continuing with invalid table state.
+- Added source-contract regression coverage for the ELF metadata and Bionic lookup invariants.
+
+### Commits
+- ELF dynamic metadata validation: `d57e18f341cef1792a67eaeffa33ca2f35333c55`
+- Bionic lookup failure guards: `ea569637c14960777135d6bbf63c9288f40effa3`
+- Regression contracts: `45a73c4330682363ee6b94129ca71601a538bd12`
+
+### Integration status and verification
+- **Overall Husk source integration remains approximately 60%.** This batch materially improves loader correctness and rejects malformed dynamic metadata, but it does not yet complete missing execution subsystems or establish broader APK execution. Do not inflate the percentage based on defensive validation alone.
+- **Verified real-device execution remains 0% demonstrated.**
+- Regression tests were added but **not run**. No workflow was manually dispatched; no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device test was started.
+- Work remains on `main`; Strata and SideStore were not modified. Husk license and attribution notices remain preserved.
+
+### Next large project-wide batch
+- Continue with actual runtime capability coverage rather than isolated APK patches: audit and complete dynamic relocation/symbol-resolution paths (including Android packed relocations and versioned symbol behavior), broaden Bionic NDK ABI coverage, and close native loader/JNI/ART lifecycle gaps. Only raise the overall percentage when completed capabilities—not just validation checks—justify it.
