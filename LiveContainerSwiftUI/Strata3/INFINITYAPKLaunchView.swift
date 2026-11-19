@@ -235,6 +235,9 @@ struct INFINITYAPKLaunchView: View {
     }
 
     private func prepareAndLaunch(on layer: CAMetalLayer) async {
+        // Start the upstream Husk stdio/crash capture before any C runtime preparation.
+        INFINITYHuskNativeLog.start()
+        INFINITYHuskNativeLog.log("session", "INFINITY APK launch requested for \(app.packageName)")
         launchError = nil
         let apk = INFINITYAPKStore.apkURL(for: app)
         let engineName = selectedEngine.map { String(describing: $0) } ?? app.detectedEngine
