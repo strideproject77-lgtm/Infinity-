@@ -1509,7 +1509,8 @@ static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
 typedef struct jni_array_access {
     jobj *array;
     void *copy;
-    size_t bytes;
+    size_t bytes, element_size;
+    uint32_t length;
     char etype;
     struct jni_array_access *next;
 } jni_array_access;
@@ -1537,6 +1538,8 @@ static void *jni_array_copy_out(jobj *array, char etype, size_t element_size, ui
     access->array = array;
     access->copy = copy;
     access->bytes = bytes;
+    access->element_size = element_size;
+    access->length = array->arr.len;
     access->etype = etype;
     access->next = t_array_accesses;
     t_array_accesses = access;
@@ -1561,7 +1564,9 @@ static void jni_array_release(jobj *array, void *elements, int32_t mode, char et
     jni_array_access *access = *slot;
     if (mode != 2) {
         if (!array || array->kind != TL_K_PRIM_ARRAY || array->arr.etype != etype ||
-            access->bytes != (size_t)array->arr.len * (access->bytes ? access->bytes / (size_t)array->arr.len : 0)) {
+            array->arr.len != access->length ||
+            (size_t)array->arr.len > SIZE_MAX / access->element_size ||
+            (size_t)array->arr.len * access->element_size != access->bytes) {
             tl_jni_throw("java/lang/IllegalArgumentException", "JNI array changed while elements were acquired");
             return;
         }
@@ -1579,7 +1584,8 @@ static void jni_array_accesses_detach(void)
         jni_array_access *access = t_array_accesses;
         t_array_accesses = access->next;
         if (access->array && access->array->kind == TL_K_PRIM_ARRAY &&
-            access->array->arr.etype == access->etype && access->bytes)
+            access->array->arr.etype == access->etype &&
+            access->array->arr.len == access->length && access->bytes)
             memcpy(access->array->arr.data, access->copy, access->bytes);
         free(access->copy);
         free(access);
