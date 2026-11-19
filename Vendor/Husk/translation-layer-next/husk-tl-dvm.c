@@ -1451,8 +1451,26 @@ static bool invoke_regs(dvm_method *caller, int kind, uint32_t midx, int count, 
     bool is_static = kind == 3;
     mref *r = resolve_mref(d, midx, is_static);
     if (r->missing) return throw_missing(r->cls);
+    if (!r->shorty || r->nparams < 0 || r->nparams > 255 || count < 0 || count > 255
+        || (!range && count > 0 && !argregs))
+        return dvm_throw("java/lang/VerifyError", "invalid invoke argument metadata in %s.%s", caller->cls->name, caller->name);
+    int expected_slots = is_static ? 0 : 1;
+    for (int i = 0; i < r->nparams; i++) {
+        char k = r->shorty[1 + i];
+        if (!k) return dvm_throw("java/lang/VerifyError", "truncated method prototype for %s.%s", r->cls->name, r->name);
+        expected_slots += (k == 'J' || k == 'D') ? 2 : 1;
+    }
+    if (expected_slots != count)
+        return dvm_throw("java/lang/VerifyError", "invoke register count mismatch in %s.%s: expected %d, found %d",
+                         caller->cls->name, caller->name, expected_slots, count);
     uint16_t areg[256];
-    for (int i = 0; i < count && i < 256; i++) areg[i] = range ? (uint16_t)(first + i) : argregs[i];
+    for (int i = 0; i < count; i++) {
+        unsigned index = range ? (unsigned)first + (unsigned)i : argregs[i];
+        if (index >= caller->regs)
+            return dvm_throw("java/lang/VerifyError", "invoke register v%u is outside %s.%s frame (%u registers)",
+                             index, caller->cls->name, caller->name, caller->regs);
+        areg[i] = (uint16_t)index;
+    }
     int ai = 0;
     jobj *self = NULL;
     if (!is_static) {
