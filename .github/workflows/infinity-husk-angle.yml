@@ -1,8 +1,7 @@
 name: INFINITY Husk ANGLE iOS graphics runtime
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
     paths:
       - "Vendor/Husk/build-support/build_angle_ios.sh"
       - ".github/workflows/infinity-husk-angle.yml"
