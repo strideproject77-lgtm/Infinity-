@@ -402,6 +402,13 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "static __thread jni_critical_array_access *t_critical_array_accesses",
             "tracking JNI critical array access",
             "critical array pointer is not outstanding for this array",
+            "static size_t jni_critical_element_size(char etype)",
+            "static bool jni_critical_array_copyback(jni_critical_array_access *access)",
+            "allocating JNI critical array copy",
+            "if (copy) *copy = 1;",
+            "if (mode != 2 && !jni_critical_array_copyback(access)) return;",
+            "if (mode == 1) return; /* JNI_COMMIT copies back but retains the buffer. */",
+            "free(access->address);"
             "static void jni_critical_array_accesses_detach(void)",
             "jni_critical_array_accesses_detach();"
         ):
