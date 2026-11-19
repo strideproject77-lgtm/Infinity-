@@ -1,7 +1,77 @@
 import Foundation
 import Combine
 import QuartzCore
+import UIKit
+import UniformTypeIdentifiers
+import Darwin
 
+
+private extension Notification.Name {
+    static let infinityHuskKeyboardRequest = Notification.Name("INFINITYHuskKeyboardRequest")
+    static let infinityHuskShareRequest = Notification.Name("INFINITYHuskShareRequest")
+    static let infinityHuskOrientationRequest = Notification.Name("INFINITYHuskOrientationRequest")
+    static let infinityHuskDocumentPickerRequest = Notification.Name("INFINITYHuskDocumentPickerRequest")
+}
+
+@_cdecl("INFINITYHuskHostShowKeyboard")
+func infinityHuskHostShowKeyboard(_ show: Int32, _ inputType: Int32, _ imeOptions: Int32) {
+    DispatchQueue.main.async {
+        NotificationCenter.default.post(name: .infinityHuskKeyboardRequest, object: nil,
+                                         userInfo: ["show": show != 0, "inputType": inputType,
+                                                    "imeOptions": imeOptions])
+    }
+}
+
+@_cdecl("INFINITYHuskHostSetClipboard")
+func infinityHuskHostSetClipboard(_ text: UnsafePointer<CChar>?) {
+    guard let text else { return }
+    let value = String(cString: text)
+    DispatchQueue.main.async { UIPasteboard.general.string = value }
+}
+
+@_cdecl("INFINITYHuskHostGetClipboard")
+func infinityHuskHostGetClipboard() -> UnsafeMutablePointer<CChar>? {
+    let value: String?
+    if Thread.isMainThread {
+        value = UIPasteboard.general.string
+    } else {
+        value = DispatchQueue.main.sync { UIPasteboard.general.string }
+    }
+    guard let value else { return nil }
+    return strdup(value)
+}
+
+@_cdecl("INFINITYHuskHostShare")
+func infinityHuskHostShare(_ text: UnsafePointer<CChar>?) {
+    guard let text else { return }
+    let value = String(cString: text)
+    DispatchQueue.main.async {
+        NotificationCenter.default.post(name: .infinityHuskShareRequest, object: nil,
+                                         userInfo: ["text": value])
+    }
+}
+
+@_cdecl("INFINITYHuskHostOrientation")
+func infinityHuskHostOrientation(_ orientation: Int32) {
+    DispatchQueue.main.async {
+        NotificationCenter.default.post(name: .infinityHuskOrientationRequest, object: nil,
+                                         userInfo: ["orientation": orientation])
+    }
+}
+
+@_cdecl("INFINITYHuskHostPickDocuments")
+func infinityHuskHostPickDocuments(_ mimeTypes: UnsafePointer<CChar>?, _ multiple: Int32) {
+    let value = mimeTypes.map { String(cString: $0) } ?? "*/*"
+    DispatchQueue.main.async {
+        NotificationCenter.default.post(name: .infinityHuskDocumentPickerRequest, object: nil,
+                                         userInfo: ["mimeTypes": value, "multiple": multiple != 0])
+    }
+}
+
+private struct INFINITYHuskSharePayload: Identifiable {
+    let id = UUID()
+    let text: String
+}
 
 /// Persistent, per-launch diagnostic capture for the embedded Husk session.
 /// The file is append-only for the lifetime of one launch; prior sessions are retained.
@@ -95,6 +165,15 @@ final class INFINITYHuskSessionLogger: ObservableObject {
 /// Main-thread owner for the native Husk session embedded in Strata.
 @MainActor
 final class INFINITYHuskRuntime: ObservableObject {
+    init() {
+        infinity_husk_java_set_host(infinityHuskHostShowKeyboard,
+                                    infinityHuskHostSetClipboard,
+                                    infinityHuskHostGetClipboard,
+                                    infinityHuskHostShare,
+                                    infinityHuskHostOrientation)
+        infinity_husk_java_set_document_picker(infinityHuskHostPickDocuments)
+    }
+
     enum Engine: Int32 {
         case unity = 0
         case java = 1
@@ -358,6 +437,42 @@ final class INFINITYHuskRuntime: ObservableObject {
         infinity_husk_java_text_action()
     }
 
+    func closeJavaKeyboard() {
+        infinity_husk_java_keyboard_closed()
+    }
+
+    /// Copy host-picked documents into this app's private Android data directory before
+    /// returning stable sandbox paths to the Java runtime.
+    func completeJavaDocumentPicker(_ urls: [URL], for app: INFINITYAPKInstalledApp) {
+        guard !urls.isEmpty else {
+            infinity_husk_java_documents_picked(nil, 0)
+            return
+        }
+        do {
+            let dataDirectory = try INFINITYAPKStore.dataURL(for: app)
+                .appendingPathComponent("PickedDocuments", isDirectory: true)
+            try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true)
+            var copied: [URL] = []
+            for source in urls {
+                let scoped = source.startAccessingSecurityScopedResource()
+                defer { if scoped { source.stopAccessingSecurityScopedResource() } }
+                let destination = dataDirectory.appendingPathComponent(
+                    UUID().uuidString + "-" + source.lastPathComponent,
+                    isDirectory: false
+                )
+                try FileManager.default.copyItem(at: source, to: destination)
+                copied.append(destination)
+            }
+            withCStringArray(copied.map(\.path)) { paths, count in
+                infinity_husk_java_documents_picked(paths, count)
+            }
+            recordSessionEvent("DOCUMENTS_PICKED", details: "\(copied.count) file(s) copied into app-private storage")
+        } catch {
+            recordSessionEvent("DOCUMENT_PICKER_ERROR", details: error.localizedDescription)
+            infinity_husk_java_documents_picked(nil, 0)
+        }
+    }
+
     func javaBack() {
         infinity_husk_java_back()
     }
@@ -478,5 +593,21 @@ final class INFINITYHuskRuntime: ObservableObject {
                                        _ body: (UnsafePointer<CChar>?) -> T) -> T {
         guard let value, !value.isEmpty else { return body(nil) }
         return value.withCString { body($0) }
+    }
+
+    private func withCStringArray<T>(_ values: [String],
+                                     _ body: (UnsafePointer<UnsafePointer<CChar>?>?, Int32) -> T) -> T {
+        var pointers: [UnsafePointer<CChar>?] = []
+        func append(_ index: Int) -> T {
+            guard index < values.count else {
+                return pointers.withUnsafeBufferPointer { body($0.baseAddress, Int32($0.count)) }
+            }
+            return values[index].withCString { pointer in
+                pointers.append(pointer)
+                defer { pointers.removeLast() }
+                return append(index + 1)
+            }
+        }
+        return append(0)
     }
 }

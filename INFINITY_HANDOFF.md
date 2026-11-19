@@ -326,3 +326,13 @@ This audit inspected source and upstream call paths only. No GitHub Actions run,
 - No tests, scripts, workflows, Xcode/Codemagic builds, IPA packaging/signing/export, or installs were run. Device compatibility remains unverified. SideStore systems were not modified.
 
 Files changed: `Vendor/Husk/include/INFINITYHuskRuntime.h`, `Vendor/Husk/bridge/INFINITYHuskRuntime.c`, `Vendor/Husk/translation-layer-next/husk-tl-unity-app.h`, `Vendor/Husk/translation-layer-next/husk-tl-unity-app.c`, `LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift`, `LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift`, `LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift`, and this handoff.
+
+
+## 2026-11-19 — Java host callback bridge (implementation only)
+
+- Registered the embedded Husk Java host callbacks from the INFINITY runtime owner before Java app launch.
+- Added UIKit-backed host clipboard get/set, share-sheet requests, keyboard show/hide requests, Android orientation requests through supported iOS 16+ window-scene geometry APIs, and document-picker requests.
+- Added the launch surface's software-keyboard input route to Husk's Java text insertion, backspace, editor-action and keyboard-closed functions.
+- Added document selection handling that copies selected files into the app's private per-package data directory before returning stable paths to the Java runtime. Picker cancellation is also returned to Husk.
+- Host requests are marshalled to the main queue before touching UIKit. Clipboard return memory is allocated with `strdup`, matching Husk's documented malloc-owned callback contract.
+- No tests/builds/workflows were run. These callback paths are source-integrated but remain unverified on a built app/device. SideStore remains untouched.

@@ -2,6 +2,7 @@ import SwiftUI
 import Metal
 import QuartzCore
 import UIKit
+import UniformTypeIdentifiers
 
 private final class INFINITYHuskMetalView: UIView {
     override class var layerClass: AnyClass { CAMetalLayer.self }
@@ -195,6 +196,16 @@ struct INFINITYHuskSessionLogView: View {
 }
 
 
+private struct INFINITYHuskActivitySheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
 @available(iOS 16.0, *)
 struct INFINITYAPKLaunchView: View {
     let app: INFINITYAPKInstalledApp
@@ -206,6 +217,15 @@ struct INFINITYAPKLaunchView: View {
     @State private var launchAttempted = false
     @State private var launchError: String?
     @State private var jitlessPreparationNote: String?
+    @State private var hostKeyboardVisible = false
+    @State private var hostKeyboardText = ""
+    @State private var previousHostKeyboardText = ""
+    @State private var hostKeyboardInputType: Int32 = 1
+    @State private var hostSharePayload: INFINITYHuskSharePayload?
+    @State private var hostDocumentPickerPresented = false
+    @State private var hostDocumentMIMETypes = "*/*"
+    @State private var hostDocumentAllowsMultiple = true
+    @FocusState private var hostKeyboardFocused: Bool
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -220,6 +240,42 @@ struct INFINITYAPKLaunchView: View {
                 }
             )
             .ignoresSafeArea()
+
+            TextField("", text: $hostKeyboardText)
+                .focused($hostKeyboardFocused)
+                .keyboardType(hostKeyboardType)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(.done)
+                .onSubmit {
+                    runtime.performJavaTextAction()
+                    hostKeyboardText = ""
+                    previousHostKeyboardText = ""
+                }
+                .onChange(of: hostKeyboardText) { value in
+                    let old = Array(previousHostKeyboardText)
+                    let new = Array(value)
+                    var common = 0
+                    while common < old.count && common < new.count && old[common] == new[common] {
+                        common += 1
+                    }
+                    if old.count > common {
+                        for _ in common..<old.count { runtime.deleteJavaBackward() }
+                    }
+                    if new.count > common {
+                        runtime.sendJavaText(String(new.dropFirst(common)))
+                    }
+                    previousHostKeyboardText = value
+                }
+                .onChange(of: hostKeyboardFocused) { focused in
+                    if !focused && hostKeyboardVisible {
+                        hostKeyboardVisible = false
+                        runtime.closeJavaKeyboard()
+                    }
+                }
+                .frame(width: 1, height: 1)
+                .opacity(0.01)
+                .allowsHitTesting(false)
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
@@ -270,7 +326,87 @@ struct INFINITYAPKLaunchView: View {
                                        details: "scenePhase=\(phase)")
             runtime.setPaused(paused)
         }
-        .onDisappear { runtime.stop() }
+        .onReceive(NotificationCenter.default.publisher(for: .infinityHuskKeyboardRequest)) { note in
+            let info = note.userInfo ?? [:]
+            let show = info["show"] as? Bool ?? false
+            hostKeyboardInputType = info["inputType"] as? Int32 ?? 1
+            hostKeyboardVisible = show
+            hostKeyboardFocused = show
+            if !show {
+                hostKeyboardText = ""
+                previousHostKeyboardText = ""
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .infinityHuskShareRequest)) { note in
+            if let text = note.userInfo?["text"] as? String {
+                hostSharePayload = INFINITYHuskSharePayload(text: text)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .infinityHuskOrientationRequest)) { note in
+            if let orientation = note.userInfo?["orientation"] as? Int32 {
+                applyAndroidOrientation(orientation)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .infinityHuskDocumentPickerRequest)) { note in
+            let info = note.userInfo ?? [:]
+            hostDocumentMIMETypes = info["mimeTypes"] as? String ?? "*/*"
+            hostDocumentAllowsMultiple = info["multiple"] as? Bool ?? true
+            hostDocumentPickerPresented = true
+        }
+        .fileImporter(isPresented: $hostDocumentPickerPresented,
+                      allowedContentTypes: hostDocumentTypes,
+                      allowsMultipleSelection: hostDocumentAllowsMultiple) { result in
+            switch result {
+            case .success(let urls):
+                runtime.completeJavaDocumentPicker(urls, for: app)
+            case .failure(let error):
+                runtime.recordSessionEvent("DOCUMENT_PICKER_CANCELLED", details: error.localizedDescription)
+                runtime.completeJavaDocumentPicker([], for: app)
+            }
+        }
+        .sheet(item: $hostSharePayload) { payload in
+            INFINITYHuskActivitySheet(items: [payload.text])
+        }
+        .onDisappear {
+            hostKeyboardFocused = false
+            runtime.stop()
+        }
+    }
+
+    private var hostKeyboardType: UIKeyboardType {
+        switch hostKeyboardInputType & 0x0f {
+        case 2: return .decimalPad
+        case 3: return .phonePad
+        case 4: return .numbersAndPunctuation
+        default: return .default
+        }
+    }
+
+    private var hostDocumentTypes: [UTType] {
+        let values = hostDocumentMIMETypes.split(separator: ",").compactMap {
+            UTType(mimeType: String($0).trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        return values.isEmpty ? [.item] : values
+    }
+
+    private func applyAndroidOrientation(_ requested: Int32) {
+        guard #available(iOS 16.0, *) else {
+            runtime.recordSessionEvent("ORIENTATION_REQUEST", details: "iOS 16 or later is required for a host orientation request")
+            return
+        }
+        let mask: UIInterfaceOrientationMask
+        switch requested {
+        case 0, 6, 8: mask = .landscape
+        case 1, 7, 9: mask = .portrait
+        default: mask = .all
+        }
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else {
+            runtime.recordSessionEvent("ORIENTATION_ERROR", details: "No active window scene")
+            return
+        }
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { error in
+            runtime.recordSessionEvent("ORIENTATION_ERROR", details: error.localizedDescription)
+        }
     }
 
     private func launchIfReady(on layer: CAMetalLayer) {
