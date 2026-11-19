@@ -1427,8 +1427,8 @@ static int32_t vm_Attach(void *vm, void **penv, void *args)
     (void)vm; (void)args;
     if (!penv) return JNI_ERR;
     if (!t_vm_attached) {
+        if (!local_frame_current()) return JNI_ERR;
         t_vm_attached = true;
-        (void)local_frame_current();
     }
     *penv = thread_env();
     return JNI_OK;
@@ -1458,8 +1458,8 @@ void *tl_jni_env(void)
 {
     tl_jni_init();
     if (!t_vm_attached) {
+        if (!local_frame_current()) return NULL;
         t_vm_attached = true;
-        (void)local_frame_current();
     }
     return thread_env();
 }
