@@ -1,8 +1,6 @@
 import Foundation
 import Combine
 import QuartzCore
-import SwiftUI
-import UIKit
 
 
 /// Persistent, per-launch diagnostic capture for the embedded Husk session.
@@ -20,8 +18,7 @@ final class INFINITYHuskSessionLogger: ObservableObject {
         return value
     }()
 
-    var contents: String { lines.joined(separator: "
-") }
+    var contents: String { lines.joined(separator: "\n") }
 
     @discardableResult
     func begin(packageName: String, displayName: String, version: String?,
@@ -57,7 +54,7 @@ final class INFINITYHuskSessionLogger: ObservableObject {
             record("APP", "name=\(displayName) package=\(packageName) version=\(version ?? "unknown")")
             record("ENGINE", engine ?? "unidentified")
             record("APK", "name=\(apkURL.lastPathComponent) readable=\(FileManager.default.isReadableFile(atPath: apkURL.path))")
-            record("HOST", "device=\(UIDevice.current.model) iOS=\(UIDevice.current.systemVersion) appBuild=\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown")")
+            record("HOST", "host=\(ProcessInfo.processInfo.hostName) os=\(ProcessInfo.processInfo.operatingSystemVersionString) appBuild=\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown")")
             return file
         } catch {
             logURL = nil
@@ -72,8 +69,7 @@ final class INFINITYHuskSessionLogger: ObservableObject {
         let line = "[\(formatter.string(from: Date()))] [\(event)]\(details.isEmpty ? "" : " \(details)")"
         lines.append(line)
         if lines.count > 500 { lines.removeFirst(lines.count - 500) }
-        if let data = (line + "
-").data(using: .utf8) {
+        if let data = (line + "\n").data(using: .utf8) {
             do { try handle?.write(contentsOf: data) }
             catch { recordInMemory("LOGGER_WRITE_ERROR", error.localizedDescription) }
         }
@@ -93,53 +89,6 @@ final class INFINITYHuskSessionLogger: ObservableObject {
         let line = "[\(formatter.string(from: Date()))] [\(event)] \(details)"
         lines.append(line)
         if lines.count > 500 { lines.removeFirst(lines.count - 500) }
-    }
-}
-
-@available(iOS 16.0, *)
-struct INFINITYHuskSessionLogView: View {
-    @ObservedObject var logger: INFINITYHuskSessionLogger
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Launch and runtime events")
-                    .font(.headline)
-                Text(logger.contents.isEmpty ? "No session events captured yet." : logger.contents)
-                    .font(.system(.caption, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Divider()
-                Text("Husk native output")
-                    .font(.headline)
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    let nativeLines = INFINITYHuskNativeLog.recentLines(800)
-                    Text(nativeLines.isEmpty ? "Native output will appear here after runtime startup." : nativeLines.joined(separator: "\n"))
-                        .font(.system(.caption2, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding()
-        }
-        .navigationTitle("Session Log")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                if let url = logger.logURL {
-                    ShareLink(item: url) { Image(systemName: "doc.text") }
-                        .accessibilityLabel("Export session events")
-                }
-                ShareLink(item: INFINITYHuskNativeLog.logFileURL) {
-                    Image(systemName: "terminal")
-                }
-                .accessibilityLabel("Export Husk log")
-                ShareLink(item: INFINITYHuskNativeLog.nativeLogURL) {
-                    Image(systemName: "waveform.path")
-                }
-                .accessibilityLabel("Export native stderr log")
-            }
-        }
     }
 }
 
