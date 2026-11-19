@@ -1036,3 +1036,10 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Introduce length-aware guest string storage to support embedded U+0000 and complete JNI Modified UTF-8 semantics without C-string truncation.
 - Replace raw JNI object pointers with explicit local/global/weak handle records, preserving internal runtime pointer APIs through conversion helpers.
 - Continue NativeActivity input delivery only if a real NDK-compatible queue can be implemented end-to-end; otherwise keep it explicitly unsupported.
+
+
+### Follow-up source-contract cleanup
+- `GetStringUTFRegion` now copies exactly the Modified UTF-8 byte count with `memcpy`; it does not assume the caller allocated an extra byte for a C terminator. Embedded U+0000 remains explicitly rejected because the internal guest string representation is NUL-terminated.
+- Consolidated the Modified UTF-8/native-registration source assertions into one uniquely named test method (removing a duplicate Python method definition so no assertions are shadowed).
+- Follow-up commits: exact-length UTF region write and embedded-NUL guard `e69d0669f2839bae2aa3340e7565bbf5f1097b10`; initial supplementary source-contract assertions `c6b508714a11d9cfdf13e99292881aacf19fe427`; duplicate-test consolidation `419abb11a1d26ba53b5d4073da17ac74d8197ccb`.
+- These are source inspections/contracts only. No test suite or compiler was run.
