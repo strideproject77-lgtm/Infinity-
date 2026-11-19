@@ -94,10 +94,14 @@ static bool dex_class_data_valid(dvm_dex *d, uint32_t off)
         return false;
 
     uint32_t idx = 0, delta, flags;
-    for (uint32_t i = 0; i < nsf + nif; i++) {
-        if (!dex_uleb_bounded(d, &p, &delta) || delta > UINT32_MAX - idx) return false;
-        idx += delta;
-        if (idx >= d->nfield || !dex_uleb_bounded(d, &p, &flags)) return false;
+    for (uint32_t group = 0; group < 2; group++) {
+        uint32_t count = group ? nif : nsf;
+        idx = 0; /* DEX delta indices restart for static_fields and instance_fields. */
+        for (uint32_t i = 0; i < count; i++) {
+            if (!dex_uleb_bounded(d, &p, &delta) || delta > UINT32_MAX - idx) return false;
+            idx += delta;
+            if (idx >= d->nfield || !dex_uleb_bounded(d, &p, &flags)) return false;
+        }
     }
     for (uint32_t group = 0; group < 2; group++) {
         uint32_t count = group ? nvm : ndm;
