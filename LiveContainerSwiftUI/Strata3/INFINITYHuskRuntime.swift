@@ -83,6 +83,7 @@ final class INFINITYHuskSessionLogger: ObservableObject {
         guard isRecording else { return }
         record("SESSION_END", outcome)
         do { try handle?.synchronize() } catch { }
+        INFINITYHuskNativeLog.flushNow()
         try? handle?.close()
         handle = nil
         isRecording = false
@@ -173,6 +174,7 @@ final class INFINITYHuskRuntime: ObservableObject {
         case vulkanRuntimeNotPrepared
         case invalidSurface
         case rejectedLaunch
+        case unsupportedEngine
         case splitPackageNotSupported
 
         var errorDescription: String? {
@@ -188,7 +190,9 @@ final class INFINITYHuskRuntime: ObservableObject {
             case .invalidSurface:
                 return "The Android surface has an invalid size."
             case .rejectedLaunch:
-                return "Husk rejected the launch request. Check the APK, data folder and runtime assets."
+                return "Husk rejected the launch request. The native runtime did not accept this APK; inspect the attached Husk native log for the underlying reason."
+            case .unsupportedEngine:
+                return "INFINITY could not identify a supported Husk engine for this APK. Import diagnostics are available in the session log."
             case .splitPackageNotSupported:
                 return "This app requires split APK loading. The current Husk adapter only accepts a single base APK, so execution is blocked safely."
             }
