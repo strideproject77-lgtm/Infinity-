@@ -439,6 +439,11 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("N.callbacks.onInputQueueDestroyed(&N.na, input_queue)", activity)
         self.assertNotIn("callback withheld because no real queue is available", activity)
         for marker in (
+            "static pthread_mutex_t IQ_init_mu = PTHREAD_MUTEX_INITIALIZER;",
+            "if (!IQ.attached || !IQ.ready)",
+            "if (wake_fd >= 0) (void)!write(wake_fd, &c, 1);",
+            "if (!f) { pthread_mutex_unlock(&l->mu); return -1; }",
+            "if (!IQ.attached) { pthread_mutex_unlock(&IQ.mu); return; }",
             "void *tl_bionic_input_queue_create(void)",
             "void tl_bionic_input_queue_destroy(void *queue)",
             "return &IQ;",
