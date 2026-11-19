@@ -378,7 +378,13 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             choosingIPA = false
         })
         .sheet(isPresented: $showingAPKLibrary) {
-            NavigationView { INFINITYAPKLibraryView() }
+            NavigationView {
+                if #available(iOS 16.0, *) {
+                    INFINITYAPKLibraryView()
+                } else {
+                    Text("APK Library requires iOS 16 or later.")
+                }
+            }
         }
         .sheet(item: $selectedAPKForDetails) { app in
             NavigationView {
