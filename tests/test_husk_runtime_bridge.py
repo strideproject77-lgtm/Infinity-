@@ -148,6 +148,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         self.assertIn("dex_class_data_valid", dvm)
         self.assertIn("dex_uleb_bounded", dvm)
+        self.assertIn("DEX delta indices restart for static_fields and instance_fields", dvm)
         self.assertIn("code_off > d->size", dvm)
         self.assertIn("d->nfield", dvm)
         self.assertIn("d->nmeth", dvm)
