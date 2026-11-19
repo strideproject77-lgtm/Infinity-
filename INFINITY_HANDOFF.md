@@ -777,3 +777,22 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Integration status update
 - **Overall Husk source integration estimate: 75%** (from 68%; +7 percentage points across this batch). The increase reflects actual GNU versioned relocation binding, explicit version-specific symbol lookup, provider-file matching, Bionic dlvsym wiring, and correct default-version selection. This remains an engineering estimate, not a compatibility benchmark.
 - **Verified real-device execution remains 0% demonstrated.**
+
+
+## 2026-11-20 — Bionic pthread identity and condition-clock ABI batch
+
+### Implemented on main
+- Added a real pthread_getname_np wrapper backed by Darwin's thread-name query for the requested pthread handle.
+- Added pthread_gettid_np backed by pthread_threadid_np, returning the host thread identifier and reporting host errors through guest errno.
+- Added pthread_condattr_getclock to read back the clock selected by pthread_condattr_setclock, preserving Bionic's CLOCK_REALTIME/CLOCK_MONOTONIC values stored in the guest attribute.
+- Corrected pthread_setname_np behavior: the host only supports renaming the current thread through this API, so remote-thread rename now returns ENOTSUP rather than falsely reporting success. Current-thread rename propagates the host result.
+- Exported all three added NDK/pthread symbols and added source-contract coverage.
+
+### Integration status
+- **Overall Husk source integration estimate: 77%** (previous: 75%; +2 percentage points). This reflects real pthread ABI coverage and truthful behavior for thread naming, not added symbol-name stubs. It remains an engineering estimate, not a measured compatibility score.
+- **Verified real-device APK execution remains 0% demonstrated.**
+
+### Verification and constraints
+- Tests were added but NOT run. No workflow manually dispatched; no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device test.
+- Work remains on main; Strata and SideStore untouched; Husk notices preserved.
+- Next large batch: continue Bionic pthread lifecycle/robust mutex semantics and NDK NativeActivity/input/window integration, then ART/JNI lifecycle gaps. No fake API stubs should be counted as completed capability.
