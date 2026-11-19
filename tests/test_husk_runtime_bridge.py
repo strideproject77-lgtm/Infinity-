@@ -418,6 +418,18 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
 
+    def test_jni_array_accesses_retain_owner_until_release_or_detach(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            "access->array = tl_jni_ref(array);",
+            "access->array = tl_jni_ref(a);",
+            "tl_jni_unref(access->array);",
+            "static void jni_array_accesses_detach(void)",
+            "static void jni_critical_array_accesses_detach(void)",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+
     def test_jni_primitive_array_elements_obey_copy_and_release_modes(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
