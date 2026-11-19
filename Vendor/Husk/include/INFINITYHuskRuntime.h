@@ -112,6 +112,9 @@ bool infinity_husk_configure_jitless(bool enabled, const char *cache_dir,
 
 
 /* Runtime control and diagnostics. */
+/* Queue validated additional APKs for the next SDL launch only. */
+bool infinity_husk_queue_split_package(const char *apk_path);
+void infinity_husk_clear_split_packages(void);
 void infinity_husk_stop(void);
 infinity_husk_state infinity_husk_get_state(void);
 const char *infinity_husk_loaded_apk(void);

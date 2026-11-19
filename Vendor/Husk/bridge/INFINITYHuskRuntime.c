@@ -20,6 +20,7 @@ enum { INFINITY_ENGINE_STARTING = -2, INFINITY_ENGINE_NONE = -1 };
 static atomic_int g_infinity_engine = ATOMIC_VAR_INIT(INFINITY_ENGINE_NONE);
 static atomic_bool g_java_runtime_ready = ATOMIC_VAR_INIT(false);
 static atomic_bool g_native_runtime_ready = ATOMIC_VAR_INIT(false);
+static atomic_int g_queued_split_packages = ATOMIC_VAR_INIT(0);
 
 static bool readable_directory(const char *path)
 {
@@ -143,6 +144,11 @@ bool infinity_husk_launch_engine(int engine,
 
     if (engine < INFINITY_HUSK_ENGINE_UNITY || engine > INFINITY_HUSK_ENGINE_GAMEMAKER)
         return false;
+    int queued_splits = atomic_load(&g_queued_split_packages);
+    if (queued_splits > 0 && engine != INFINITY_HUSK_ENGINE_SDL) {
+        infinity_husk_clear_split_packages();
+        return false;
+    }
 
     /* Reserve the single native session before entering upstream launch code.
        Without this CAS, two callers can both observe NONE and start two engines
@@ -188,6 +194,10 @@ bool infinity_husk_launch_engine(int engine,
     }
 
     /* Publish the selected backend only after Husk accepted the launch. */
+    if (!accepted && queued_splits > 0)
+        infinity_husk_clear_split_packages();
+    else if (accepted)
+        atomic_store(&g_queued_split_packages, 0);
     atomic_store(&g_infinity_engine,
                  accepted ? engine : INFINITY_ENGINE_NONE);
     return accepted;
@@ -300,10 +310,31 @@ void infinity_husk_gamepad_update(int slot, unsigned buttons, float lx, float ly
     husk_gamepad_update(slot, buttons, lx, ly, rx, ry, left_trigger, right_trigger);
 }
 
+bool infinity_husk_queue_split_package(const char *apk_path)
+{
+    if (!apk_path || !apk_path[0] ||
+        atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE ||
+        !atomic_load(&g_native_runtime_ready) ||
+        atomic_load(&g_queued_split_packages) >= 15 ||
+        !readable_file(apk_path))
+        return false;
+    if (!husk_native_try_add_package(apk_path)) return false;
+    atomic_fetch_add(&g_queued_split_packages, 1);
+    return true;
+}
+
+void infinity_husk_clear_split_packages(void)
+{
+    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE) return;
+    husk_native_clear_packages();
+    atomic_store(&g_queued_split_packages, 0);
+}
+
 void infinity_husk_stop(void)
 {
     if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_NONE) return;
     husk_native_unload();
+    atomic_store(&g_queued_split_packages, 0);
     atomic_store(&g_infinity_engine, INFINITY_ENGINE_NONE);
 }
 
