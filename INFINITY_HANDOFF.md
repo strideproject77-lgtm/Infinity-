@@ -1127,3 +1127,4 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Audit string critical access pairing and UTF-16 buffer ownership, then implement a robust tracked lifecycle if the current API permits it.
 - Continue JNI reference lifecycle only after mapping every internal raw-pointer consumer; do not claim local/global/weak identity until the representation actually supports it.
 - Preserve the agreed rule: no test suite, compilation, workflow, IPA build/export, signing, or device testing until source integration reaches 100%.
+- Follow-up static marker audit corrected one source-contract string to match the new critical-copy allocation diagnostic (`tracking JNI critical array access` → `allocating JNI critical array copy`): `d6afa7e85d432494ab88e0b59083214200945fbc`. Marker presence was inspected; tests remain unexecuted.
