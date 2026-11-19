@@ -88,10 +88,12 @@ workflows:
           set -euo pipefail
           bash scripts/run_codemagic_build.sh
 
-      - name: Package all outputs into one ZIP
+      - name: Package three separate ZIP artifacts
         script: |
           set -euo pipefail
           bash scripts/package_codemagic_artifacts.sh
 
     artifacts:
+      - INFINITY-LiveContainer-Only.zip
+      - INFINITY-LiveContainer-SideStore.zip
       - INFINITY-Complete-Artifacts.zip
