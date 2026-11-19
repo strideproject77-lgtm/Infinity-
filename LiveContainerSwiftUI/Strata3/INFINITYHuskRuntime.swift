@@ -20,7 +20,8 @@ final class INFINITYHuskSessionLogger: ObservableObject {
         return value
     }()
 
-    var contents: String { lines.joined(separator: "\n") }
+    var contents: String { lines.joined(separator: "
+") }
 
     @discardableResult
     func begin(packageName: String, displayName: String, version: String?,
@@ -71,7 +72,8 @@ final class INFINITYHuskSessionLogger: ObservableObject {
         let line = "[\(formatter.string(from: Date()))] [\(event)]\(details.isEmpty ? "" : " \(details)")"
         lines.append(line)
         if lines.count > 500 { lines.removeFirst(lines.count - 500) }
-        if let data = (line + "\n").data(using: .utf8) {
+        if let data = (line + "
+").data(using: .utf8) {
             do { try handle?.write(contentsOf: data) }
             catch { recordInMemory("LOGGER_WRITE_ERROR", error.localizedDescription) }
         }
@@ -194,7 +196,17 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     var isRunning: Bool { state == .running || state == .starting }
 
-    func attachSessionLogger(_ logger: INFINITYHuskSessionLogger) {\n        sessionLogger = logger\n        lastRecordedState = state\n        lastMetricsLogDate = Date.distantPast\n    }\n\n    func recordSessionEvent(_ event: String, details: String = "") {\n        sessionLogger?.record(event, details)\n    }\n\n    func prepareNative(certificatesDirectory: URL,
+    func attachSessionLogger(_ logger: INFINITYHuskSessionLogger) {
+        sessionLogger = logger
+        lastRecordedState = state
+        lastMetricsLogDate = Date.distantPast
+    }
+
+    func recordSessionEvent(_ event: String, details: String = "") {
+        sessionLogger?.record(event, details)
+    }
+
+    func prepareNative(certificatesDirectory: URL,
                        systemFilesRoot: URL,
                        extraFontsDirectory: URL? = nil,
                        sharedStorageDirectory: URL? = nil) throws {
