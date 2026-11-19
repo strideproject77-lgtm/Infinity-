@@ -1101,3 +1101,29 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Continue NativeActivity and Bionic lifecycle gaps only where a real compatible contract can be delivered; retain explicit unsupported behavior otherwise.
 - Keep all validation deferred until source integration reaches 100%, then perform the single consolidated test/build/device phase.
 - Final source-contract marker audit found and corrected one stale assertion left from the pre-transactional registration implementation (`growing JNI native method table` → `reserving JNI native method table transaction`): `06c4b50ce964f0afa7c61f2d18419a7e85421428`. Marker matching was inspected statically; tests were not run.
+
+
+## 2026-11-20 — JNI critical primitive-array copy semantics
+
+### Implemented on main
+- Replaced the previous direct-array pointer in `GetPrimitiveArrayCritical` with a tracked native copy. `isCopy` now correctly reports true for this implementation.
+- Added primitive element-size validation for all eight JNI primitive types and overflow-safe byte sizing before allocation.
+- `ReleasePrimitiveArrayCritical` now validates the exact array/pointer pair and implements release modes: mode 0 copies back and frees, `JNI_COMMIT` copies back while retaining the buffer, and `JNI_ABORT` discards changes and frees.
+- Copyback verifies that array kind, element type, length, and byte count still match the acquired layout. Outstanding critical copies are copied back and released on thread detach.
+- Added source-contract assertions for critical-array copy allocation, copyback, mode behavior, and cleanup.
+
+### Commits
+- Critical-array copy, copyback and release-mode implementation: `fb2c25221c88345fdde1ae22f0d4cb33bb484194`
+- Critical-array source-contract coverage: `77632deea6cb1294cbd6aae35886d0a1b133c93b`
+
+### Integration status and verification
+- **Overall Husk source integration estimate: 93%** (previous: 92%; +1 percentage point). This is a source integration estimate, not a runtime compatibility score.
+- Source-contract assertions were added and statically inspected; no tests or compiler were run. No workflow, IPA build/export, signing, or device testing was started.
+- This implementation uses a copy rather than a pinned direct pointer. It does not provide moving-GC pin semantics or enforce JNI's restriction against other JNI calls while a critical pointer is held.
+- JNI raw-pointer local/global/weak reference identity, embedded-NUL guest strings, genuine NDK `AInputQueue`, and complete ART exception/class-loader behavior remain open.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next target: 95%
+- Audit string critical access pairing and UTF-16 buffer ownership, then implement a robust tracked lifecycle if the current API permits it.
+- Continue JNI reference lifecycle only after mapping every internal raw-pointer consumer; do not claim local/global/weak identity until the representation actually supports it.
+- Preserve the agreed rule: no test suite, compilation, workflow, IPA build/export, signing, or device testing until source integration reaches 100%.
