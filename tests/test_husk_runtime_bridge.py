@@ -68,6 +68,14 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("husk_unity_set_paused(paused)", adapter)
 
 
+    def test_dex_invoke_register_count_is_checked_against_prototype(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        self.assertIn("expected_slots != count", dvm)
+        self.assertIn("invoke register count mismatch", dvm)
+        self.assertIn("truncated method prototype", dvm)
+        self.assertIn("index >= caller->regs", dvm)
+        self.assertIn("count > 255", dvm)
+
     def test_jni_signature_parser_and_varargs_support_full_descriptor_limit(self):
         internal = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-internal.h")
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
