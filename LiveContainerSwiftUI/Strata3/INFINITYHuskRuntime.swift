@@ -342,6 +342,21 @@ final class INFINITYHuskRuntime: ObservableObject {
         infinity_husk_java_back()
     }
 
+    func queueSplitPackages(_ packages: [URL]) throws {
+        infinity_husk_clear_split_packages()
+        guard !packages.isEmpty else { return }
+        for package in packages {
+            let queued = package.standardizedFileURL.path.withCString {
+                infinity_husk_queue_split_package($0)
+            }
+            guard queued else {
+                infinity_husk_clear_split_packages()
+                throw RuntimeError.rejectedLaunch
+            }
+        }
+        sessionLogger?.record("SPLIT_PACKAGES_QUEUED", "\(packages.count) validated split APK(s) queued for Husk SDL")
+    }
+
     func setPaused(_ paused: Bool) {
         infinity_husk_set_paused(paused)
     }

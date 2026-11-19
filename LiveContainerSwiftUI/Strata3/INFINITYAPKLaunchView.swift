@@ -303,13 +303,18 @@ struct INFINITYAPKLaunchView: View {
             launchError = "Session log could not be created. Launch will continue without persistent logging."
         }
         do {
-            guard !app.requiresSplits else {
-                throw INFINITYHuskRuntime.RuntimeError.splitPackageNotSupported
-            }
-            runtime.recordSessionEvent("PREFLIGHT", details: "split package check passed")
             guard let engine = selectedEngine else {
                 throw INFINITYHuskRuntime.RuntimeError.unsupportedEngine
             }
+            let splitPackages = try INFINITYAPKStore.splitAPKURLs(for: app)
+            if !splitPackages.isEmpty && engine != .sdl {
+                throw INFINITYAPKStore.StoreError.splitPackagesRequireSDL
+            }
+            if app.requiresSplits && splitPackages.isEmpty {
+                throw INFINITYAPKStore.StoreError.missingSplitPackages
+            }
+            runtime.recordSessionEvent("PACKAGE_SET_VALIDATED",
+                                       details: "base=\(apk.lastPathComponent) splits=\(splitPackages.count) engine=\(engine)")
             runtime.recordSessionEvent("ENGINE_SELECTED", details: String(describing: engine))
             guard FileManager.default.isReadableFile(atPath: apk.path) else {
                 throw INFINITYAPKStore.StoreError.missingInstalledAPK
@@ -390,7 +395,11 @@ struct INFINITYAPKLaunchView: View {
             runtime.recordSessionEvent("RUNTIME_PREPARATION", details: "success")
 
             let moltenVK = engine == .unreal ? INFINITYAPKStore.moltenVKLibraryURL : nil
-            runtime.recordSessionEvent("HUSK_LAUNCH_REQUEST", details: "engine=\(engine)")
+            if !splitPackages.isEmpty {
+                try runtime.queueSplitPackages(splitPackages)
+            }
+            runtime.recordSessionEvent("HUSK_LAUNCH_REQUEST",
+                                       details: "engine=\(engine) splitPackages=\(splitPackages.count)")
             try runtime.launch(engine: engine, apk: apk, dataDirectory: dataDirectory,
                                metalLayer: layer, width: width, height: height,
                                angleLibrary: angle, certificateBundle: certificates,

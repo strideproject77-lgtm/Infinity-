@@ -85,6 +85,9 @@ enum INFINITYAPKStore {
         case unsupportedPackageFormat
         case missingBaseAPK
         case ambiguousBaseAPK
+        case missingSplitPackages
+        case invalidSplitPackage
+        case splitPackagesRequireSDL
 
         var errorDescription: String? {
             switch self {
@@ -96,6 +99,9 @@ enum INFINITYAPKStore {
             case .unsupportedPackageFormat: return "Supported Android packages are .apk, .xapk, .apks and .apkm. Android App Bundles (.aab) and OBB files are not directly installable."
             case .missingBaseAPK: return "The selected package archive does not contain a base APK."
             case .ambiguousBaseAPK: return "The selected package archive contains multiple possible base APKs and cannot be imported safely."
+            case .missingSplitPackages: return "This app requires split APKs, but its installed package is missing one or more split files. Re-import the complete XAPK/APKS/APKM package."
+            case .invalidSplitPackage: return "A split APK does not match the base package name or version, or its manifest is invalid. The package was not launched."
+            case .splitPackagesRequireSDL: return "This Husk build can load split APK packages through its SDL backend only. This app's detected engine does not expose a split-package loader, so launch is safely blocked."
             }
         }
     }
@@ -356,6 +362,65 @@ enum INFINITYAPKStore {
 
     static func apkURL(for app: INFINITYAPKInstalledApp) -> URL {
         root.appendingPathComponent(app.packageName, isDirectory: true).appendingPathComponent("base.apk")
+    }
+
+    /// Finds and validates the complete split APK set for an installed package.
+    /// The pinned Husk adapter currently consumes additional packages through SDL only.
+    static func splitAPKURLs(for app: INFINITYAPKInstalledApp) throws -> [URL] {
+        guard isValidPackageName(app.packageName) else { throw StoreError.invalidPackageName }
+        let packageDirectory = root.appendingPathComponent(app.packageName, isDirectory: true).standardizedFileURL
+        guard packageDirectory.path.hasPrefix(root.standardizedFileURL.path + "/") else {
+            throw StoreError.invalidPackageName
+        }
+        let splitDirectory = packageDirectory.appendingPathComponent("splits", isDirectory: true)
+        let baseURL = apkURL(for: app)
+        guard fileManager.isReadableFile(atPath: baseURL.path) else {
+            throw StoreError.missingInstalledAPK
+        }
+
+        let urls: [URL]
+        if fileManager.fileExists(atPath: splitDirectory.path) {
+            let values = try fileManager.contentsOfDirectory(
+                at: splitDirectory,
+                includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
+                options: [.skipsHiddenFiles]
+            )
+            urls = values.filter { url in
+                guard url.pathExtension.lowercased() == "apk",
+                      let resource = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]) else {
+                    return false
+                }
+                return resource.isRegularFile == true && resource.isSymbolicLink != true
+            }.sorted { $0.lastPathComponent.localizedStandardCompare($1.lastPathComponent) == .orderedAscending }
+        } else {
+            urls = []
+        }
+
+        guard urls.count == app.splitAPKCount else {
+            if app.requiresSplits || app.splitAPKCount > 0 { throw StoreError.missingSplitPackages }
+            return []
+        }
+        guard !app.requiresSplits || !urls.isEmpty else { throw StoreError.missingSplitPackages }
+        guard !urls.isEmpty else { return [] }
+
+        let baseInspection = try INFINITYAPKInspection.inspect(url: baseURL)
+        guard let baseManifest = baseInspection.manifest else { throw StoreError.invalidManifest }
+        for url in urls {
+            let standardized = url.standardizedFileURL
+            guard standardized.path.hasPrefix(splitDirectory.standardizedFileURL.path + "/") else {
+                throw StoreError.invalidPackageName
+            }
+            let inspection = try INFINITYAPKInspection.inspect(url: standardized)
+            guard inspection.hasManifest,
+                  let manifest = inspection.manifest,
+                  manifest.packageName == baseManifest.packageName,
+                  manifest.packageName == app.packageName,
+                  (manifest.versionCode == nil || baseManifest.versionCode == nil ||
+                   manifest.versionCode == baseManifest.versionCode) else {
+                throw StoreError.invalidSplitPackage
+            }
+        }
+        return urls
     }
 
     static func dataURL(for app: INFINITYAPKInstalledApp) throws -> URL {

@@ -313,3 +313,16 @@ This audit inspected source and upstream call paths only. No GitHub Actions run,
 - Preserved upstream LiveContainer, SideStore, Husk and other third-party credits and all license/notice files. No upstream license or copyright attribution was removed.
 - Preserved the existing bundle identifier, executable/target names, app groups, notification names, persisted preference keys and `Strata3` on-device storage paths. These are compatibility identifiers/data locations, not visible product branding; renaming them in a branding-only change could break app updates, SideStore integration or existing user data.
 - No workflows, tests, Xcode builds, IPA builds, signing or exports were started. This commit is a source/configuration branding change only; compilation and packaged Info.plist output still require the next authorized build.
+
+
+## 2026-11-19 — Husk SDL split-package launch integration (implementation only)
+
+- Added a narrow native bridge for queuing and clearing additional APK package paths before launch. The upstream Husk helper enforces its 15-package limit, checks idle state and path length, and reuses its existing dynamic-linker split queue.
+- Split packages are consumed only by Husk's SDL backend, which explicitly calls `tl_sdl_add_package` before starting SDL. The bridge rejects split sets for engines without a documented package-set loader; it never silently launches only the base APK.
+- Added deterministic split discovery from the installed package's private `splits/` directory. Preflight verifies the stored split count, regular non-symlink files, package identity and matching version code.
+- Connected validated split paths to the C queue with scoped C-string lifetimes. Launch now permits complete valid SDL split packages to reach the actual Husk SDL launch function.
+- Missing, malformed or unsupported-engine split packages remain blocked. OBB/asset-pack extraction and Play Asset Delivery emulation remain unsupported. Other engine split loading remains blocked until their runtime loaders expose a complete package-set contract.
+- The earlier 2048 static-field issue remains a separate investigation; no DEX opcode was duplicated or changed.
+- No tests, scripts, workflows, Xcode/Codemagic builds, IPA packaging/signing/export, or installs were run. Device compatibility remains unverified. SideStore systems were not modified.
+
+Files changed: `Vendor/Husk/include/INFINITYHuskRuntime.h`, `Vendor/Husk/bridge/INFINITYHuskRuntime.c`, `Vendor/Husk/translation-layer-next/husk-tl-unity-app.h`, `Vendor/Husk/translation-layer-next/husk-tl-unity-app.c`, `LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift`, `LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift`, `LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift`, and this handoff.
