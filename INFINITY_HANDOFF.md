@@ -398,3 +398,12 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - The APK execution overlay displays connected controller names. Husk's native input implementation remains responsible for exposing these devices and events to Android engine sinks.
 - Verification limitation: source integration only. No Xcode compile, physical Bluetooth/MFi controller test, Android game input test, CI run, IPA build, signing or export was performed. Micro-gamepad-only profiles are not currently mapped; individual games must support controller input.
 - This change does not alter SideStore or IPA installation behavior.
+
+
+## 2026-11-19 — DEX field resolution hardening
+
+- Updated the interpreted DEX field resolver to match a field by its complete field identity: name plus descriptor, while retaining the requested static/instance kind and the existing superclass/interface search order.
+- This avoids binding a same-named hidden field with a different primitive/reference descriptor to the wrong runtime slot. The existing generic name-only lookup remains available to other internal callers; DEX field_id resolution uses the new exact-match helper.
+- Improved unresolved static-field diagnostics to include declaring class, field name, descriptor and DEX file name, making failures such as generated `R$*` references actionable rather than reporting only a numeric field index.
+- This is a targeted interpreter correctness improvement, not proof that the earlier 2048 `R$layout` failure is fixed. That exact APK still requires a real launch and session-log confirmation.
+- No tests, workflows, Xcode builds, IPA builds, Codemagic jobs, signing/export or device runs were started in this implementation-only batch.
