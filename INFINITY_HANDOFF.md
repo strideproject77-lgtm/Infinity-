@@ -521,3 +521,6 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Source-contract tests were added but **not run** in this batch.
 - No GitHub Actions workflow was dispatched or rerun; no Xcode compilation, device execution, IPA build, Codemagic build, signing or export was performed.
 - This status update does not claim successful game execution or complete Husk/ART compatibility. Work remains on main; SideStore systems were not changed.
+
+
+- Follow-up cleanup in this batch: the shared JNI varargs conversion helper is now used by both the small-stack and heap-backed argument paths, avoiding duplicated conversion logic.
