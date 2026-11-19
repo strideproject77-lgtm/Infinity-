@@ -228,7 +228,7 @@ tl_jclass *tl_jni_class(const char *name)
 
 const char *tl_jni_class_name(const jobj *o) { return o && o->kind == TL_K_CLASS ? o->klass.jc->name : (o && o->cls ? o->cls->name : "?"); }
 
-jobj *tl_jni_class_object(const char *name) { return local_frame_adopt(tl_jni_class(name)->mirror); }
+jobj *tl_jni_class_object(const char *name) { return tl_jni_class(name)->mirror; }
 
 jobj *tl_jni_new_object(tl_jclass *cls)
 {
@@ -761,7 +761,7 @@ static jo jni_FindClass(void *env, const char *name)
     if (tl_dvm && !known && !array) {
         /* the Java runtime is up: a class exists when some DEX on its class paths defines it */
         tl_jclass *c = tl_jni_class(name);
-        if (c->dvm || framework) return local_frame_adopt(c->mirror);
+        if (c->dvm || framework) return local_frame_adopt(tl_jni_ref(c->mirror));
         tl_log_line("jni: FindClass(%s) -> NoClassDefFoundError", name);
         char msg[200]; snprintf(msg, sizeof(msg), "%s", name);
         tl_jni_throw("java/lang/NoClassDefFoundError", msg);
@@ -769,7 +769,7 @@ static jo jni_FindClass(void *env, const char *name)
     }
     if (array || framework || known || tl_dexidx_has_class(name)) {
         TRACE("jni: FindClass(%s)", name);
-        return local_frame_adopt(tl_jni_class(name)->mirror);
+        return local_frame_adopt(tl_jni_ref(tl_jni_class(name)->mirror));
     }
     TRACE("jni: FindClass(%s) -> NoClassDefFoundError", name);
     char msg[200]; snprintf(msg, sizeof(msg), "%s", name);
@@ -777,7 +777,7 @@ static jo jni_FindClass(void *env, const char *name)
     return NULL;
 }
 
-static jo jni_GetSuperclass(void *env, jo cls) { (void)env; return cls && cls->kind == TL_K_CLASS && cls->klass.jc->super ? local_frame_adopt(cls->klass.jc->super->mirror) : NULL; }
+static jo jni_GetSuperclass(void *env, jo cls) { (void)env; return cls && cls->kind == TL_K_CLASS && cls->klass.jc->super ? local_frame_adopt(tl_jni_ref(cls->klass.jc->super->mirror)) : NULL; }
 
 bool dvm_assignable(tl_jclass *sub, tl_jclass *sup);
 /* superclasses, interfaces (the interpreter knows a class's) and arrays: Unity asks IsInstanceOf(trustManager, X509TrustManager) */
@@ -910,8 +910,8 @@ static jo jni_GetObjectClass(void *env, jo o)
 {
     (void)env;
     if (!o) return NULL;
-    if (o->kind == TL_K_CLASS) return local_frame_adopt(tl_jni_class("java/lang/Class")->mirror);
-    return o->cls ? local_frame_adopt(o->cls->mirror) : NULL;
+    if (o->kind == TL_K_CLASS) return local_frame_adopt(tl_jni_ref(tl_jni_class("java/lang/Class")->mirror));
+    return o->cls ? local_frame_adopt(tl_jni_ref(o->cls->mirror)) : NULL;
 }
 
 static void *jni_GetMethodID_impl(jo cls, const char *name, const char *sig, bool is_static)
@@ -960,9 +960,9 @@ JV_TYPES(GEN_CALLS)
 
 /* Object-returning JNI calls create a fresh local reference in the active frame. */
 static jo call_object_a(int kind, jo receiver, void *mid, const jvalue *args)
-{ return local_frame_adopt(call_a(kind, receiver, mid, args).l); }
+{ return local_frame_adopt(tl_jni_ref(call_a(kind, receiver, mid, args).l)); }
 static jo call_object_v(int kind, jo receiver, void *mid, tl_va_list *ap)
-{ return local_frame_adopt(call_va(kind, receiver, mid, ap).l); }
+{ return local_frame_adopt(tl_jni_ref(call_va(kind, receiver, mid, ap).l)); }
 static jo jni_CallObjectMethodA(void *env, jo o, void *mid, const jvalue *a) { (void)env; return call_object_a(0, o, mid, a); }
 static jo jni_CallObjectMethodV(void *env, jo o, void *mid, tl_va_list *ap) { (void)env; return call_object_v(0, o, mid, ap); }
 static jo tl_vai_jni_CallObjectMethod(tl_va_frame *f) { tl_va_list ap; tl_va_start(f, 3, 0, &ap); return call_object_v(0, (jo)f->gp[1], (void *)f->gp[2], &ap); }
