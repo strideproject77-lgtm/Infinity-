@@ -102,6 +102,23 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("int64_t stk[256]", dvm)
         self.assertNotIn("ns < 256", dvm)
 
+    def test_dex_header_tables_are_bounded_before_indexing(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        self.assertIn("dex_header_valid", dvm)
+        self.assertIn("endian_tag != 0x12345678u", dvm)
+        self.assertIn("dex_table_fits", dvm)
+        self.assertIn("invalid or truncated DEX header/table", dvm)
+
+    def test_encoded_static_values_are_recursively_bounds_checked(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        self.assertIn("encoded_uleb", dvm)
+        self.assertIn("read_value_depth", dvm)
+        self.assertIn("depth > 32", dvm)
+        self.assertIn("v >= d->nstr", dvm)
+        self.assertIn("v >= d->ntype", dvm)
+        self.assertIn("invalid/truncated static_values array", dvm)
+        self.assertIn("defaulting statics", dvm)
+
     def test_java_runtime_is_rejected_when_boot_assets_are_missing(self):
         adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
         for asset in (
