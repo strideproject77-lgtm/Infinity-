@@ -126,6 +126,36 @@ static int b_mutex_lock(void *g)
     }
 }
 static int b_mutex_trylock(void *g) { int r = pthread_mutex_trylock(obj_host(g, make_mutex)); if (r == 0 && mutex_trace()) note_owner(g, __builtin_return_address(0)); return rc(r); }
+static int mutex_timedlock_until(void *g, clockid_t clock_id, const struct timespec *deadline)
+{
+    if (!deadline || deadline->tv_nsec < 0 || deadline->tv_nsec >= 1000000000L)
+        return 22;
+    pthread_mutex_t *m = obj_host(g, make_mutex);
+    for (;;) {
+        int r = pthread_mutex_trylock(m);
+        if (r == 0) {
+            if (mutex_trace()) note_owner(g, __builtin_return_address(0));
+            return 0;
+        }
+        if (r != EBUSY) return rc(r);
+        struct timespec now;
+        if (clock_gettime(clock_id, &now) != 0) return rc(errno);
+        if (now.tv_sec > deadline->tv_sec ||
+            (now.tv_sec == deadline->tv_sec && now.tv_nsec >= deadline->tv_nsec))
+            return 110; /* ETIMEDOUT in the Bionic errno namespace */
+        struct timespec pause = { .tv_sec = 0, .tv_nsec = 1000000L };
+        nanosleep(&pause, NULL);
+    }
+}
+static int b_mutex_timedlock(void *g, const struct timespec *deadline)
+{
+    return mutex_timedlock_until(g, CLOCK_REALTIME, deadline);
+}
+static int b_mutex_clocklock(void *g, int clock, const struct timespec *deadline)
+{
+    if (clock != 0 && clock != 1) return 22;
+    return mutex_timedlock_until(g, clock == 1 ? CLOCK_MONOTONIC : CLOCK_REALTIME, deadline);
+}
 static int b_mutex_unlock(void *g)  { if (mutex_trace()) ((uint64_t *)g)[2] = 0; return rc(pthread_mutex_unlock(obj_host(g, make_mutex))); }
 
 static int b_mutexattr_init(long *a)    { *a = 0; return 0; }
@@ -266,7 +296,7 @@ static void *make_sem(uint32_t value)
 
 static int b_sem_init(void *g, int pshared, unsigned value)
 {
-    (void)pshared;
+    if ((pshared != 0 && pshared != 1) || value > INT_MAX) return 22;
     guest_obj *o = g;
     memset(g, 0, 16);
     o->host = make_sem(value);
@@ -288,6 +318,7 @@ static int b_sem_post(void *g)
 {
     host_sem *s = hs(g);
     pthread_mutex_lock(&s->m);
+    if (s->count == INT_MAX) { pthread_mutex_unlock(&s->m); tl_set_guest_errno(75); return -1; }
     s->count++;
     pthread_cond_signal(&s->c);
     pthread_mutex_unlock(&s->m);
@@ -560,6 +591,7 @@ const tl_bionic_entry tl_tab_pthread[] = {
     TL_WRAP("pthread_mutex_init", b_mutex_init), TL_WRAP("pthread_mutex_destroy", b_mutex_destroy),
     TL_WRAP("pthread_mutex_lock", b_mutex_lock), TL_WRAP("pthread_mutex_trylock", b_mutex_trylock),
     TL_WRAP("pthread_mutex_unlock", b_mutex_unlock),
+    TL_WRAP("pthread_mutex_timedlock", b_mutex_timedlock), TL_WRAP("pthread_mutex_clocklock", b_mutex_clocklock),
     TL_WRAP("pthread_mutexattr_init", b_mutexattr_init), TL_WRAP("pthread_mutexattr_destroy", b_mutexattr_destroy),
     TL_WRAP("pthread_mutexattr_settype", b_mutexattr_settype), TL_WRAP("pthread_mutexattr_setpshared", b_mutexattr_setpshared), TL_WRAP("pthread_mutexattr_getpshared", b_mutexattr_getpshared), TL_WRAP("pthread_mutexattr_gettype", b_mutexattr_gettype),
     TL_WRAP("pthread_cond_init", b_cond_init), TL_WRAP("pthread_cond_destroy", b_cond_destroy),
