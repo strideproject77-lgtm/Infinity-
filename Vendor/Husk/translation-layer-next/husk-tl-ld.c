@@ -2363,6 +2363,12 @@ static void fill_data_slots(tl_lib *L)
     t[5] = 0xdeadbeefcafebabeull;             /* [tpidr_el0 + 0x28]: the stack cookie */
 }
 
+/* Overflow-safe file range check: avoid offset + length until both fit. */
+static bool file_range_fits(size_t total, uint64_t offset, uint64_t length)
+{
+    return offset <= (uint64_t)total && length <= (uint64_t)total - offset;
+}
+
 static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
 {
     tl_ld_trap_signals();       /* raw svc and floating-point traps from the guest's code are answered (svc_signal) */
@@ -2384,12 +2390,13 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
         return A;
     }
     if (flen < sizeof(*eh) || memcmp(file, "\x7f""ELF", 4) != 0 || eh->e_ident[4] != 2 || eh->e_ident[5] != 1
-        || eh->e_machine != EM_AARCH64_) {
+        || eh->e_machine != EM_AARCH64_ || eh->e_ehsize < sizeof(*eh)) {
         tl_log_line("ld: %s is not a 64-bit little-endian arm64 ELF image", name);
         return NULL;
     }
-    if (eh->e_phentsize < sizeof(elf_phdr) || eh->e_phoff + (uint64_t)eh->e_phnum * eh->e_phentsize > flen) {
-        tl_log_line("ld: %s: program headers run off the file", name);
+    if (!eh->e_phnum || eh->e_phentsize < sizeof(elf_phdr) ||
+        !file_range_fits(flen, eh->e_phoff, (uint64_t)eh->e_phnum * eh->e_phentsize)) {
+        tl_log_line("ld: %s: invalid or truncated program-header table", name);
         return NULL;
     }
     tl_segment loads[16]; int nloads = 0; tl_segment relro = {0}; bool has_relro = false;
@@ -2400,7 +2407,14 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
     for (unsigned i = 0; i < eh->e_phnum; i++) {
         memcpy(&phs[i], file + eh->e_phoff + (size_t)i * eh->e_phentsize, sizeof(elf_phdr));
         const elf_phdr *p = &phs[i];
-        if (p->p_type == PT_LOAD_ && nloads < 16) {
+        if (p->p_type == PT_LOAD_) {
+            if (p->p_filesz > p->p_memsz ||
+                !file_range_fits(flen, p->p_offset, p->p_filesz) ||
+                p->p_vaddr > UINT64_MAX - p->p_memsz || nloads >= 16) {
+                tl_log_line("ld: %s: invalid or excessive PT_LOAD segment %u", name, i);
+                free(phs);
+                return NULL;
+            }
             loads[nloads].vaddr = p->p_vaddr; loads[nloads].memsz = p->p_memsz; loads[nloads].flags = p->p_flags;
             nloads++;
         } else if (p->p_type == PT_GNU_RELRO_) {
@@ -2417,17 +2431,20 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
     size_t npages = tl_page_plan(loads, (size_t)nloads, has_relro ? &relro : NULL, PAGE, NULL, 0, &base_vaddr);
     if (!npages) { tl_log_line("ld: %s: unusable page layout", name); free(phs); return NULL; }
     uint8_t *flags = malloc(npages);
+    if (!flags) { tl_log_line("ld: %s: out of memory for page permissions", name); free(phs); return NULL; }
     tl_page_plan(loads, (size_t)nloads, has_relro ? &relro : NULL, PAGE, flags, npages, &base_vaddr);
 
     /* The executable sections, from the section headers when the file has them (it almost always does);
      * otherwise whole executable segments, which is correct for a library with nothing but code in them. */
     struct { uint64_t vaddr, size, foff; } code[16]; int ncode = 0;
-    if (eh->e_shoff && eh->e_shentsize >= 64 && eh->e_shnum && eh->e_shoff + (uint64_t)eh->e_shnum * eh->e_shentsize <= flen) {
+    if (eh->e_shoff && eh->e_shentsize >= 64 && eh->e_shnum &&
+        file_range_fits(flen, eh->e_shoff, (uint64_t)eh->e_shnum * eh->e_shentsize)) {
         for (unsigned i = 0; i < eh->e_shnum && ncode < 16; i++) {
             const uint8_t *sh = file + eh->e_shoff + (size_t)i * eh->e_shentsize;
             uint32_t type; uint64_t flags, addr, off, size;
             memcpy(&type, sh + 4, 4); memcpy(&flags, sh + 8, 8); memcpy(&addr, sh + 16, 8); memcpy(&off, sh + 24, 8); memcpy(&size, sh + 32, 8);
-            if (type == 1 /* PROGBITS */ && (flags & 4 /* EXECINSTR */) && size && off + size <= flen) {
+            if (type == 1 /* PROGBITS */ && (flags & 4 /* EXECINSTR */) && size &&
+                file_range_fits(flen, off, size) && addr <= UINT64_MAX - size) {
                 code[ncode].vaddr = addr; code[ncode].size = size; code[ncode].foff = off; ncode++;
             }
         }
@@ -2445,7 +2462,8 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
         }
         for (unsigned i = 0; i < eh->e_phnum && ncode < 16; i++) {
             const elf_phdr *p = &phs[i];
-            if (p->p_type != PT_LOAD_ || !(p->p_flags & PF_X_) || p->p_offset + p->p_filesz > flen) continue;
+            if (p->p_type != PT_LOAD_ || !(p->p_flags & PF_X_) ||
+                !file_range_fits(flen, p->p_offset, p->p_filesz)) continue;
             uint64_t a = p->p_vaddr, end = p->p_vaddr + p->p_filesz;
             while (a < end && ncode < 16) {
                 /* the next claimed byte at or after a */
@@ -2468,7 +2486,8 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
         tl_log_line("ld: %s has no section headers; treating every executable segment as code", name);
         for (unsigned i = 0; i < eh->e_phnum && ncode < 16; i++) {
             const elf_phdr *p = &phs[i];
-            if (p->p_type == PT_LOAD_ && (p->p_flags & PF_X_) && p->p_offset + p->p_filesz <= flen) {
+            if (p->p_type == PT_LOAD_ && (p->p_flags & PF_X_) &&
+                file_range_fits(flen, p->p_offset, p->p_filesz)) {
                 code[ncode].vaddr = p->p_vaddr; code[ncode].size = p->p_filesz; code[ncode].foff = p->p_offset; ncode++;
             }
         }
@@ -2580,8 +2599,9 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
     for (unsigned i = 0; i < eh->e_phnum && !imported; i++) {
         const elf_phdr *p = &phs[i];
         if (p->p_type != PT_LOAD_ || !p->p_filesz) continue;
-        if (p->p_offset + p->p_filesz > flen || p->p_vaddr < base_vaddr
-            || p->p_vaddr - base_vaddr + p->p_filesz > npages * PAGE) {
+        if (!file_range_fits(flen, p->p_offset, p->p_filesz) || p->p_vaddr < base_vaddr
+            || p->p_vaddr - base_vaddr > npages * PAGE ||
+            p->p_filesz > npages * PAGE - (p->p_vaddr - base_vaddr)) {
             tl_log_line("ld: %s: segment %u is outside the file or the image", name, i);
             free(flags); free(mix); free(phs);
             return NULL;
@@ -2618,6 +2638,12 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
     L->tcb = rw + (npages + nstub + 1) * PAGE;
     fill_data_slots(L);
     L->aot = imported;
+    if (dyn_v < base_vaddr || dyn_v - base_vaddr > npages * PAGE ||
+        dyn_n == 0 || dyn_n % sizeof(elf_dyn) != 0 ||
+        dyn_n > npages * PAGE - (dyn_v - base_vaddr)) {
+        tl_log_line("ld: %s: dynamic table is outside the mapped image or truncated", name);
+        return NULL;
+    }
     parse_dynamic(L, dyn_v, dyn_n);
     if (L->strtab) {
         const elf_dyn *d = at(L, dyn_v);
