@@ -150,3 +150,13 @@
 - Added the framework workflow and its contract test to the Linux push-test path filters so future workflow edits cannot bypass the source regression suite.
 - GitHub Actions run [44496687265](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44496687265) completed successfully on `main`: **56 Python tests passed**, including all four new framework workflow contract tests; runtime shell checks and audit-script syntax check also passed.
 - This is verified Linux/source validation only. It does not execute Xcode or prove iOS framework compilation. The macOS framework workflow is intentionally manual-dispatch only; no IPA build, signing, export, Codemagic build, or device execution was started.
+
+
+## 2026-11-19 — Android apps shown in the existing Strata app-management list
+
+- Added persisted INFINITY APK entries directly beneath the existing IPA rows in Strata's **Manage apps** list. Android entries use the same search field, display name/package/engine metadata, and open the existing APK detail/Launch screen.
+- The Android list refreshes on app-list appearance and immediately after a successful APK/XAPK/APKS/APKM import. The existing Android APK Library sheet remains available as a secondary management route; IPA installation behavior is unchanged.
+- This deliberately does not fabricate an `LCAppModel` or pretend an Android package is a native iOS app. The current Strata LiveBoard home cards still use the iOS `LCAppModel` pipeline; this change puts APKs alongside IPA entries in the app-management list, where they can be selected for INFINITY execution.
+- Added a regression contract for the inline Android rows and refresh path. Linux CI must pass before treating the source change as validated; Xcode compilation and on-device UI remain unverified.
+- Execution blocker confirmed during this audit: XAPK/APKS/APKM split files are extracted and persisted, but `INFINITYAPKLaunchView` still rejects `requiresSplits` because the current INFINITY-to-Husk launch ABI accepts only one base-APK path. Passing only the base APK would silently omit required resources/native libraries, so that guard remains until multi-split loading is implemented in the Husk loader. The exact user-visible XAPK error still needs the current import/launch log to distinguish archive import failure from split-execution rejection.
+- No Codemagic build, IPA packaging, signing, export, or workflow dispatch was started.

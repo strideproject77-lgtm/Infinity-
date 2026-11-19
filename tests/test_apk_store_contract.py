@@ -93,6 +93,15 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("INFINITYAPKStore.remove(packageName:", view)
         self.assertIn("INFINITYAPKLibraryView()", app_list)
 
+    def test_imported_android_apps_appear_inline_with_the_existing_ipa_management_list(self):
+        app_list = self.read("LiveContainerSwiftUI/Views/AppList/LCAppListView.swift")
+        self.assertIn("@State private var installedAndroidApps: [INFINITYAPKInstalledApp] = []", app_list)
+        self.assertIn("private var filteredAndroidApps: [INFINITYAPKInstalledApp]", app_list)
+        self.assertIn('Text("Android Apps")', app_list)
+        self.assertIn("INFINITYAPKInstalledAppDetail(app: androidApp)", app_list)
+        self.assertIn("refreshInstalledAndroidApps()", app_list)
+        self.assertIn("selectedAPKForDetails = installed", app_list)
+
 
     def test_runtime_manager_importer_accepts_android_formats_and_reports_results(self):
         center = self.read("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")

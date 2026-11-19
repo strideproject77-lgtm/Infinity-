@@ -45,6 +45,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
     @State var choosingIPA = false
     @State private var showingAPKLibrary = false
     @State private var selectedAPKForDetails: INFINITYAPKInstalledApp?
+    @State private var installedAndroidApps: [INFINITYAPKInstalledApp] = []
     @State var errorShow = false
     @State var errorInfo = ""
     
@@ -134,6 +135,14 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             }
         }
     }
+
+    private var filteredAndroidApps: [INFINITYAPKInstalledApp] {
+        guard !searchContext.debouncedQuery.isEmpty else { return installedAndroidApps }
+        return installedAndroidApps.filter {
+            $0.displayName.localizedCaseInsensitiveContains(searchContext.debouncedQuery) ||
+            $0.packageName.localizedCaseInsensitiveContains(searchContext.debouncedQuery)
+        }
+    }
     
     var filteredHiddenApps: [LCAppModel] {
         let apps = sortedHiddenApps
@@ -196,6 +205,50 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                             LCAppBanner(appModel: app, delegate: self)
                                         .frame(height: LCAppBannerRootView.bannerHeight)
                         }
+                    }
+
+                    if !filteredAndroidApps.isEmpty {
+                        LazyVStack(alignment: .leading, spacing: 10) {
+                            Text("Android Apps")
+                                .font(.system(.title2).bold())
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            ForEach(filteredAndroidApps) { androidApp in
+                                NavigationLink {
+                                    if #available(iOS 16.0, *) {
+                                        INFINITYAPKInstalledAppDetail(app: androidApp)
+                                    } else {
+                                        Text("Android APK launch requires iOS 16 or later.")
+                                    }
+                                } label: {
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "gamecontroller.fill")
+                                            .font(.title2)
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 54, height: 54)
+                                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(androidApp.displayName)
+                                                .font(.headline)
+                                                .foregroundStyle(.primary)
+                                            Text(androidApp.packageName)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            Text(androidApp.detectedEngine ?? "Engine not identified")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .padding(.vertical, 6)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.top, 12)
                     }
 
                 }.padding().padding(.bottom, 72) // clear the floating search field in landscape
@@ -271,6 +324,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             .navigationBarProgressBar(show:$installprogressVisible, progress: $installProgressPercentage)
             .coordinateSpace(name: "scroll")
             .onAppear {
+                refreshInstalledAndroidApps()
                 StrataControlsLibrary.publish(launcherApps)
                 consumeControlsLaunch(); consumeResumeLaunch()
                 if !didAppear {
@@ -769,6 +823,10 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
 
     
+    private func refreshInstalledAndroidApps() {
+        installedAndroidApps = (try? INFINITYAPKStore.installedApps()) ?? []
+    }
+
     func startInstallSelectedFile(_ fileURL: URL) async {
         guard ["apk", "xapk", "apks", "apkm"].contains(fileURL.pathExtension.lowercased()) else {
             await startInstallApp(fileURL)
@@ -781,6 +839,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             let installed = try await Task.detached(priority: .userInitiated) {
                 try INFINITYAPKStore.install(from: fileURL)
             }.value
+            refreshInstalledAndroidApps()
             selectedAPKForDetails = installed
         } catch {
             errorInfo = error.localizedDescription
