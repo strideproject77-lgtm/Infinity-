@@ -1,8 +1,7 @@
 name: INFINITY Husk iOS static runtime build
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
     paths:
       - "Vendor/Husk/Package.swift"
       - "Vendor/Husk/include/**"
