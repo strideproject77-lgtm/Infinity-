@@ -152,6 +152,8 @@ struct INFINITYAPKLaunchView: View {
     let app: INFINITYAPKInstalledApp
 
     @StateObject private var runtime = INFINITYHuskRuntime()
+    @StateObject private var sessionLogger = INFINITYHuskSessionLogger()
+    @State private var showSessionLog = false
     @State private var metalLayer: CAMetalLayer?
     @State private var launchAttempted = false
     @State private var launchError: String?
@@ -179,6 +181,12 @@ struct INFINITYAPKLaunchView: View {
                         .font(.caption.monospacedDigit())
                     Text(String(format: "%.1f ms", runtime.meanFrameMilliseconds))
                         .font(.caption.monospacedDigit())
+                    Button {
+                        showSessionLog = true
+                    } label: {
+                        Image(systemName: "doc.text.magnifyingglass")
+                    }
+                    .accessibilityLabel("View Session Log")
                 }
                 if !runtime.isRunning && !launchAttempted {
                     ProgressView("Preparing Android surface…")
@@ -202,9 +210,16 @@ struct INFINITYAPKLaunchView: View {
         .background(.black)
         .navigationTitle(app.displayName)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showSessionLog) {
+            NavigationStack {
+                INFINITYHuskSessionLogView(logger: sessionLogger)
+            }
+        }
         .onChange(of: scenePhase) { phase in
             guard launchAttempted else { return }
             let paused = phase != .active
+            runtime.recordSessionEvent(paused ? "PAUSED" : "RESUMED",
+                                       details: "scenePhase=\(phase)")
             runtime.setPaused(paused)
         }
         .onDisappear { runtime.stop() }
@@ -220,21 +235,41 @@ struct INFINITYAPKLaunchView: View {
     }
 
     private func prepareAndLaunch(on layer: CAMetalLayer) async {
+        launchError = nil
+        let apk = INFINITYAPKStore.apkURL(for: app)
+        let engineName = selectedEngine.map { String(describing: $0) } ?? app.detectedEngine
+        let sessionLogURL = sessionLogger.begin(packageName: app.packageName,
+                                                displayName: app.displayName,
+                                                version: app.versionName,
+                                                engine: engineName,
+                                                apkURL: apk)
+        runtime.attachSessionLogger(sessionLogger)
+        runtime.recordSessionEvent("LAUNCH_REQUESTED",
+                                   details: "splitRequired=\(app.requiresSplits) engine=\(engineName ?? "unknown")")
+        if let sessionLogURL {
+            runtime.recordSessionEvent("LOG_FILE", details: sessionLogURL.lastPathComponent)
+        } else {
+            launchError = "Session log could not be created. Launch will continue without persistent logging."
+        }
         do {
             guard !app.requiresSplits else {
                 throw INFINITYHuskRuntime.RuntimeError.splitPackageNotSupported
             }
+            runtime.recordSessionEvent("PREFLIGHT", details: "split package check passed")
             guard let engine = selectedEngine else {
                 throw INFINITYHuskRuntime.RuntimeError.rejectedLaunch
             }
-            let apk = INFINITYAPKStore.apkURL(for: app)
+            runtime.recordSessionEvent("ENGINE_SELECTED", details: String(describing: engine))
             guard FileManager.default.isReadableFile(atPath: apk.path) else {
                 throw INFINITYAPKStore.StoreError.missingInstalledAPK
             }
+            runtime.recordSessionEvent("APK_VALIDATED", details: "bytes=\((try? apk.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)")
             let dataDirectory = try INFINITYAPKStore.dataURL(for: app)
+            runtime.recordSessionEvent("APP_DATA", details: "directoryReady=\(FileManager.default.isDirectory(at: dataDirectory))")
             guard let nativeBundle = INFINITYAPKStore.nativeRuntimeBundle() else {
                 throw INFINITYHuskRuntime.RuntimeError.nativeRuntimeNotPrepared
             }
+            runtime.recordSessionEvent("NATIVE_RUNTIME", details: "ANGLE and Android system assets resolved")
             let angle = nativeBundle.angleLibrary
             let scale = layer.contentsScale
             let width = max(1, Int(layer.drawableSize.width))
@@ -247,6 +282,7 @@ struct INFINITYAPKLaunchView: View {
                     throw INFINITYAPKStore.StoreError.missingRuntimeAssets
                 }
                 javaBundle = bundle
+                runtime.recordSessionEvent("JAVA_RUNTIME", details: "ART/runtime assets resolved")
             }
 
             let runtimeLibraries = javaBundle.map { javaRuntimeLibraries(in: $0.javaRoot) } ?? []
@@ -276,17 +312,20 @@ struct INFINITYAPKLaunchView: View {
                 jitlessPreparationNote = jitlessEnabled
                     ? "JIT-less AOT ready · required libraries signed"
                     : "No ARM64 native libraries require JIT-less AOT preparation."
+                runtime.recordSessionEvent("JITLESS_PREPARATION", details: jitlessPreparationNote ?? "completed")
             } catch {
                 jitlessEnabled = false
                 try? INFINITYJITLess.configure(enabled: false)
                 jitlessPreparationNote = "JIT-less AOT not enabled: \(error.localizedDescription)"
+                runtime.recordSessionEvent("JITLESS_WARNING", details: error.localizedDescription)
             }
 
             let logURL = dataDirectory.appendingPathComponent(
-                engine == .unity ? "unity-run.log" : "native-run.log"
+                (engine == .unity ? "unity-run-" : "native-run-") + UUID().uuidString + ".log"
             )
-            try? FileManager.default.removeItem(at: logURL)
+            runtime.recordSessionEvent("NATIVE_DIAGNOSTIC_PATH", details: logURL.lastPathComponent)
 
+            runtime.recordSessionEvent("RUNTIME_PREPARATION", details: "begin")
             if let javaBundle {
                 try runtime.prepareJava(runtimeRoot: javaBundle.javaRoot,
                                         density: Float(scale),
@@ -297,8 +336,10 @@ struct INFINITYAPKLaunchView: View {
                 try runtime.prepareNative(certificatesDirectory: nativeBundle.certificatesDirectory,
                                           systemFilesRoot: nativeBundle.systemRoot)
             }
+            runtime.recordSessionEvent("RUNTIME_PREPARATION", details: "success")
 
             let moltenVK = engine == .unreal ? INFINITYAPKStore.moltenVKLibraryURL : nil
+            runtime.recordSessionEvent("HUSK_LAUNCH_REQUEST", details: "engine=\(engine)")
             try runtime.launch(engine: engine, apk: apk, dataDirectory: dataDirectory,
                                metalLayer: layer, width: width, height: height,
                                angleLibrary: angle, certificateBundle: certificates,
@@ -306,7 +347,11 @@ struct INFINITYAPKLaunchView: View {
                                jitlessEnabled: jitlessEnabled,
                                diagnosticLogURL: logURL)
         } catch {
+            let nsError = error as NSError
             launchError = error.localizedDescription
+            runtime.recordSessionEvent("LAUNCH_ERROR",
+                                       details: "domain=\(nsError.domain) code=\(nsError.code) message=\(error.localizedDescription)")
+            sessionLogger.finish(outcome: "launch failed")
         }
     }
 
