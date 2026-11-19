@@ -318,6 +318,27 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("static env_t g_env, g_vm;", jni)
         self.assertNotIn("static int32_t vm_GetEnv(void *vm, void **penv, int32_t version) { (void)vm; (void)version; *penv = &g_env; return 0; }", jni)
 
+    def test_jni_constructors_validate_lengths_types_and_allocation_failures(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            "if (len < 0 || (!chars && len))",
+            "if (!s) return NULL;",
+            "if (!out) return NULL;",
+            "if (!value) { tl_jni_throw(\"java/lang/NullPointerException\", \"GetStringChars",
+            "if (len < 0 || !cls || cls->kind != TL_K_CLASS)",
+            "java/lang/ArrayStoreException",
+            "java/lang/ArrayIndexOutOfBoundsException",
+            "if (!etype || !strchr(\"ZBCSIJFD\", etype))",
+            "primitive array type mismatch",
+            "(uint32_t)n > a->arr.len - (uint32_t)s",
+            "cap < 0 || cap > INT32_MAX || (!addr && cap > 0)",
+            "allocating DirectByteBuffer",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+        self.assertNotIn("(uint32_t)(s + n) <= a->arr.len", jni)
+        self.assertNotIn("(size_t)(start + len) <= n", jni)
+
     def test_jni_local_reference_frames_are_thread_scoped_and_released_on_detach(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
