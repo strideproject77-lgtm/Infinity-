@@ -154,6 +154,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("resolver_vaddr", loader)
         self.assertIn("TLS relocation references symbol", loader)
         self.assertIn("if (!image_range_fits(L, word, 8)) return false;", loader)
+        self.assertIn("if (type == R_NONE) return true;", loader)
 
     def test_bionic_symbol_table_lookup_fails_closed_on_bad_input_or_oom(self):
         bionic = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic.c")
