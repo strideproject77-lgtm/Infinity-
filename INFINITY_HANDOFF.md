@@ -956,3 +956,47 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Audit all remaining JNI object-returning APIs and internal-vs-JNI ownership boundaries; introduce a handle representation only if needed to separate local/global identity safely.
 - Continue genuine NativeActivity input delivery only with a real NDK-compatible queue/event contract.
 - Audit robust pthread mutex owner-death behavior against Darwin host capabilities; explicitly report unsupported semantics rather than emulate them incorrectly.
+
+
+## 2026-11-20 — JNI constructor, array, and buffer boundary hardening
+
+### Audit findings addressed
+- JNI string construction could pass a negative length or null UTF-16 pointer into conversion; UTF conversion allocation failures were not consistently handled.
+- Object-array creation did not reject negative lengths or invalid element-class handles. Object-array reads/writes did not consistently validate array kind, bounds, or component assignment.
+- Primitive-array creation accepted invalid element tags, and array region operations used signed `start + length` arithmetic that could overflow before bounds checking.
+- Direct-buffer construction did not reject invalid capacities or a null address paired with a positive capacity.
+- Critical primitive-array access accepted non-primitive objects.
+- Detaching a JNI-attached thread released local frames but left its pending exception state behind.
+
+### Implemented on main
+- Added null/length and allocation-failure handling to UTF-16 conversion and JNI string creation/access.
+- Hardened string-region range checks using subtraction-based bounds validation, avoiding signed addition overflow.
+- Added object-array constructor validation, element-kind checks, bounds checks, and component-type assignability checks for object stores.
+- Rejected invalid primitive-array element tags and negative lengths; primitive array element/region APIs now validate array kind, element type, buffer, and safe bounds before copying.
+- Validated direct-buffer address/capacity and checked allocation before invoking constructors.
+- Restricted critical-array access to primitive arrays.
+- JNI detach now clears the detached thread's pending exception after releasing its local frames.
+- Added/updated source-contract checks for these boundaries and refreshed earlier local-frame assertions to match the hardened implementations.
+
+### Commits
+- JNI string/object-array/direct-buffer validation: `f10bb6eb34ea1848d23db2aaf0feea8e7781bf68`
+- Object-array component checks and primitive-array validation: `e414d576ec37d780c866c70b1e3d85ba70ee84fe`
+- UTF conversion, string-region, and primitive-array region hardening: `1f4c6a1ee69017adff5850d6a913a76a99b71741`
+- Critical-array validation and detach exception cleanup: `cd5a475bacac1221bde13170f8fd9518efb9d3da`
+- New constructor/array boundary contract test: `14b6ad37b74b7ea60883c6bde2c4c2aeae38fc38`
+- Updated local-frame test assertions: `e5f03e9507d89e59a8dd175c110c1827d4d50b99`
+- Additional critical-array/detach contract assertions: `c0bb86b9cbc89517c12879ece698feefce7e7868`
+
+### Integration status and limitations
+- **Overall Husk source integration estimate: 85%** (previous: 84%; +1 percentage point). The increase reflects additional JNI input validation, array/buffer semantics, and error paths; it is not a claim of complete JNI conformance.
+- Raw-pointer handles still cannot distinguish local from global references; `GetObjectRefType` remains conservative.
+- JNI modified-UTF-8 conformance, complete ART exception behavior, array pin/copy semantics, and full object-array class-loader/interface assignability still need work.
+- NativeActivity's genuine NDK input queue remains unavailable; no fake queue is passed to guest code.
+- Source-contract assertions were inspected for matching source markers, but **the test suite was not run**. No compile, workflow, IPA build/export, signing, or device test was started.
+- SideStore and Strata host architecture were not modified. Husk license and attribution notices remain intact.
+
+### Next batch
+- Continue JNI local/global handle identity and remaining reference lifecycle semantics, without destabilizing internal raw-pointer callers.
+- Audit object-array assignability across interfaces/class loaders and implement proper modified UTF-8 behavior.
+- Evaluate whether a genuine NDK input queue can be supplied through the current iOS host architecture; otherwise keep the feature explicitly unsupported.
+- Continue pthread/NativeActivity audits without claiming unsupported Android behavior.
