@@ -1,8 +1,7 @@
 name: INFINITY Husk native source compile audit
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
     paths:
       - "Vendor/Husk/translation-layer/**"
       - "Vendor/Husk/translation-layer-next/**"
