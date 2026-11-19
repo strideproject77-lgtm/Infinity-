@@ -29,13 +29,13 @@ permissions:
 jobs:
   strata-swiftui-framework:
     name: Compile Strata SwiftUI framework with INFINITY runtime linked
-    runs-on: xcode-27
+    runs-on: macos-15
     timeout-minutes: 45
     steps:
-      - name: Select the same modern Xcode used by the existing builder
+      - name: Select the same pinned Xcode used by the canonical IPA builder
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '27.2'
+          xcode-version: '26.2'
 
       - name: Check out INFINITY main and Strata submodules
         uses: actions/checkout@v6
