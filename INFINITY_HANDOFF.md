@@ -425,3 +425,10 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - No tests, source-contract scripts, GitHub Actions, Xcode compile, device execution, IPA build, Codemagic build, signing or export were run in this implementation-only batch.
 - These changes improve input stability, resource ownership, rendering allocation safety and diagnostics. They do not establish that 2048, Hill Climb Racing or any other APK now launches successfully; game compatibility remains unverified until real device sessions.
 - Existing Husk/Strata architecture and gamepad bridge are retained. SideStore systems were not modified.
+
+
+### Additional EGL surface lifecycle guard
+
+- TextureView and Java compositor window-surface creation now validates non-zero dimensions before allocating an off-screen pbuffer.
+- Surface registration is explicit and reports capacity exhaustion. If the fixed tracking table is full, the newly created pbuffer is destroyed and EGL receives a failed surface rather than an untracked surface that would silently render to nowhere.
+- The existing destroy path continues to unregister tracked surfaces and clear the Java compositor frame when its last registered surface is destroyed.
