@@ -126,3 +126,10 @@
 - Removed that invalid pre-build directory assertion and the manually injected `SWIFT_INCLUDE_PATHS` override. Xcode now owns package module compilation and search-path propagation through the normal SwiftPM integration.
 - Pinned a dedicated runner-temporary DerivedData path and passed the same path to both package resolution and the framework build, so package checkout/build products share one deterministic location.
 - This corrects the confirmed workflow-level failure only. The next manually dispatched macOS framework compile must still reveal any actual Swift/Objective-C integration errors. No IPA packaging, signing, Codemagic build, or device execution was started.
+
+
+## 2026-11-19 — Framework workflow follow-up: resolver requires scheme
+
+- Manual run `44446024968` confirmed the previous SwiftASN1 path check was removed, but Xcode exited before package resolution because `-resolvePackageDependencies` was passed `-derivedDataPath` without a scheme.
+- Added the canonical `LiveContainer` scheme to the package-resolution invocation. The same DerivedData path remains shared with the subsequent framework build.
+- The previous run did not reach compilation; the next manual dispatch is still required to validate package resolution and actual Swift/Objective-C compilation. No IPA packaging or signing was run.
