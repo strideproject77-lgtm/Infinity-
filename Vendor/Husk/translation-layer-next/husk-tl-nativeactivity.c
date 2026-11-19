@@ -414,8 +414,22 @@ void tl_na_stop(void)
         return;
     }
     atomic_store(&N.stop_requested, true);
-    if (!pthread_equal(pthread_self(), N.ui))
-        pthread_join(N.ui, NULL);
+    if (pthread_equal(pthread_self(), N.ui)) {
+        /* A callback may request shutdown from the UI thread itself. Joining
+           here would deadlock; detach this thread and let its bounded poll
+           loop deliver the remaining teardown callbacks before returning. */
+        int detached = pthread_detach(N.ui);
+        if (detached != 0)
+            tl_log_line("na: unable to detach UI thread during self-stop (%d)", detached);
+        N.ui_thread_created = false;
+        N.started = false;
+        return;
+    }
+    int joined = pthread_join(N.ui, NULL);
+    if (joined != 0) {
+        tl_log_line("na: unable to join UI thread during stop (%d)", joined);
+        return;
+    }
     N.ui_thread_created = false;
     N.started = false;
 }
