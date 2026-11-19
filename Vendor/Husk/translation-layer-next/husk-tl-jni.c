@@ -47,6 +47,81 @@ static jobj *obj_alloc(uint8_t kind, tl_jclass *cls)
 
 jobj *tl_jni_ref(jobj *o) { if (o) __atomic_add_fetch(&o->refs, 1, __ATOMIC_RELAXED); return o; }
 
+
+/* JNI local references are scoped to the calling native thread and its pushed frames.
+ * The guest object pointer remains the handle; each recorded slot owns one refcount. */
+typedef struct {
+    jobj **items;
+    size_t count, capacity;
+    struct jni_local_frame *unused_type_anchor;
+} jni_local_frame_storage;
+typedef struct jni_local_frame {
+    jobj **items;
+    size_t count, capacity;
+    struct jni_local_frame *parent;
+} jni_local_frame;
+static __thread jni_local_frame *t_local_frame;
+
+static jni_local_frame *local_frame_current(void)
+{
+    if (!t_local_frame) {
+        t_local_frame = calloc(1, sizeof(*t_local_frame));
+        if (t_local_frame) t_local_frame->capacity = 0;
+    }
+    return t_local_frame;
+}
+static bool local_frame_reserve(jni_local_frame *f, size_t extra)
+{
+    if (!f || extra > SIZE_MAX - f->count) return false;
+    size_t need = f->count + extra;
+    if (need <= f->capacity) return true;
+    size_t cap = f->capacity ? f->capacity : 8;
+    while (cap < need) {
+        if (cap > SIZE_MAX / 2) { cap = need; break; }
+        cap *= 2;
+    }
+    jobj **items = realloc(f->items, cap * sizeof(*items));
+    if (!items) return false;
+    f->items = items;
+    f->capacity = cap;
+    return true;
+}
+static bool local_frame_add_owned(jobj *o)
+{
+    if (!o) return true;
+    jni_local_frame *f = local_frame_current();
+    if (!f || !local_frame_reserve(f, 1)) return false;
+    f->items[f->count++] = o;
+    return true;
+}
+static bool local_frame_remove(jobj *o)
+{
+    for (jni_local_frame *f = t_local_frame; f; f = f->parent) {
+        for (size_t i = f->count; i > 0; i--) {
+            if (f->items[i - 1] == o) {
+                f->items[i - 1] = f->items[--f->count];
+                return true;
+            }
+        }
+    }
+    return false;
+}
+static void local_frame_release(jni_local_frame *f)
+{
+    if (!f) return;
+    for (size_t i = 0; i < f->count; i++) tl_jni_unref(f->items[i]);
+    free(f->items);
+    free(f);
+}
+static void local_frames_detach(void)
+{
+    while (t_local_frame) {
+        jni_local_frame *parent = t_local_frame->parent;
+        local_frame_release(t_local_frame);
+        t_local_frame = parent;
+    }
+}
+
 void tl_jni_unref(jobj *o)
 {
     if (!o || o->kind == TL_K_CLASS) return;
@@ -737,15 +812,74 @@ static void jni_ExceptionDescribe(void *env)
 }
 static void jni_ExceptionClear(void *env) { if (t_pending && g_trace >= 2) { tl_log_line("jni: ExceptionClear of:"); jni_ExceptionDescribe(env); } t_pending = NULL; }
 static void jni_FatalError(void *env, const char *msg) { (void)env; tl_log_line("jni: FatalError: %s", msg); abort(); }
-static int32_t jni_PushLocalFrame(void *env, int32_t cap) { (void)env; (void)cap; return 0; }
-static jo jni_PopLocalFrame(void *env, jo r) { (void)env; return r; }
+static int32_t jni_PushLocalFrame(void *env, int32_t cap)
+{
+    (void)env;
+    if (cap < 0 || (size_t)cap > SIZE_MAX / sizeof(jobj *)) return -1;
+    jni_local_frame *parent = local_frame_current();
+    jni_local_frame *frame = calloc(1, sizeof(*frame));
+    if (!parent || !frame) { free(frame); return -1; }
+    frame->parent = parent;
+    if (cap > 0) {
+        frame->items = calloc((size_t)cap, sizeof(*frame->items));
+        if (!frame->items) { free(frame); return -1; }
+        frame->capacity = (size_t)cap;
+    }
+    t_local_frame = frame;
+    return 0;
+}
+static jo jni_PopLocalFrame(void *env, jo r)
+{
+    (void)env;
+    if (!t_local_frame || !t_local_frame->parent) return NULL;
+    jni_local_frame *frame = t_local_frame;
+    jni_local_frame *parent = frame->parent;
+    jobj *preserved = r ? tl_jni_ref(r) : NULL;
+    t_local_frame = parent;
+    local_frame_release(frame);
+    if (preserved && !local_frame_add_owned(preserved)) {
+        tl_jni_unref(preserved);
+        tl_jni_throw("java/lang/OutOfMemoryError", "preserving JNI local reference across PopLocalFrame");
+        return NULL;
+    }
+    return preserved;
+}
 static jo jni_NewGlobalRef(void *env, jo o) { (void)env; return tl_jni_ref(o); }
 static void jni_DeleteGlobalRef(void *env, jo o) { (void)env; tl_jni_unref(o); }
-static void jni_DeleteLocalRef(void *env, jo o) { (void)env; tl_jni_unref(o); }
+static void jni_DeleteLocalRef(void *env, jo o)
+{
+    (void)env;
+    if (!o) return;
+    if (local_frame_remove(o)) tl_jni_unref(o);
+    else tl_jni_unref(o);
+}
 static uint8_t jni_IsSameObject(void *env, jo a, jo b) { (void)env; return a == b; }
-static jo jni_NewLocalRef(void *env, jo o) { (void)env; return tl_jni_ref(o); }
-static int32_t jni_EnsureLocalCapacity(void *env, int32_t n) { (void)env; (void)n; return 0; }
-static uint32_t jni_GetObjectRefType(void *env, jo o) { (void)env; (void)o; return 1; }
+static jo jni_NewLocalRef(void *env, jo o)
+{
+    (void)env;
+    if (!o) return NULL;
+    jobj *ref = tl_jni_ref(o);
+    if (!local_frame_add_owned(ref)) {
+        tl_jni_unref(ref);
+        tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI local reference");
+        return NULL;
+    }
+    return ref;
+}
+static int32_t jni_EnsureLocalCapacity(void *env, int32_t n)
+{
+    (void)env;
+    if (n < 0) return -1;
+    jni_local_frame *f = local_frame_current();
+    if (!f || !local_frame_reserve(f, (size_t)n)) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "reserving JNI local reference capacity");
+        return -1;
+    }
+    return 0;
+}
+/* Handles are raw jobj pointers in this compatibility VM, so local/global handle
+ * identity cannot yet be distinguished when both refer to the same object. */
+static uint32_t jni_GetObjectRefType(void *env, jo o) { (void)env; return o ? 1u : 0u; }
 /* ART ensures the class is initialised before JNI object-creation and method-lookup operations. */
 static bool ensure_class_initialized(tl_jclass *jc)
 {
@@ -1245,7 +1379,7 @@ static const void *g_env_fns[233];
 
 static int32_t vm_DestroyJavaVM(void *vm) { (void)vm; return 0; }
 static int32_t vm_Attach(void *vm, void **penv, void *args) { (void)vm; (void)args; *penv = &g_env; return 0; }
-static int32_t vm_Detach(void *vm) { (void)vm; return 0; }
+static int32_t vm_Detach(void *vm) { (void)vm; local_frames_detach(); return 0; }
 static int32_t vm_GetEnv(void *vm, void **penv, int32_t version) { (void)vm; (void)version; *penv = &g_env; return 0; }
 static const void *g_vm_fns[8] = { NULL, NULL, NULL, vm_DestroyJavaVM, vm_Attach, vm_Detach, vm_GetEnv, vm_Attach };
 static int32_t jni_GetJavaVM(void *env, void **vm) { (void)env; *vm = &g_vm; return 0; }
