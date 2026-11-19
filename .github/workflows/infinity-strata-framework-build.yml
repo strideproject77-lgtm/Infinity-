@@ -26,6 +26,7 @@ jobs:
         run: |
           xcodebuild -resolvePackageDependencies \
             -project LiveContainer.xcodeproj \
+            -scheme LiveContainer \
             -derivedDataPath "$RUNNER_TEMP/infinity-strata-derived"
 
       - name: Build only the LiveContainerSwiftUI framework target
