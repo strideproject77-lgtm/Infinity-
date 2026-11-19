@@ -578,20 +578,7 @@ static jvalue *va_arguments(const tl_jmeth *m, tl_va_list *ap, jvalue local[16])
     if (!m->valid_sig || !ap) { tl_jni_throw("java/lang/NoSuchMethodError", "invalid JNI method descriptor or argument list"); return NULL; }
     jvalue *args = m->nargs <= 16 ? local : calloc((size_t)m->nargs, sizeof(*args));
     if (!args) { tl_jni_throw("java/lang/OutOfMemoryError", "JNI argument array"); return NULL; }
-    for (int i = 0; i < m->nargs; i++) {
-        args[i].j = 0;
-        switch (m->argk[i]) {
-        case 'Z': args[i].z = (uint8_t)tl_va_arg_u64(ap); break;
-        case 'B': args[i].b = (int8_t)tl_va_arg_u64(ap); break;
-        case 'C': args[i].c = (uint16_t)tl_va_arg_u64(ap); break;
-        case 'S': args[i].s = (int16_t)tl_va_arg_u64(ap); break;
-        case 'I': args[i].i = (int32_t)tl_va_arg_u64(ap); break;
-        case 'J': args[i].j = (int64_t)tl_va_arg_u64(ap); break;
-        case 'F': args[i].f = (float)tl_va_arg_f64(ap); break;
-        case 'D': args[i].d = tl_va_arg_f64(ap); break;
-        default: args[i].l = (void *)(uintptr_t)tl_va_arg_u64(ap); break;
-        }
-    }
+    args_from_va(m, ap, args);
     return args;
 }
 
