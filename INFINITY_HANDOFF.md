@@ -1157,3 +1157,29 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Continue the JNI reference-lifecycle audit only after mapping every raw-pointer consumer and defining safe conversion at all JNI boundaries.
 - Audit remaining JNI string region/length and exception edge cases without claiming embedded-NUL support until guest string storage is length-aware.
 - Keep all execution-based validation deferred until source integration reaches 100%.
+
+## 2026-11-20 — JNI outstanding string/array owner lifetime and length boundary
+
+### Implemented on main
+- JNI string character access records now retain the referenced guest string with `tl_jni_ref` until the matching release or thread detach. Both normal release and detach balance that ownership with `tl_jni_unref`.
+- Ordinary primitive-array element-copy records and `GetPrimitiveArrayCritical` copy records now retain their exact guest array for the full outstanding-access lifetime. Normal release and detach balance the retained reference; `JNI_COMMIT` deliberately keeps the record and its owner alive until a final release.
+- `GetStringLength` now rejects null/non-string inputs with `NullPointerException` instead of silently reporting an empty string, and checks the UTF-16 length against `jint` range before conversion.
+- Added source-contract tests for string owner retention, primitive-array owner retention, matching release/detach cleanup, and UTF-16 length validation.
+
+### Commits
+- String access owner retention and `GetStringLength` validation: `0c9315ae7461c14bb1601f1a72c734740900f0eb`
+- String owner/length source-contract coverage: `beae6496e30b2e6ef9c682cf0b60c70864908819`
+- Primitive-array and critical-array owner retention: `f3c11c603e0e855f294a2cea481898e50d182ee9`
+- Array owner-lifecycle source-contract coverage: `d3e97613da67b0cf6a4e762015de3a103b4a383a`
+
+### Integration status and verification
+- **Overall Husk source integration estimate: 97%** (previous: 95%; +2 percentage points). This is an engineering estimate of source integration, not measured app compatibility or runtime correctness.
+- Static source-contract audit: 6/6 string-owner/length markers, 5/5 array-owner markers, and 16/16 string-buffer lifecycle markers present. This audit only checked source text; tests were not executed.
+- No compiler, test suite, workflow, IPA build/export, signing, or device testing was run. The consolidated validation phase remains deferred until 100%.
+- The raw-pointer JNI handle representation still cannot distinguish local/global/weak-global handles. Genuine NDK `AInputQueue`, embedded-NUL guest string storage, complete ART exception/class-loader behavior, and true critical-region VM/GC pin semantics remain incomplete.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next target: 100%
+- Complete the remaining JNI reference-handle architecture only after all guest-facing and internal consumers are mapped; do not bolt on wrapper handles without converting every boundary.
+- Close the remaining NativeActivity input-queue and ART/JNI lifecycle gaps where the host architecture supports real implementations; explicitly document anything structurally unsupported rather than faking it.
+- Continue source-only implementation. Do not run tests, compile, workflows, IPA build/export, signing, or device testing until source integration reaches 100%.
