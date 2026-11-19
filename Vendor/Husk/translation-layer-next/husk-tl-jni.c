@@ -769,7 +769,7 @@ static jo jni_FindClass(void *env, const char *name)
     }
     if (array || framework || known || tl_dexidx_has_class(name)) {
         TRACE("jni: FindClass(%s)", name);
-        return tl_jni_class(name)->mirror;
+        return local_frame_adopt(tl_jni_class(name)->mirror);
     }
     TRACE("jni: FindClass(%s) -> NoClassDefFoundError", name);
     char msg[200]; snprintf(msg, sizeof(msg), "%s", name);
@@ -938,7 +938,7 @@ static void *jni_GetStaticMethodID(void *env, jo cls, const char *name, const ch
 /* --- Call*Method families --- */
 
 #define JV_TYPES(X) \
-    X(Object, jo, l) X(Boolean, uint8_t, z) X(Byte, int8_t, b) X(Char, uint16_t, c) X(Short, int16_t, s) \
+    X(Boolean, uint8_t, z) X(Byte, int8_t, b) X(Char, uint16_t, c) X(Short, int16_t, s) \
     X(Int, int32_t, i) X(Long, int64_t, j) X(Float, float, f) X(Double, double, d)
 
 #define GEN_CALLS(T, CT, F) \
@@ -957,6 +957,25 @@ static void *jni_GetStaticMethodID(void *env, jo cls, const char *name, const ch
     extern void tl_va_jni_Call##T##Method(void); extern void tl_va_jni_CallNonvirtual##T##Method(void); extern void tl_va_jni_CallStatic##T##Method(void);
 
 JV_TYPES(GEN_CALLS)
+
+/* Object-returning JNI calls create a fresh local reference in the active frame. */
+static jo call_object_a(int kind, jo receiver, void *mid, const jvalue *args)
+{ return local_frame_adopt(call_a(kind, receiver, mid, args).l); }
+static jo call_object_v(int kind, jo receiver, void *mid, tl_va_list *ap)
+{ return local_frame_adopt(call_va(kind, receiver, mid, ap).l); }
+static jo jni_CallObjectMethodA(void *env, jo o, void *mid, const jvalue *a) { (void)env; return call_object_a(0, o, mid, a); }
+static jo jni_CallObjectMethodV(void *env, jo o, void *mid, tl_va_list *ap) { (void)env; return call_object_v(0, o, mid, ap); }
+static jo tl_vai_jni_CallObjectMethod(tl_va_frame *f) { tl_va_list ap; tl_va_start(f, 3, 0, &ap); return call_object_v(0, (jo)f->gp[1], (void *)f->gp[2], &ap); }
+TL_VA_STUB(tl_va_jni_CallObjectMethod, tl_vai_jni_CallObjectMethod);
+static jo jni_CallNonvirtualObjectMethodA(void *env, jo o, jo c, void *mid, const jvalue *a) { (void)env; (void)c; return call_object_a(1, o, mid, a); }
+static jo jni_CallNonvirtualObjectMethodV(void *env, jo o, jo c, void *mid, tl_va_list *ap) { (void)env; (void)c; return call_object_v(1, o, mid, ap); }
+static jo tl_vai_jni_CallNonvirtualObjectMethod(tl_va_frame *f) { tl_va_list ap; tl_va_start(f, 4, 0, &ap); return call_object_v(1, (jo)f->gp[1], (void *)f->gp[3], &ap); }
+TL_VA_STUB(tl_va_jni_CallNonvirtualObjectMethod, tl_vai_jni_CallNonvirtualObjectMethod);
+static jo jni_CallStaticObjectMethodA(void *env, jo c, void *mid, const jvalue *a) { (void)env; (void)c; return call_object_a(2, NULL, mid, a); }
+static jo jni_CallStaticObjectMethodV(void *env, jo c, void *mid, tl_va_list *ap) { (void)env; (void)c; return call_object_v(2, NULL, mid, ap); }
+static jo tl_vai_jni_CallStaticObjectMethod(tl_va_frame *f) { tl_va_list ap; tl_va_start(f, 3, 0, &ap); return call_object_v(2, NULL, (void *)f->gp[2], &ap); }
+TL_VA_STUB(tl_va_jni_CallStaticObjectMethod, tl_vai_jni_CallStaticObjectMethod);
+extern void tl_va_jni_CallObjectMethod(void); extern void tl_va_jni_CallNonvirtualObjectMethod(void); extern void tl_va_jni_CallStaticObjectMethod(void);
 
 /* void is its own case: nothing to return */
 void jni_CallVoidMethodA(void *env, jo o, void *mid, const jvalue *a) { (void)env; call_a(0, o, mid, a); }
