@@ -111,6 +111,14 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
     for (size_t i = 0; i < sizeof(required) / sizeof(required[0]); i++)
         if (!runtime_file(runtime_root, required[i])) { atomic_store(&g_java_runtime_ready, false); return false; }
 
+    /* ICU locale data and Android timezone data are runtime inputs, not optional
+       build artifacts. Reject a partial Java image before the DVM starts. */
+    if (!runtime_directory(runtime_root, "com.android.i18n/etc/icu") ||
+        !runtime_directory(runtime_root, "com.android.tzdata/etc")) {
+        atomic_store(&g_java_runtime_ready, false);
+        return false;
+    }
+
     /* build_android_system.sh emits one root with fonts/, etc/ and cacerts/.
        The fonts root is the Android-system root, not the fonts/ subdirectory. */
     if (!infinity_husk_prepare_native(system_certificates_dir, system_fonts_root,
