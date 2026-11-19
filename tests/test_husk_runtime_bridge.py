@@ -339,7 +339,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "reserving JNI native method table transaction",
             "owner->natives[owner->nnatives].registered_on = given",
             "__atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE)",
-            "growing JNI native method table",
+            "reserving JNI native method table transaction",
             "static int32_t jni_UnregisterNatives(void *env, jo cls)",
             "owner->natives[read].registered_on == registered",
             "static char *jni_mutf8_encode(",
