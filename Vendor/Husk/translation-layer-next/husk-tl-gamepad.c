@@ -35,7 +35,14 @@ static int64_t now_ms(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC,
 /* A controller is usually connected (and updated) before the game starts, so TL_PAD_DPAD, which the engine's driver sets just before it installs its sink, is read again here. */
 void tl_pad_set_sink(const tl_pad_sink *sink) { pthread_mutex_lock(&P.lock); if (sink) P.sink = *sink; else memset(&P.sink, 0, sizeof(P.sink)); P.dpad_mode = -1; pthread_mutex_unlock(&P.lock); }
 
-bool tl_pad_connected(int slot) { return slot >= 0 && slot < TL_PADS && P.connected[slot]; }
+bool tl_pad_connected(int slot)
+{
+    if (slot < 0 || slot >= TL_PADS) return false;
+    pthread_mutex_lock(&P.lock);
+    bool connected = P.connected[slot];
+    pthread_mutex_unlock(&P.lock);
+    return connected;
+}
 
 bool tl_pad_read(int slot, tl_pad_state *out)
 {
@@ -63,9 +70,35 @@ void tl_pad_connect(int slot, const char *name)
 void tl_pad_disconnect(int slot)
 {
     if (slot < 0 || slot >= TL_PADS) return;
+    struct { int keycode; int64_t down; } releases[TL_PAD_BUTTONS + 2];
+    int count = 0;
+    int64_t ms = now_ms();
+    tl_pad_sink sink;
     pthread_mutex_lock(&P.lock);
+    if (!P.connected[slot]) { pthread_mutex_unlock(&P.lock); return; }
+    uint32_t buttons = P.last[slot].buttons;
+    for (int b = 0; b < TL_PAD_BUTTONS; b++) {
+        if (!(buttons & (1u << b))) continue;
+        if (b >= TL_PAD_DPAD_UP && P.dpad_mode == 0) continue;
+        releases[count].keycode = k_keycode[b];
+        releases[count++].down = P.down_ms[slot][b];
+    }
+    for (int t = 0; t < 2; t++) {
+        if (!P.trigger_key[slot][t]) continue;
+        releases[count].keycode = 104 + t;
+        releases[count++].down = P.down_ms[slot][TL_PAD_BUTTONS + t];
+    }
+    sink = P.sink;
     P.connected[slot] = false;
+    memset(&P.last[slot], 0, sizeof(P.last[slot]));
+    memset(P.axes[slot], 0, sizeof(P.axes[slot]));
+    memset(P.trigger_key[slot], 0, sizeof(P.trigger_key[slot]));
     pthread_mutex_unlock(&P.lock);
+    for (int i = 0; i < count && sink.key; i++) {
+        jobj *ev = tl_input_key_event(1, releases[i].keycode, DEVICE_BASE + slot,
+                                      0x401 /* SOURCE_GAMEPAD */, 0, releases[i].down, ms);
+        if (ev) sink.key(ev, DEVICE_BASE + slot, 1, releases[i].keycode, releases[i].down, ms);
+    }
     tl_log_line("pad: controller %d disconnected", slot);
 }
 
@@ -121,11 +154,11 @@ void tl_pad_update(int slot, const tl_pad_state *s)
     int device = DEVICE_BASE + slot;
     for (int i = 0; i < nkeys && sink.key; i++) {
         jobj *ev = tl_input_key_event(keys[i].action, keys[i].keycode, device, 0x401 /* SOURCE_GAMEPAD */, 0, keys[i].down, ms);
-        sink.key(ev, device, keys[i].action, keys[i].keycode, keys[i].down, ms);
+        if (ev) sink.key(ev, device, keys[i].action, keys[i].keycode, keys[i].down, ms);
     }
     if (moved && sink.motion) {
         jobj *ev = tl_input_joystick_event(device, SOURCE_GAMEPAD_STICKS, down_ms, ms, axes);
-        sink.motion(ev, device, SOURCE_GAMEPAD_STICKS, down_ms, ms);
+        if (ev) sink.motion(ev, device, SOURCE_GAMEPAD_STICKS, down_ms, ms);
     }
 }
 
@@ -141,7 +174,7 @@ static int slot_of(const jobj *o) { return o && o->native ? (int)(intptr_t)o->na
 
 static jobj *device_object(int slot)
 {
-    if (slot < 0 || slot >= TL_PADS || !P.connected[slot]) return NULL;
+    if (slot < 0 || slot >= TL_PADS || !tl_pad_connected(slot)) return NULL;
     if (!g_dev[slot]) { g_dev[slot] = tl_jni_new_object(tl_jni_class("android/view/InputDevice")); g_dev[slot]->native = (void *)(intptr_t)(slot + 1); }
     return tl_jni_ref(g_dev[slot]);
 }
@@ -149,7 +182,9 @@ static jobj *device_object(int slot)
 static void ID_getDeviceIds(tl_jcall *c)
 {
     int ids[TL_PADS], n = 0;
+    pthread_mutex_lock(&P.lock);
     for (int s = 0; s < TL_PADS; s++) if (P.connected[s]) ids[n++] = DEVICE_BASE + s;
+    pthread_mutex_unlock(&P.lock);
     jobj *a = tl_jni_new_prim_array('I', (uint32_t)n);
     if (n) memcpy(a->arr.data, ids, (size_t)n * sizeof(int));
     c->ret = vl(a);
