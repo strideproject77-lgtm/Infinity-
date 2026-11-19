@@ -1100,3 +1100,4 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Audit and implement additional JNI boundary contracts that can be completed without inventing handle identity or ART behavior.
 - Continue NativeActivity and Bionic lifecycle gaps only where a real compatible contract can be delivered; retain explicit unsupported behavior otherwise.
 - Keep all validation deferred until source integration reaches 100%, then perform the single consolidated test/build/device phase.
+- Final source-contract marker audit found and corrected one stale assertion left from the pre-transactional registration implementation (`growing JNI native method table` → `reserving JNI native method table transaction`): `06c4b50ce964f0afa7c61f2d18419a7e85421428`. Marker matching was inspected statically; tests were not run.
