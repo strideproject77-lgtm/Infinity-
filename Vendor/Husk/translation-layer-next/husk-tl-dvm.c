@@ -2300,13 +2300,24 @@ static jvalue hook_invoke(void *method, jobj *self, bool nonvirtual, const jvalu
 }
 static bool hook_find_field(tl_jclass *jc, const char *name, const char *sig, bool is_static, tl_jclass **decl, uint32_t *slot)
 {
-    (void)sig;
     dvm_class *c = dvm_class_of(jc);
-    dvm_field *f = c ? dvm_find_field(c, name, is_static) : NULL;
-    if (!f) return false;
-    dvm_ensure_init(c);           /* GetFieldID too, as on ART */
-    if (is_static) dvm_ensure_init(f->cls);
-    *decl = f->cls->jc; *slot = f->slot;
+    if (!c || !name || !sig || !decl || !slot) return false;
+
+    /* JNI field IDs are descriptor-sensitive. A class may hide an inherited
+     * field with the same name but a different type; resolving by name alone
+     * can return the wrong static slot (notably generated R$* integer fields).
+     */
+    dvm_field *f = dvm_find_field_exact(c, name, sig, is_static);
+    if (!f) {
+        if (g_dvm_trace >= 1)
+            tl_log_line("dvm: JNI %s field not found: %s.%s:%s",
+                        is_static ? "static" : "instance", jc->name, name, sig);
+        return false;
+    }
+    if (!dvm_ensure_init(c)) return false; /* GetFieldID initialises the lookup class. */
+    if (is_static && !dvm_ensure_init(f->cls)) return false;
+    *decl = f->cls->jc;
+    *slot = f->slot;
     return true;
 }
 static uint32_t hook_slots(tl_jclass *jc) { dvm_class *c = dvm_class_of(jc); return c ? c->nslots : 0; }
