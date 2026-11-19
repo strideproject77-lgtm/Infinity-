@@ -2,10 +2,6 @@ name: INFINITY Husk ANGLE iOS graphics runtime
 
 on:
   workflow_dispatch:
-    paths:
-      - "Vendor/Husk/build-support/build_angle_ios.sh"
-      - ".github/workflows/infinity-husk-angle.yml"
-  workflow_dispatch:
 
 permissions:
   contents: write
