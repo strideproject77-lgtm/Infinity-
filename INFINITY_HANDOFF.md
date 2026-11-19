@@ -348,3 +348,33 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - This fills a concrete DEX gap: the previous parser allocated `static_values` but never read `static_values_off`, so generated Android resource constants such as `R$layout` IDs could remain zero even though the `sget` opcode was already implemented.
 - This is a source-level compatibility improvement, not proof that the earlier 2048 failure is resolved. The exact APK/runtime path and 2048 launch remain unverified until an authorized device build/test.
 - No tests, scripts, workflows, Xcode/Codemagic builds, IPA packaging/signing/export, or installs were run. SideStore was not modified.
+
+
+## 2026-11-19 — Shared Husk split-package launch integration
+
+### Implemented in source
+
+- Removed the INFINITY Swift launch restriction that allowed additional APKs only for the SDL engine. The launch coordinator now passes the complete validated split set to the existing Husk queue for every supported engine.
+- Removed the matching SDL-only rejection from the C runtime adapter. Split APK paths are queued before the base APK enters the real Husk launch dispatcher.
+- Confirmed the vendored common linker attaches queued splits when the base APK is first added. The inspected engine entry points call that common loader for Unity, SDL, GameActivity, NativeActivity/Unreal, Godot, GTA, Flutter, GameMaker, Cocos and Java. The Java loader also iterates the linker's APK set when resolving app APK contents.
+- Increased INFINITY's split queue limit from 15 to the vendored linker's actual capacity: 48 APKs total (one base plus up to 47 splits). The Swift package store now rejects archives exceeding that limit before extraction and rechecks persisted split counts before launch.
+- The C adapter rejects overlong split paths before they can be truncated by Husk's fixed-size path table.
+- Hardened `tl_ld_add_apk`: if any queued split cannot be opened, it now fails the package-set load instead of silently skipping that split and continuing with an incomplete base-only launch. The existing launch failure cleanup resets the partially opened package set.
+- Updated the Android app detail status to describe the common Husk multi-APK loader instead of incorrectly reporting non-SDL engines as unsupported.
+
+### Files changed
+
+- `LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift`
+- `LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift`
+- `LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift`
+- `Vendor/Husk/bridge/INFINITYHuskRuntime.c`
+- `Vendor/Husk/include/INFINITYHuskRuntime.h`
+- `Vendor/Husk/translation-layer-next/husk-tl-ld.c`
+
+### Remaining blockers / verification
+
+- This connects split packages to the shared loader at source level; it does not prove every app's particular split selection is complete. XAPK/APKS/APKM archives may contain device-specific configurations or dynamic feature modules that still need selection/metadata handling.
+- The current archive importer identifies a base APK and preserves every other APK entry as a split; it does not yet select only the ABI/density/language configuration matching the current device.
+- No unit tests, test scripts, GitHub Actions, Xcode builds, Codemagic builds, IPA packaging/signing/export, or device launches were run, as required by implementation-only mode.
+- 2048 and Hill Climb Racing remain unverified. No compatibility percentage is increased based solely on this source change.
+- SideStore source, settings, targets, bundle identifiers, entitlements, signing, installation, refresh, and workflows were not modified.

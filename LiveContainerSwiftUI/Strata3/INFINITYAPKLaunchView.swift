@@ -106,10 +106,7 @@ struct INFINITYAPKInstalledAppDetail: View {
         guard app.splitAPKCount > 0 else {
             return app.requiresSplits ? "Required · missing" : "Not required"
         }
-        if app.detectedEngine == "sdl" {
-            return "\(app.splitAPKCount) stored · SDL loader wired"
-        }
-        return "\(app.splitAPKCount) stored · engine loader unavailable"
+        return "\(app.splitAPKCount) stored · Husk multi-APK loader wired"
     }
 
     var body: some View {
@@ -454,9 +451,6 @@ struct INFINITYAPKLaunchView: View {
                 throw INFINITYHuskRuntime.RuntimeError.unsupportedEngine
             }
             let splitPackages = try INFINITYAPKStore.splitAPKURLs(for: app)
-            if !splitPackages.isEmpty && engine != .sdl {
-                throw INFINITYAPKStore.StoreError.splitPackagesRequireSDL
-            }
             if app.requiresSplits && splitPackages.isEmpty {
                 throw INFINITYAPKStore.StoreError.missingSplitPackages
             }

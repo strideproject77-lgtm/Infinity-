@@ -145,11 +145,6 @@ bool infinity_husk_launch_engine(int engine,
     if (engine < INFINITY_HUSK_ENGINE_UNITY || engine > INFINITY_HUSK_ENGINE_GAMEMAKER)
         return false;
     int queued_splits = atomic_load(&g_queued_split_packages);
-    if (queued_splits > 0 && engine != INFINITY_HUSK_ENGINE_SDL) {
-        infinity_husk_clear_split_packages();
-        return false;
-    }
-
     /* Reserve the single native session before entering upstream launch code.
        Without this CAS, two callers can both observe NONE and start two engines
        against the same global Husk state and Metal surface. */
@@ -320,7 +315,8 @@ bool infinity_husk_queue_split_package(const char *apk_path)
     if (!apk_path || !apk_path[0] ||
         atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE ||
         !atomic_load(&g_native_runtime_ready) ||
-        atomic_load(&g_queued_split_packages) >= 15 ||
+        atomic_load(&g_queued_split_packages) >= (TL_LD_MAX_APKS - 1) ||
+        strnlen(apk_path, 1024) >= 1024 ||
         !readable_file(apk_path))
         return false;
     tl_ld_queue_split(apk_path);

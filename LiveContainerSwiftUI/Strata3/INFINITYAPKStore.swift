@@ -87,7 +87,7 @@ enum INFINITYAPKStore {
         case ambiguousBaseAPK
         case missingSplitPackages
         case invalidSplitPackage
-        case splitPackagesRequireSDL
+        case tooManySplitPackages
 
         var errorDescription: String? {
             switch self {
@@ -101,10 +101,13 @@ enum INFINITYAPKStore {
             case .ambiguousBaseAPK: return "The selected package archive contains multiple possible base APKs and cannot be imported safely."
             case .missingSplitPackages: return "This app requires split APKs, but its installed package is missing one or more split files. Re-import the complete XAPK/APKS/APKM package."
             case .invalidSplitPackage: return "A split APK does not match the base package name or version, or its manifest is invalid. The package was not launched."
-            case .splitPackagesRequireSDL: return "This Husk build can load split APK packages through its SDL backend only. This app's detected engine does not expose a split-package loader, so launch is safely blocked."
+            case .tooManySplitPackages: return "This package contains more split APKs than the Husk loader can accept (maximum 47 plus the base APK)."
             }
         }
     }
+
+    /// Husk's loader accepts 48 APK containers total, including the base APK.
+    static let maximumSplitAPKCount = 47
 
     private static let indexName = "installed-apks.json"
     private static let fileManager = FileManager.default
@@ -236,9 +239,9 @@ enum INFINITYAPKStore {
 
 
     /// Imports XAPK, APKS and APKM ZIP containers. The base APK and every
-    /// accompanying split APK are preserved in the package directory. The
-    /// current Husk launch adapter accepts only a base APK, so split packages
-    /// remain visible in Library but are correctly blocked from launch.
+    /// accompanying split APK are preserved in the package directory. Husk's
+    /// shared linker queues these splits for every engine before the base APK
+    /// is opened, so incomplete sets are never launched as base-only packages.
     private static func installPackageArchive(from source: URL) throws -> INFINITYAPKInstalledApp {
         let scoped = source.startAccessingSecurityScopedResource()
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
@@ -266,6 +269,9 @@ enum INFINITYAPKStore {
         let stage = root.appendingPathComponent(".staging-\(UUID().uuidString)", isDirectory: true)
         let baseURL = stage.appendingPathComponent("base.apk")
         let splitEntries = apkEntries.filter { $0.path != baseEntry.path }
+        guard splitEntries.count <= maximumSplitAPKCount else {
+            throw StoreError.tooManySplitPackages
+        }
         let splitDirectory = stage.appendingPathComponent("splits", isDirectory: true)
         try fileManager.createDirectory(at: stage, withIntermediateDirectories: true)
         do {
@@ -365,7 +371,7 @@ enum INFINITYAPKStore {
     }
 
     /// Finds and validates the complete split APK set for an installed package.
-    /// The pinned Husk adapter currently consumes additional packages through SDL only.
+    /// The common Husk APK linker consumes these for Java and native engines.
     static func splitAPKURLs(for app: INFINITYAPKInstalledApp) throws -> [URL] {
         guard isValidPackageName(app.packageName) else { throw StoreError.invalidPackageName }
         let packageDirectory = root.appendingPathComponent(app.packageName, isDirectory: true).standardizedFileURL
@@ -400,6 +406,7 @@ enum INFINITYAPKStore {
             if app.requiresSplits || app.splitAPKCount > 0 { throw StoreError.missingSplitPackages }
             return []
         }
+        guard urls.count <= maximumSplitAPKCount else { throw StoreError.tooManySplitPackages }
         guard !app.requiresSplits || !urls.isEmpty else { throw StoreError.missingSplitPackages }
         guard !urls.isEmpty else { return [] }
 

@@ -225,10 +225,17 @@ bool tl_ld_add_apk(const char *path)
 {
     bool first = G.napks == 0;
     if (!add_one(path)) return false;
-    if (first)
+    if (first) {
         for (int i = 0; i < g_nsplits; i++) {
-            if (add_one(g_splits[i])) tl_log_line("ld: split %s", strrchr(g_splits[i], '/') ? strrchr(g_splits[i], '/') + 1 : g_splits[i]);
+            if (!add_one(g_splits[i])) {
+                tl_log_line("ld: refusing incomplete split set; failed to open %s",
+                            strrchr(g_splits[i], '/') ? strrchr(g_splits[i], '/') + 1 : g_splits[i]);
+                return false;
+            }
+            tl_log_line("ld: split %s",
+                        strrchr(g_splits[i], '/') ? strrchr(g_splits[i], '/') + 1 : g_splits[i]);
         }
+    }
     return true;
 }
 

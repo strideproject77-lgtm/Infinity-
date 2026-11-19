@@ -203,7 +203,6 @@ final class INFINITYHuskRuntime: ObservableObject {
         case invalidSurface
         case rejectedLaunch
         case unsupportedEngine
-        case splitPackageNotSupported
 
         var errorDescription: String? {
             switch self {
@@ -221,8 +220,6 @@ final class INFINITYHuskRuntime: ObservableObject {
                 return "Husk rejected the launch request. The native runtime did not accept this APK; inspect the attached Husk native log for the underlying reason."
             case .unsupportedEngine:
                 return "INFINITY could not identify a supported Husk engine for this APK. Import diagnostics are available in the session log."
-            case .splitPackageNotSupported:
-                return "This app requires split APK loading. The current Husk adapter only accepts a single base APK, so execution is blocked safely."
             }
         }
     }
@@ -341,8 +338,8 @@ final class INFINITYHuskRuntime: ObservableObject {
             }
         }
 
-        if !additionalPackages.isEmpty && engine != .sdl {
-            throw RuntimeError.splitPackageNotSupported
+        guard additionalPackages.count <= INFINITYAPKStore.maximumSplitAPKCount else {
+            throw INFINITYAPKStore.StoreError.tooManySplitPackages
         }
         if !additionalPackages.isEmpty {
             infinity_husk_clear_split_packages()
