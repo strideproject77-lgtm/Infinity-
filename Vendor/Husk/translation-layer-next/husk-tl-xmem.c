@@ -301,11 +301,13 @@ bool tl_jit_reserve_bottom(size_t end)
 
 bool tl_xmem_alloc(size_t bytes, uint8_t **rx, uint8_t **rw)
 {
-    size_t n = (bytes + TL_XMEM_PAGE - 1) & ~(size_t)(TL_XMEM_PAGE - 1);
+    if (!bytes || bytes > SIZE_MAX - (TL_XMEM_PAGE - 1u)) return false;
+    size_t n = (bytes + TL_XMEM_PAGE - 1u) & ~(size_t)(TL_XMEM_PAGE - 1u);
     bool ok = false;
     pthread_mutex_lock(&g_x.lock);
     /* StikDebug's region is QEMU's too: Android, when it runs, holds the top of it (husk-ios-jit.c) */
-    if (g_x.open && n <= g_x.size - g_x.used && (!g_x.shared || tl_jit_reserve_bottom(g_x.used + n))) {
+    if (g_x.open && g_x.used <= g_x.size && n <= g_x.size - g_x.used &&
+        (!g_x.shared || tl_jit_reserve_bottom(g_x.used + n))) {
         if (rx) *rx = g_x.rx + g_x.used;
         if (rw) *rw = g_x.rw + g_x.used;
         g_x.used += n;
@@ -315,25 +317,33 @@ bool tl_xmem_alloc(size_t bytes, uint8_t **rx, uint8_t **rw)
     return ok;
 }
 
-ptrdiff_t tl_xmem_delta(void) { return g_x.rw - g_x.rx; }
+ptrdiff_t tl_xmem_delta(void)
+{
+    return (ptrdiff_t)((uintptr_t)g_x.rw - (uintptr_t)g_x.rx);
+}
 bool tl_xmem_near(const void *p, size_t dist)
 {
     if (!g_x.open || !p) return false;
-    uintptr_t a = (uintptr_t)p, lo = (uintptr_t)g_x.rx, hi = lo + g_x.size;
-    return a + dist >= lo && a <= hi + dist;
+    uintptr_t a = (uintptr_t)p, lo = (uintptr_t)g_x.rx;
+    if (g_x.size > UINTPTR_MAX - lo) return false;
+    uintptr_t hi = lo + g_x.size;
+    if (a < lo) return lo - a <= dist;
+    if (a > hi) return a - hi <= dist;
+    return true;
 }
 
 bool tl_xmem_contains(const void *p)
 {
-    const uint8_t *b = p;
-    return g_x.open && ((b >= g_x.rx && b < g_x.rx + g_x.size)
-                     || (b >= g_x.rw && b < g_x.rw + g_x.size));
+    if (!g_x.open || !p) return false;
+    uintptr_t b = (uintptr_t)p, rx = (uintptr_t)g_x.rx, rw = (uintptr_t)g_x.rw;
+    return (b >= rx && b - rx < g_x.size) || (b >= rw && b - rw < g_x.size);
 }
 
 bool tl_xmem_is_rx(const void *p)
 {
-    const uint8_t *b = p;
-    return g_x.open && b >= g_x.rx && b < g_x.rx + g_x.size;
+    if (!g_x.open || !p) return false;
+    uintptr_t b = (uintptr_t)p, rx = (uintptr_t)g_x.rx;
+    return b >= rx && b - rx < g_x.size;
 }
 
 void tl_xmem_flush(const void *rx, size_t bytes)
@@ -345,5 +355,17 @@ void tl_xmem_flush(const void *rx, size_t bytes)
 #endif
 }
 
-size_t tl_xmem_used(void) { return g_x.used; }
-size_t tl_xmem_size(void)  { return g_x.size; }
+size_t tl_xmem_used(void)
+{
+    pthread_mutex_lock(&g_x.lock);
+    size_t used = g_x.used;
+    pthread_mutex_unlock(&g_x.lock);
+    return used;
+}
+size_t tl_xmem_size(void)
+{
+    pthread_mutex_lock(&g_x.lock);
+    size_t size = g_x.size;
+    pthread_mutex_unlock(&g_x.lock);
+    return size;
+}
