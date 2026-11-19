@@ -59,3 +59,12 @@
 - The latest native test workflow on the prior commit passed all 3 jobs, including APK source-contract/archive tests. This is source-level evidence only, not device picker validation.
 - No APK importer code was changed in this toolchain-only correction. The user will perform the on-device import test after receiving a fresh IPA.
 - No IPA build, signing, or export was started. The canonical `build.yml` is manual-dispatch only, and the available GitHub connection cannot dispatch it. User must start that workflow manually after the framework validation; do not enable automatic macOS IPA builds or change the canonical trigger.
+
+
+## SwiftASN1 compiler search-path repair attempt — 2026-11-19
+
+- Framework validation run `44435588398` failed after package resolution and Xcode 26.2 selection. The exact compiler diagnostic is `CryptoExtras/EC/Curve25519+PEM.swift:16:8: error: no such module 'SwiftASN1'`.
+- The build log confirms SwiftPM resolved and scheduled the `SwiftASN1` target and generated its module map under the swift-asn1 checkout. However, the failing `CryptoExtras` Swift compiler invocation did not receive the swift-asn1 product build directory as a Swift `-I` search path. This is a module visibility/search-path issue in the framework build invocation, not an APK importer source diagnostic.
+- Updated the framework validation step to locate the resolved `swift-asn1/build/Debug-iphoneos` directory after package resolution and pass it through Xcode's `SWIFT_INCLUDE_PATHS` build setting. The step fails with an explicit message if the expected directory is absent.
+- This is a targeted build-configuration workaround; it is not yet verified until the automatically triggered framework validation completes. Do not claim the framework or IPA build is successful yet.
+- APK import UI/store source remains unchanged. No device import test or IPA artifact exists from run `44435588398`.
