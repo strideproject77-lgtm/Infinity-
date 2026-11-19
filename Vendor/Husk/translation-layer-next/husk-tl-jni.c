@@ -602,10 +602,31 @@ static bool string_init_in_place(jobj *self, tl_jmeth *m, const jvalue *args)
     jvalue r = {0};
     if (!dvm_string_init(m->sig, args, &r) || !r.l) return true;           /* the exception is pending */
     jobj *str = r.l;
+    char *utf8 = strdup(str->str.utf8 ? str->str.utf8 : "");
+    if (!utf8) {
+        tl_jni_unref(str);
+        tl_jni_throw("java/lang/OutOfMemoryError", "copying JNI String constructor result");
+        return true;
+    }
+    uint16_t *u16 = NULL;
+    if (str->str.u16) {
+        if (str->str.len16 < 0 || (size_t)str->str.len16 > SIZE_MAX / sizeof(*u16) - 1) {
+            free(utf8); tl_jni_unref(str);
+            tl_jni_throw("java/lang/OutOfMemoryError", "JNI String length overflow");
+            return true;
+        }
+        size_t units = (size_t)str->str.len16;
+        u16 = malloc((units + 1) * sizeof(*u16));
+        if (!u16) {
+            free(utf8); tl_jni_unref(str);
+            tl_jni_throw("java/lang/OutOfMemoryError", "copying JNI UTF-16 String");
+            return true;
+        }
+        memcpy(u16, str->str.u16, units * sizeof(*u16));
+        u16[units] = 0;
+    }
     self->kind = TL_K_STRING; self->cls = str->cls;
-    self->str.utf8 = strdup(str->str.utf8 ? str->str.utf8 : "");
-    self->str.len16 = str->str.len16; self->str.u16 = NULL;
-    if (str->str.u16) { self->str.u16 = malloc((size_t)str->str.len16 * 2 + 2); memcpy(self->str.u16, str->str.u16, (size_t)str->str.len16 * 2); self->str.u16[str->str.len16] = 0; }
+    self->str.utf8 = utf8; self->str.len16 = str->str.len16; self->str.u16 = u16;
     tl_jni_unref(str);
     return true;
 }
@@ -613,6 +634,8 @@ static jvalue call_a(int kind, jobj *self, void *mid, const jvalue *args)
 {
     tl_jmeth *m = mid_ok(mid);
     if (!m) return g_zero;
+    if (!m->valid_sig) { tl_jni_throw("java/lang/NoSuchMethodError", "invalid JNI method descriptor"); return g_zero; }
+    if (m->nargs > 0 && !args) { tl_jni_throw("java/lang/IllegalArgumentException", "JNI call has a null argument array"); return g_zero; }
     if (kind != 2 && !self) return null_receiver(m);
     if (kind != 2 && string_init_in_place(self, m, args)) return g_zero;
     return invoke(kind == 2 ? NULL : self, m, kind == 1, args);
