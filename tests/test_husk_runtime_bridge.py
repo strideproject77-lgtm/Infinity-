@@ -259,6 +259,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "STV_HIDDEN_ = 2", "STV_INTERNAL_ = 1", "STV_PROTECTED_ = 3",
             "symbol_is_exported", "resolved_symbol_value",
             "STT_GNU_IFUNC_", "recursive IFUNC resolution",
+            "recursive symbol resolution at index",
             "__atomic_load_n(&L->symcache[index]", "__atomic_store_n(&L->symcache[index]"
         ):
             with self.subTest(marker=marker):
