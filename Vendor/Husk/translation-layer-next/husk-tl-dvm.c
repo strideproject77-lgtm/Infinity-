@@ -104,9 +104,42 @@ static cdef *cdef_find(const char *name)
     return NULL;
 }
 
+static bool dex_table_fits(uint32_t count, uint32_t offset, size_t stride,
+                             uint32_t file_size)
+{
+    if (!count) return offset == 0 || offset <= file_size;
+    if (offset < 0x70 || offset > file_size || !stride) return false;
+    return (size_t)count <= ((size_t)file_size - offset) / stride;
+}
+
+static bool dex_header_valid(const uint8_t *b, size_t size)
+{
+    if (!b || size < 0x70 || memcmp(b, "dex\n", 4) || b[7] != 0) return false;
+    uint32_t file_size = rd32(b + 0x20);
+    uint32_t header_size = rd32(b + 0x24);
+    uint32_t endian_tag = rd32(b + 0x28);
+    uint32_t map_off = rd32(b + 0x34);
+    uint32_t data_size = rd32(b + 0x68);
+    uint32_t data_off = rd32(b + 0x6c);
+    if (file_size < 0x70 || file_size > size || header_size != 0x70 ||
+        endian_tag != 0x12345678u) return false;
+    if (map_off && (map_off < 0x70 || map_off >= file_size)) return false;
+    if (data_size && (data_off < 0x70 || data_off > file_size ||
+                      data_size > file_size - data_off)) return false;
+    return dex_table_fits(rd32(b + 0x38), rd32(b + 0x3c), 4, file_size) &&
+           dex_table_fits(rd32(b + 0x40), rd32(b + 0x44), 4, file_size) &&
+           dex_table_fits(rd32(b + 0x48), rd32(b + 0x4c), 12, file_size) &&
+           dex_table_fits(rd32(b + 0x50), rd32(b + 0x54), 8, file_size) &&
+           dex_table_fits(rd32(b + 0x58), rd32(b + 0x5c), 8, file_size) &&
+           dex_table_fits(rd32(b + 0x60), rd32(b + 0x64), 32, file_size);
+}
+
 static bool dex_add(const uint8_t *b, size_t size, const char *label)
 {
-    if (size < 0x70 || memcmp(b, "dex\n", 4)) { tl_log_line("dvm: %s is not a DEX file", label); return false; }
+    if (!dex_header_valid(b, size)) {
+        tl_log_line("dvm: %s has an invalid or truncated DEX header/table", label);
+        return false;
+    }
     if (g_ndex >= 256) return false;
     dvm_dex *d = calloc(1, sizeof(*d));
     d->b = b; d->size = size;
@@ -368,50 +401,105 @@ static tl_jclass *resolve_type(dvm_dex *d, uint32_t idx)
     return c;
 }
 
-/* Parse encoded static values into a class's statics (before <clinit>, as ART does). */
-static void read_value(dvm_dex *d, const uint8_t **pp, jvalue *out)
+/* Bounded ULEB128 used for untrusted encoded_value data. */
+static bool encoded_uleb(dvm_dex *d, const uint8_t **pp, uint32_t *value)
 {
     const uint8_t *p = *pp;
+    uint32_t result = 0;
+    for (unsigned shift = 0; shift <= 28; shift += 7) {
+        if ((size_t)(p - d->b) >= d->size) return false;
+        uint8_t byte = *p++;
+        if (shift == 28 && (byte & 0xf0)) return false;
+        result |= (uint32_t)(byte & 0x7f) << shift;
+        if (!(byte & 0x80)) { *pp = p; *value = result; return true; }
+    }
+    return false;
+}
+
+/* Parse encoded values with strict bounds; APK metadata must never make the
+ * interpreter read beyond the DEX mapping. Arrays/annotations are validated
+ * recursively even though class static storage only consumes scalar values. */
+static bool read_value_depth(dvm_dex *d, const uint8_t **pp, jvalue *out,
+                             unsigned depth)
+{
+    const uint8_t *p = *pp;
+    if (depth > 32 || p < d->b || (size_t)(p - d->b) >= d->size) return false;
     uint8_t h = *p++;
-    int type = h & 0x1f, arg = h >> 5, size = arg + 1;
+    unsigned type = h & 0x1f, arg = h >> 5, size = arg + 1;
     uint64_t v = 0;
     memset(out, 0, sizeof(*out));
-    switch (type) {
-    case 0x00: case 0x02: case 0x04: case 0x06:                  /* byte short int long: sign-extended */
-        for (int i = 0; i < size; i++) v |= (uint64_t)p[i] << (8 * i);
-        if (size < 8 && (p[size - 1] & 0x80)) v |= ~0ull << (8 * size);
-        if (type == 0x06) out->j = (int64_t)v; else out->i = (int32_t)v;
-        p += size; break;
-    case 0x03:                                                  /* char */
-        for (int i = 0; i < size; i++) v |= (uint64_t)p[i] << (8 * i);
-        out->i = (int32_t)(uint16_t)v; p += size; break;
-    case 0x10:                                                  /* float: the high bytes */
-        for (int i = 0; i < size; i++) v |= (uint64_t)p[i] << (8 * (4 - size + i));
-        out->i = (int32_t)(uint32_t)v; p += size; break;
-    case 0x11:                                                  /* double */
-        for (int i = 0; i < size; i++) v |= (uint64_t)p[i] << (8 * (8 - size + i));
-        out->j = (int64_t)v; p += size; break;
-    case 0x17:                                                  /* string */
-        for (int i = 0; i < size; i++) v |= (uint64_t)p[i] << (8 * i);
-        out->l = const_string(d, (uint32_t)v); p += size; break;
-    case 0x18:                                                  /* type */
-        for (int i = 0; i < size; i++) v |= (uint64_t)p[i] << (8 * i);
-        out->l = resolve_type(d, (uint32_t)v)->mirror; p += size; break;
-    case 0x1e: break;                                           /* null */
-    case 0x1f: out->i = arg; break;                             /* boolean */
-    case 0x1c: {                                                /* array: skipped */
-        uint32_t n = uleb(&p);
-        for (uint32_t i = 0; i < n; i++) { jvalue tmp; read_value(d, &p, &tmp); }
-        break;
-    }
-    case 0x1d: {                                                /* annotation: skipped */
-        uleb(&p); uint32_t n = uleb(&p);
-        for (uint32_t i = 0; i < n; i++) { uleb(&p); jvalue tmp; read_value(d, &p, &tmp); }
-        break;
-    }
-    default: p += size; break;                                  /* method types/handles, field, method, enum refs */
+
+    if (type == 0x1e) {
+        if (arg != 0) return false;
+    } else if (type == 0x1f) {
+        if (arg > 1) return false;
+        out->i = (int32_t)arg;
+    } else if (type == 0x1c) {
+        uint32_t count;
+        if (!encoded_uleb(d, &p, &count) || count > d->size) return false;
+        for (uint32_t i = 0; i < count; i++) {
+            jvalue ignored;
+            if (!read_value_depth(d, &p, &ignored, depth + 1)) return false;
+        }
+    } else if (type == 0x1d) {
+        uint32_t annotation_type, count;
+        if (!encoded_uleb(d, &p, &annotation_type) || annotation_type >= d->ntype ||
+            !encoded_uleb(d, &p, &count) || count > d->size) return false;
+        for (uint32_t i = 0; i < count; i++) {
+            uint32_t name_idx;
+            jvalue ignored;
+            if (!encoded_uleb(d, &p, &name_idx) || name_idx >= d->nstr ||
+                !read_value_depth(d, &p, &ignored, depth + 1)) return false;
+        }
+    } else {
+        unsigned max_size = 0;
+        switch (type) {
+        case 0x00: max_size = 1; break;                  /* byte */
+        case 0x02: case 0x03: max_size = 2; break;      /* short, char */
+        case 0x04: case 0x10: max_size = 4; break;      /* int, float */
+        case 0x06: case 0x11: max_size = 8; break;      /* long, double */
+        case 0x15: case 0x16: case 0x17: case 0x18:
+        case 0x19: case 0x1a: case 0x1b: max_size = 4; break;
+        default: return false;
+        }
+        if (size > max_size || (size_t)(p - d->b) > d->size ||
+            size > d->size - (size_t)(p - d->b)) return false;
+        for (unsigned i = 0; i < size; i++) {
+            unsigned shift = (type == 0x10) ? 8 * (4 - size + i) :
+                             (type == 0x11) ? 8 * (8 - size + i) : 8 * i;
+            v |= (uint64_t)p[i] << shift;
+        }
+        switch (type) {
+        case 0x00: case 0x02: case 0x04: case 0x06:
+            if (size < 8 && (p[size - 1] & 0x80)) v |= ~0ull << (8 * size);
+            if (type == 0x06) out->j = (int64_t)v; else out->i = (int32_t)v;
+            break;
+        case 0x03: out->i = (int32_t)(uint16_t)v; break;
+        case 0x10: out->i = (int32_t)(uint32_t)v; break;
+        case 0x11: out->j = (int64_t)v; break;
+        case 0x15: if (v >= d->nproto) return false; break;
+        case 0x16: break; /* method_handle table is validated by the DEX map */
+        case 0x17:
+            if (v >= d->nstr) return false;
+            out->l = const_string(d, (uint32_t)v);
+            if (!out->l) return false;
+            break;
+        case 0x18:
+            if (v >= d->ntype) return false;
+            { tl_jclass *klass = resolve_type(d, (uint32_t)v); if (!klass) return false; out->l = klass->mirror; }
+            break;
+        case 0x19: case 0x1b: if (v >= d->nfield) return false; break;
+        case 0x1a: if (v >= d->nmeth) return false; break;
+        }
+        p += size;
     }
     *pp = p;
+    return true;
+}
+
+static bool read_value(dvm_dex *d, const uint8_t **pp, jvalue *out)
+{
+    return read_value_depth(d, pp, out, 0);
 }
 
 static bool same_package(const char *a, const char *b)
@@ -522,12 +610,23 @@ static bool attach(tl_jclass *jc)
     /* Statics: storage on the class itself (tl_jclass->statics), so JNI's GetStatic*Field find them. */
     if (c->nsf) {
         jc->statics = calloc((size_t)c->nsf, sizeof(jvalue));
+        if (!jc->statics) {
+            tl_log_line("dvm: out of memory allocating static fields for %s", name);
+            return false;
+        }
         jc->nstatics = c->nsf;
         uint32_t sv = rd32(def + 28);
         if (sv) {
-            const uint8_t *p = d->b + sv;
-            uint32_t n = uleb(&p);
-            for (uint32_t i = 0; i < n && (int)i < c->nsf; i++) read_value(d, &p, &jc->statics[i]);
+            bool valid = sv < d->size;
+            const uint8_t *p = valid ? d->b + sv : d->b + d->size;
+            uint32_t n = 0;
+            valid = valid && encoded_uleb(d, &p, &n) && n <= (uint32_t)c->nsf;
+            for (uint32_t i = 0; valid && i < n; i++)
+                valid = read_value(d, &p, &jc->statics[i]);
+            if (!valid) {
+                memset(jc->statics, 0, (size_t)c->nsf * sizeof(jvalue));
+                tl_log_line("dvm: invalid/truncated static_values array for %s; defaulting statics", name);
+            }
         }
     }
     /* The vtable: the superclass's, overrides replacing entries (package-private methods only within their package), new
