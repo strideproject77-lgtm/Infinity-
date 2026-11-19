@@ -1407,18 +1407,62 @@ static int64_t jni_GetDirectBufferCapacity(void *env, jo o) { (void)env; return 
 /* ------------------------------------------------------------- the VM */
 
 typedef struct { const void *functions; } env_t;
-static env_t g_env, g_vm;
+static env_t t_env, g_vm;
+static __thread bool t_vm_attached;
 static const void *g_env_fns[233];
 
-static int32_t vm_DestroyJavaVM(void *vm) { (void)vm; return 0; }
-static int32_t vm_Attach(void *vm, void **penv, void *args) { (void)vm; (void)args; *penv = &g_env; return 0; }
-static int32_t vm_Detach(void *vm) { (void)vm; local_frames_detach(); return 0; }
-static int32_t vm_GetEnv(void *vm, void **penv, int32_t version) { (void)vm; (void)version; *penv = &g_env; return 0; }
+#define JNI_OK 0
+#define JNI_ERR (-1)
+#define JNI_EDETACHED (-2)
+#define JNI_EVERSION (-3)
+
+static void *thread_env(void)
+{
+    t_env.functions = g_env_fns;
+    return &t_env;
+}
+static int32_t vm_DestroyJavaVM(void *vm) { (void)vm; return JNI_ERR; }
+static int32_t vm_Attach(void *vm, void **penv, void *args)
+{
+    (void)vm; (void)args;
+    if (!penv) return JNI_ERR;
+    if (!t_vm_attached) {
+        t_vm_attached = true;
+        (void)local_frame_current();
+    }
+    *penv = thread_env();
+    return JNI_OK;
+}
+static int32_t vm_Detach(void *vm)
+{
+    (void)vm;
+    if (!t_vm_attached) return JNI_EDETACHED;
+    local_frames_detach();
+    t_vm_attached = false;
+    return JNI_OK;
+}
+static int32_t vm_GetEnv(void *vm, void **penv, int32_t version)
+{
+    (void)vm;
+    if (!penv) return JNI_ERR;
+    if (version < 0x00010002 || version > 0x00010006) return JNI_EVERSION;
+    if (!t_vm_attached) { *penv = NULL; return JNI_EDETACHED; }
+    *penv = thread_env();
+    return JNI_OK;
+}
 static const void *g_vm_fns[8] = { NULL, NULL, NULL, vm_DestroyJavaVM, vm_Attach, vm_Detach, vm_GetEnv, vm_Attach };
-static int32_t jni_GetJavaVM(void *env, void **vm) { (void)env; *vm = &g_vm; return 0; }
+static int32_t jni_GetJavaVM(void *env, void **vm) { (void)env; if (!vm) return JNI_ERR; *vm = &g_vm; return JNI_OK; }
 
 void *tl_jni_vm(void) { tl_jni_init(); return &g_vm; }
-void *tl_jni_env(void) { tl_jni_init(); return &g_env; }
+void *tl_jni_env(void)
+{
+    tl_jni_init();
+    if (!t_vm_attached) {
+        t_vm_attached = true;
+        (void)local_frame_current();
+    }
+    return thread_env();
+}
 
 #define SLOT(n, fn) g_env_fns[n] = (const void *)(fn)
 #define CALL_SLOTS(base, T) \
