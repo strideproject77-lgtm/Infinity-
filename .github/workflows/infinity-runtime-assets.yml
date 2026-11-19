@@ -2,10 +2,6 @@ name: INFINITY build Android runtime assets
 
 on:
   workflow_dispatch:
-    paths:
-      - "scripts/build_infinity_runtime_assets.sh"
-      - ".github/workflows/infinity-runtime-assets.yml"
-  workflow_dispatch:
 
 permissions:
   contents: read
