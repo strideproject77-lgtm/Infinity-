@@ -597,3 +597,11 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Per the current workflow policy, macOS compilation/build workflows are now **manual-dispatch only**: Husk native source compile audit, Husk static runtime package build, ANGLE iOS build, and Android runtime-assets build. Ubuntu/Linux tests remain push-triggered. The canonical IPA workflow remains manual and is not run without explicit authorization.
 - Earlier queued macOS jobs created by the preceding push-triggered workflow definitions may still appear in Actions; no cancellation capability was used. No new manual macOS build was dispatched.
 - Latest source-level status remains **60% overall Husk integration**, **45% 2048-specific implementation readiness**, and **0% verified 2048 iPhone execution**. No compatibility claim is made.
+
+
+### DEX class-data validator follow-up
+
+- Corrected the class-data validation pass so DEX field-index delta accumulation resets independently for `static_fields` and `instance_fields`, matching the DEX format and the attach/link second pass.
+- Added a source-contract assertion to prevent regression.
+- The automatic Ubuntu test run for the preceding implementation commit completed successfully: **67 tests passed**, including source-contract and APK archive tests; shell build-script syntax checks also passed.
+- The four expensive macOS runtime workflows now expose only `workflow_dispatch`; they will not be automatically queued by ordinary source pushes. The IPA builder remains separately manual.
