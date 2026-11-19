@@ -899,6 +899,7 @@ typedef struct { const char *name; void *addr; } slot;
 static slot *g_slots;
 static size_t g_nslots;
 static pthread_once_t g_once = PTHREAD_ONCE_INIT;
+static bool g_table_ready;
 
 static uint64_t fnv(const char *s) { uint64_t h = 1469598103934665603ull; while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211ull; } return h; }
 
@@ -909,6 +910,7 @@ static void build(void)
     g_nslots = 1;
     while (g_nslots < total * 2) g_nslots <<= 1;
     g_slots = calloc(g_nslots, sizeof(slot));
+    if (!g_slots) { g_nslots = 0; tl_log_line("bionic: unable to allocate symbol lookup table"); return; }
     (void)g_environ_slot; (void)tl_environ_ptr;
     for (size_t t = 0; t < sizeof(k_tables) / sizeof(k_tables[0]); t++) {
         for (const tl_bionic_entry *e = k_tables[t]; e->name; e++) {
@@ -921,11 +923,14 @@ static void build(void)
             g_slots[i].addr = e->addr;
         }
     }
+    g_table_ready = true;
 }
 
 void *tl_bionic_find(const char *name)
 {
+    if (!name || !name[0]) return NULL;
     pthread_once(&g_once, build);
+    if (!g_table_ready || !g_slots || !g_nslots) return NULL;
     /* environ is a variable the guest reads whenever it walks the environment. The process may change it under the guest (setenv reallocates the array and frees the
      * old one), so the guest is given the address of the live variable, not of a copy made at start-up. */
     if (name[0] == 'e' && !strcmp(name, "environ")) return _NSGetEnviron();
