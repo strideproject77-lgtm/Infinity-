@@ -445,3 +445,44 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - Added a source-contract regression check for frame validation and dynamic JNI argument storage.
 - These are defensive DEX/JNI execution-path changes. They do not claim to add missing Android framework APIs or prove the 2048 app now launches.
 - No tests were executed, no GitHub Actions workflow was started, and no Xcode/Codemagic/IPA build, signing, export or device run was performed. Source-contract test added but not run. SideStore systems remain untouched.
+
+## 2026-11-19 — Extended JNI descriptor handling and DEX invoke validation batch
+
+### Implemented in source
+
+- **JNI method descriptor validation:** replaced the permissive, truncating signature walk with a descriptor parser that validates primitive, object, array, and return types; rejects malformed descriptors, invalid void usage, unterminated object descriptors, and more than 255 parameters.
+- **JNI argument capacity:** expanded per-method argument-kind metadata to the 255-parameter DEX/JNI limit. Replaced the old fixed 40-entry JNI varargs argument arrays with a small stack fast path and heap allocation for larger signatures. Both Call*MethodV and NewObjectV use the shared argument conversion path.
+- **JNI exception and allocation handling:** added explicit allocation checks for JNI object, string, primitive-array and object-array creation. Added argument-array validation for JNI calls and constructors; valid zero-argument calls remain supported. Allocation failures retain their OutOfMemoryError rather than being overwritten by a secondary argument error.
+- **DEX invoke validation:** method invocation now checks prototype metadata, parameter widths, receiver/static slot count, truncated prototypes, invoke register count, and each referenced register against the caller's register frame. Malformed call frames fail with actionable VerifyError diagnostics rather than reading beyond the invoke register list or silently truncating the call.
+- **Regression contracts:** added source-contract checks for descriptor parsing, dynamic JNI argument storage, 255-argument bounds, and DEX invoke register validation.
+
+### Integration progress estimate (source-level only; not runtime compatibility)
+
+These percentages are engineering estimates of implementation/wiring coverage, not measured APK compatibility or test pass rates:
+
+| Area | Estimate | Basis / remaining work |
+|---|---:|---|
+| Husk upstream source intake and license notices | 100% | Pinned upstream translation trees, host references, resources and notices are present in the repository |
+| Strata host and native launch bridge | 75% | Swift/C bridge, lifecycle, engine dispatch and launch diagnostics exist; full device lifecycle remains unverified |
+| APK import and persistent library | 90% | APK-family import/storage and Strata management rows exist; complete split-package runtime loading remains blocked |
+| ELF/native loader and Bionic layer | 60% | Native loader, ARM64 path and Bionic compatibility sources are integrated; broad NDK/ABI behavior still needs validation |
+| JNI + DEX/ART interpreter | 60% | Interpreter, class/member resolution, JNI calls, native registration and the current validation improvements exist; unsupported bytecode/runtime semantics and edge cases remain |
+| Android framework/API coverage | 45% | AOSP/Husk framework DEX and native HLE surfaces are present, but API/service coverage is incomplete and must follow real missing-API traces |
+| Graphics, audio and input | 65% | EGL/GLES, audio, touch, sensors and physical controller paths are wired in source; real app rendering/audio/controller behavior is not yet proven |
+| Real-device APK compatibility evidence | 0% for this current batch | No 2048 or Hill Climb Racing device launch has been run to verify the latest code |
+
+**Overall Husk integration estimate: approximately 60% source-level.** This is a rounded engineering estimate across the implementation areas above, not a claim that 60% of Android apps work. **Verified real-game execution remains unconfirmed**: 2048 has not been re-run against the earlier R$layout;->activity_main:I failure, and Hill Climb Racing has not been device-tested in this integration state.
+
+### Remaining high-priority blockers
+
+1. Re-run the exact 2048 APK and capture the first real DEX/framework failure after these interpreter/JNI changes.
+2. Implement only the Android framework APIs and DEX semantics shown missing by that trace; invoke-custom / method-handle paths remain unsupported in the interpreter.
+3. Complete safe multi-APK split loading through the Husk loader before enabling XAPK/APKS/APKM execution.
+4. Validate ELF/Bionic/JNI/graphics/audio lifecycle with actual ARM64 APKs and memory-pressure sessions.
+5. Compile the iOS target and run the repository's source tests only when the owner authorizes validation.
+
+### Verification and operating constraints
+
+- This batch is source-only. The new/updated source-contract tests were **not run**. No GitHub Actions job was dispatched or rerun; no Xcode build, IPA packaging, signing, export, Codemagic build, or device execution was performed.
+- The previous handoff's successful Linux test run is historical baseline evidence and does not validate these new commits.
+- Work remains on main; no SideStore files or systems were changed. Preserve Husk license and attribution notices.
