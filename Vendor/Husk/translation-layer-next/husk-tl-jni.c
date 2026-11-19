@@ -823,11 +823,19 @@ static int32_t jni_PushLocalFrame(void *env, int32_t cap)
     if (cap < 0 || (size_t)cap > SIZE_MAX / sizeof(jobj *)) return -1;
     jni_local_frame *parent = local_frame_current();
     jni_local_frame *frame = calloc(1, sizeof(*frame));
-    if (!parent || !frame) { free(frame); return -1; }
+    if (!parent || !frame) {
+        free(frame);
+        tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI local frame");
+        return -1;
+    }
     frame->parent = parent;
     if (cap > 0) {
         frame->items = calloc((size_t)cap, sizeof(*frame->items));
-        if (!frame->items) { free(frame); return -1; }
+        if (!frame->items) {
+            free(frame);
+            tl_jni_throw("java/lang/OutOfMemoryError", "reserving JNI local frame capacity");
+            return -1;
+        }
         frame->capacity = (size_t)cap;
     }
     t_local_frame = frame;
@@ -855,8 +863,8 @@ static void jni_DeleteLocalRef(void *env, jo o)
 {
     (void)env;
     if (!o) return;
-    if (local_frame_remove(o)) tl_jni_unref(o);
-    else tl_jni_unref(o);
+    (void)local_frame_remove(o);
+    tl_jni_unref(o);
 }
 static uint8_t jni_IsSameObject(void *env, jo a, jo b) { (void)env; return a == b; }
 static jo jni_NewLocalRef(void *env, jo o)
