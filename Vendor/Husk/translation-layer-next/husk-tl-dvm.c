@@ -61,6 +61,21 @@ static bool dex_uleb_bounded(const dvm_dex *d, const uint8_t **pp, uint32_t *val
     return false;
 }
 
+static bool dex_proto_valid(dvm_dex *d, uint32_t idx)
+{
+    if (!d || idx >= d->nproto) return false;
+    const uint8_t *proto = d->b + d->proto_off + 12u * idx;
+    if (rd32(proto + 4) >= d->ntype) return false;
+    uint32_t params = rd32(proto + 8);
+    if (!params) return true;
+    if (params > d->size || d->size - params < 4) return false;
+    uint32_t count = rd32(d->b + params);
+    if ((size_t)count > (d->size - params - 4) / 2) return false;
+    for (uint32_t i = 0; i < count; i++)
+        if (rd16(d->b + params + 4 + 2u * i) >= d->ntype) return false;
+    return true;
+}
+
 /* Validate the class_data_item before attach() allocates member tables or
  * follows any member_idx/code_off. The second pass can then use the compact
  * legacy decoder without trusting APK-controlled offsets. */
@@ -74,7 +89,8 @@ static bool dex_class_data_valid(dvm_dex *d, uint32_t off)
         !dex_uleb_bounded(d, &p, &ndm) || !dex_uleb_bounded(d, &p, &nvm))
         return false;
     if (nsf > d->nfield || nif > d->nfield || ndm > d->nmeth || nvm > d->nmeth ||
-        nsf > d->size || nif > d->size || ndm > d->size || nvm > d->size)
+        nsf > d->size || nif > d->size || ndm > d->size || nvm > d->size ||
+        nsf > UINT32_MAX - nif || ndm > UINT32_MAX - nvm)
         return false;
 
     uint32_t idx = 0, delta, flags;
@@ -92,6 +108,8 @@ static bool dex_class_data_valid(dvm_dex *d, uint32_t off)
             idx += delta;
             if (idx >= d->nmeth || !dex_uleb_bounded(d, &p, &flags) ||
                 !dex_uleb_bounded(d, &p, &code_off)) return false;
+            const uint8_t *mi = d->b + d->meth_off + 8u * idx;
+            if (!dex_proto_valid(d, rd16(mi + 2))) return false;
             if (code_off) {
                 if (code_off > d->size || d->size - code_off < 16) return false;
                 const uint8_t *ci = d->b + code_off;
@@ -595,15 +613,27 @@ static bool attach(tl_jclass *jc)
 
     uint32_t super_idx = rd32(def + 8);
     if (super_idx != 0xFFFFFFFFu) {
+        if (super_idx >= d->ntype) { tl_log_line("dvm: invalid superclass type for %s", name); return false; }
         tl_jclass *sj = resolve_type(d, super_idx);
         jc->super = sj;
         c->super = dvm_class_of(sj);
     }
     uint32_t ifaces_off = rd32(def + 12);
     if (ifaces_off) {
+        if (ifaces_off > d->size || d->size - ifaces_off < 4) {
+            tl_log_line("dvm: invalid interface list for %s", name); return false;
+        }
         uint32_t n = rd32(d->b + ifaces_off);
-        c->ifaces = calloc(n, sizeof(*c->ifaces));
-        for (uint32_t i = 0; i < n; i++) c->ifaces[c->nifaces++] = resolve_type(d, rd16(d->b + ifaces_off + 4 + 2 * i));
+        if ((size_t)n > (d->size - ifaces_off - 4) / 2) {
+            tl_log_line("dvm: truncated interface list for %s", name); return false;
+        }
+        c->ifaces = calloc(n ? n : 1, sizeof(*c->ifaces));
+        if (!c->ifaces) { tl_log_line("dvm: out of memory linking interfaces for %s", name); return false; }
+        for (uint32_t i = 0; i < n; i++) {
+            uint16_t type_idx = rd16(d->b + ifaces_off + 4 + 2u * i);
+            if (type_idx >= d->ntype) { tl_log_line("dvm: invalid interface type for %s", name); return false; }
+            c->ifaces[c->nifaces++] = resolve_type(d, type_idx);
+        }
     }
     c->nslots = c->super ? c->super->nslots : 0;
 
