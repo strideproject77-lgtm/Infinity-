@@ -319,7 +319,8 @@ bool tl_xmem_alloc(size_t bytes, uint8_t **rx, uint8_t **rw)
 
 ptrdiff_t tl_xmem_delta(void)
 {
-    return (ptrdiff_t)((uintptr_t)g_x.rw - (uintptr_t)g_x.rx);
+    uintptr_t rw = (uintptr_t)g_x.rw, rx = (uintptr_t)g_x.rx;
+    return rw >= rx ? (ptrdiff_t)(rw - rx) : -(ptrdiff_t)(rx - rw);
 }
 bool tl_xmem_near(const void *p, size_t dist)
 {
