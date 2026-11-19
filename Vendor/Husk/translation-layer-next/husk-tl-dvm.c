@@ -1074,8 +1074,20 @@ static bool dvm_call_inner(dvm_method *m, jobj *self, const jvalue *params, jval
         if (m->flags & 0x100) return call_native(m, self, params, ret);
         return dvm_throw("java/lang/AbstractMethodError", "%s.%s%s", m->cls->name, m->name, m->sig);
     }
+    if (!m->shorty || m->nparams < 0 || m->nparams > 4096 || m->regs < m->ins || m->ins > m->regs)
+        return dvm_throw("java/lang/VerifyError", "invalid register frame in %s.%s", m->cls->name, m->name);
+    int incoming_slots = (m->flags & 8) ? 0 : 1;
+    for (int i = 0; i < m->nparams; i++) {
+        char k = m->shorty[i + 1];
+        if (!k) return dvm_throw("java/lang/VerifyError", "truncated prototype in %s.%s", m->cls->name, m->name);
+        incoming_slots += (k == 'J' || k == 'D') ? 2 : 1;
+    }
+    if (incoming_slots != m->ins || (m->nparams && !params))
+        return dvm_throw("java/lang/VerifyError", "prototype/register mismatch in %s.%s (expected %d incoming slots, found %u)",
+                         m->cls->name, m->name, incoming_slots, m->ins);
     uint64_t small[64];
     uint64_t *regs = m->regs <= 64 ? small : calloc(m->regs, sizeof(uint64_t));
+    if (!regs) return dvm_throw("java/lang/OutOfMemoryError", "register frame for %s.%s", m->cls->name, m->name);
     if (regs == small) memset(small, 0, sizeof(uint64_t) * m->regs);
     int r = m->regs - m->ins;
     if (!(m->flags & 8)) regs[r++] = (uint64_t)(uintptr_t)self;
@@ -1215,7 +1227,12 @@ static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue 
     }
     if (g_dvm_trace >= 2) tl_log_line("dvm: jni %s.%s%s", m->cls->name, m->name, m->sig);
     if (tl_a32_is_fn(fn)) return tl_a32_jni_native(fn, m, self, params, ret);
-    int64_t gp[8]; double fp[8]; int64_t stk[256];
+    int64_t gp[8]; double fp[8];
+    if (m->nparams < 0 || m->nparams > 4096)
+        return dvm_throw("java/lang/VerifyError", "native method has invalid parameter count: %d", m->nparams);
+    size_t stack_capacity = m->nparams ? (size_t)m->nparams : 1;
+    int64_t *stk = calloc(stack_capacity, sizeof(*stk));
+    if (!stk) return dvm_throw("java/lang/OutOfMemoryError", "native argument stack");
     int ng = 0, nf = 0, ns = 0;
     memset(gp, 0, sizeof(gp)); memset(fp, 0, sizeof(fp));
     /* @CriticalNative: a static method called with its arguments alone, no JNIEnv and no class (protobuf's upb, Google's libraries) */
@@ -1229,7 +1246,7 @@ static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue 
         if (k == 'F' || k == 'D') {
             union { double d; uint64_t u; } v;
             if (k == 'F') v.u = (uint32_t)params[i].i; else v.u = (uint64_t)params[i].j;
-            if (nf < 8) fp[nf++] = v.d; else if (ns < 256) stk[ns++] = (int64_t)v.u;
+            if (nf < 8) fp[nf++] = v.d; else stk[ns++] = (int64_t)v.u;
         } else {
             int64_t v;
             switch (k) {
@@ -1237,12 +1254,13 @@ static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue 
             case 'S': v = params[i].s; break; case 'I': v = params[i].i; break; case 'J': v = params[i].j; break;
             default: v = (int64_t)(uintptr_t)params[i].l; break;
             }
-            if (ng < 8) gp[ng++] = v; else if (ns < 256) stk[ns++] = v;
+            if (ng < 8) gp[ng++] = v; else stk[ns++] = v;
         }
     }
     char rk = m->shorty[0];
     double dr = 0;
     int64_t r = tl_dvm_jcall(fn, gp, fp, stk, (uint64_t)ns, &dr);
+    free(stk);
     if (rk == 'F' || rk == 'D') {
         union { double d; uint64_t u; } u = { .d = dr };
         if (rk == 'F') ret->i = (int32_t)(uint32_t)u.u; else ret->j = (int64_t)u.u;
