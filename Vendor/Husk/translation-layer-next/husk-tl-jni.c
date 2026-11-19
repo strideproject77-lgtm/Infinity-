@@ -1524,16 +1524,23 @@ static unsigned g_natives_generation;
 static int32_t jni_RegisterNatives(void *env, jo cls, const native_method *m, int32_t n)
 {
     (void)env;
-    if (!cls || cls->kind != TL_K_CLASS) {
-        tl_log_line("jni: RegisterNatives failed: %s (%d methods)", cls ? "not a class object" : "null class", (int)n);
+    if (!cls || cls->kind != TL_K_CLASS || n < 0 || (n > 0 && !m)) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "RegisterNatives received invalid class, method table, or count");
         return -1;
     }
     tl_jclass *given = cls->klass.jc;
+    for (int32_t i = 0; i < n; i++) {
+        if (!m[i].name || !m[i].sig || !m[i].fn) {
+            tl_jni_throw("java/lang/IllegalArgumentException", "RegisterNatives received an incomplete native method");
+            return -1;
+        }
+    }
     bool tl_dvm_declares(tl_jclass *jc, const char *name, const char *sig);
     pthread_mutex_lock(&g_lock);
     for (int32_t i = 0; i < n; i++) {
-        /* the class that declares the method, the given one or a superclass (ART's FindClassMethod): Reanimated registers
-           NativeProxyCommon's natives through its subclass NativeProxy */
+        /* JNI may register an inherited declaration through a subclass. Keep
+         * the registering class separate from the declaration owner so
+         * UnregisterNatives can undo exactly this registration operation. */
         tl_jclass *c = given;
         bool declared = tl_dvm_declares(c, m[i].name, m[i].sig);
         for (tl_jclass *k = given->super; !declared && k; k = k->super)
@@ -1541,15 +1548,31 @@ static int32_t jni_RegisterNatives(void *env, jo cls, const native_method *m, in
         if (!declared)
             tl_log_line("jni: RegisterNatives %s.%s%s: declared by no class in the chain, bound to %s anyway",
                         given->name, m[i].name, m[i].sig, c->name);
-        c->natives = realloc(c->natives, (size_t)(c->nnatives + 1) * sizeof(*c->natives));
-        c->natives[c->nnatives].name = strdup(m[i].name);
-        c->natives[c->nnatives].sig = strdup(m[i].sig);
-        c->natives[c->nnatives].fn = m[i].fn;
+        char *name = strdup(m[i].name), *sig = strdup(m[i].sig);
+        if (!name || !sig) {
+            free(name); free(sig);
+            pthread_mutex_unlock(&g_lock);
+            tl_jni_throw("java/lang/OutOfMemoryError", "copying JNI native method registration");
+            return -1;
+        }
+        void *fn = m[i].fn;
+        void *grown = realloc(c->natives, (size_t)(c->nnatives + 1) * sizeof(*c->natives));
+        if (!grown) {
+            free(name); free(sig);
+            pthread_mutex_unlock(&g_lock);
+            tl_jni_throw("java/lang/OutOfMemoryError", "growing JNI native method table");
+            return -1;
+        }
+        c->natives = grown;
+        c->natives[c->nnatives].name = name;
+        c->natives[c->nnatives].sig = sig;
+        c->natives[c->nnatives].fn = fn;
+        c->natives[c->nnatives].registered_on = given;
         c->nnatives++;
         TRACE("jni: RegisterNatives %s.%s%s -> %p", c->name, m[i].name, m[i].sig, m[i].fn);
     }
     pthread_mutex_unlock(&g_lock);
-    __atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE);
+    if (n) __atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE);
     return 0;
 }
 int32_t tl_jni_register_one(jobj *cls, const char *name, const char *sig, void *fn)
@@ -1559,7 +1582,37 @@ int32_t tl_jni_register_one(jobj *cls, const char *name, const char *sig, void *
 }
 /* Bumped by every RegisterNatives: a method's cached native is looked up again after one (a later registration wins, as in ART). */
 unsigned tl_jni_natives_generation(void) { return __atomic_load_n(&g_natives_generation, __ATOMIC_ACQUIRE); }
-static int32_t jni_UnregisterNatives(void *env, jo cls) { (void)env; (void)cls; return 0; }
+static int32_t jni_UnregisterNatives(void *env, jo cls)
+{
+    (void)env;
+    if (!cls || cls->kind != TL_K_CLASS) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "UnregisterNatives requires a class reference");
+        return -1;
+    }
+    tl_jclass *registered = cls->klass.jc;
+    bool changed = false;
+    pthread_mutex_lock(&g_lock);
+    for (int bucket = 0; bucket < NBUCKETS; bucket++) {
+        for (tl_jclass *owner = g_classes[bucket]; owner; owner = owner->next) {
+            int write = 0;
+            for (int read = 0; read < owner->nnatives; read++) {
+                if (owner->natives[read].registered_on == registered) {
+                    free(owner->natives[read].name);
+                    free(owner->natives[read].sig);
+                    changed = true;
+                    continue;
+                }
+                if (write != read) owner->natives[write] = owner->natives[read];
+                write++;
+            }
+            owner->nnatives = write;
+            if (!write) { free(owner->natives); owner->natives = NULL; }
+        }
+    }
+    pthread_mutex_unlock(&g_lock);
+    if (changed) __atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE);
+    return 0;
+}
 
 void *tl_jni_native(const char *cls, const char *name, const char *sig)
 {
