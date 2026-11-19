@@ -2610,6 +2610,11 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
     }
 
     tl_lib *L = calloc(1, sizeof(*L));
+    if (!L) {
+        tl_log_line("ld: %s: out of memory for library metadata", name);
+        free(flags); free(mix); free(phs);
+        return NULL;
+    }
     snprintf(L->name, sizeof(L->name), "%s", name);
     L->rx = rx; L->rw = rw; L->base_vaddr = base_vaddr; L->npages = npages; L->pflags = flags; L->mixed = mix;
     L->size = (npages + nstub + 2) * PAGE;
