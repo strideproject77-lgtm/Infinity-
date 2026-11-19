@@ -388,3 +388,13 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - These changes complete the Java-side source wiring for split DEX/classes, resources and native libraries. They do not implement device-specific split selection; the importer still preserves all APK entries in the archive.
 - No tests, workflows, builds, IPA packaging/signing/export, or device launches were run. This remains source-level implementation, not proof that a particular split app launches correctly.
 - SideStore remains untouched.
+
+
+## 2026-11-19 — Physical iOS game-controller bridge
+
+- Added an INFINITY-owned Swift host adapter based on the repository's existing `Vendor/Husk/host-runtime/HuskGamepad.swift` reference implementation. It uses Apple's GameController framework and the existing Husk C bridge; no parallel or simulated input subsystem was added.
+- The adapter starts with the embedded Husk runtime owner, observes controller connect/disconnect events, assigns up to four stable slots, and forwards controller state to Husk.
+- Extended gamepad mapping includes A/B/X/Y, shoulders, stick clicks, menu/options/home, D-pad, both analog sticks and analog triggers. Stick Y values are inverted at the host boundary to match Android's positive-down axis convention.
+- The APK execution overlay displays connected controller names. Husk's native input implementation remains responsible for exposing these devices and events to Android engine sinks.
+- Verification limitation: source integration only. No Xcode compile, physical Bluetooth/MFi controller test, Android game input test, CI run, IPA build, signing or export was performed. Micro-gamepad-only profiles are not currently mapped; individual games must support controller input.
+- This change does not alter SideStore or IPA installation behavior.
