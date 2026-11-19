@@ -703,3 +703,23 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Kept empty optional relocation/init-array tags compatible instead of rejecting a zero-sized optional table solely because its address tag is present.
 - Preserved the ELF `R_NONE` no-op relocation behavior before target-address validation, so no-op entries with a zero offset do not become false loader failures.
 - Added the corresponding regression source-contract assertion. Tests remain unrun by design.
+
+
+## 2026-11-20 — ELF symbol semantics and GNU IFUNC execution batch
+
+### Implemented on main
+- Added real GNU IFUNC resolver execution to the shared ELF64 linker. IFUNC symbols now resolve to the address returned by their resolver rather than being rejected or exposed as the resolver's own address.
+- Resolver addresses are checked against the mapped image and executable function ranges before invocation. Results are cached per dynamic symbol, including legitimate null results; an in-progress marker detects recursive resolver cycles. The cache uses acquire/release atomics so concurrent lookups do not read partially published results.
+- Added ELF symbol-visibility handling for STV_INTERNAL, STV_HIDDEN, STV_DEFAULT, and STV_PROTECTED.
+- Hidden/internal definitions remain available to their owning image's local relocations but are excluded from dependency exports and process-wide / handle-based dynamic symbol lookup. Protected symbols remain externally visible while the owning image retains its local definition.
+- Updated relocation binding, dependency-scope lookup, direct dlsym lookup, and deep dependency lookup to use the shared resolved-symbol path.
+- Added source-contract coverage for IFUNC execution/caching and visibility-aware symbol lookup.
+
+### Integration status
+- **Overall Husk source integration estimate: 68%** (previous handoff baseline: 65%; +3 percentage points). This increase reflects a real missing ELF execution capability—GNU IFUNC resolution—plus corrected symbol visibility semantics across loader lookup paths. It is an engineering estimate, not a measured compatibility score.
+- **Verified real-device APK execution remains 0% demonstrated.** No app/game compatibility is claimed from source changes alone.
+
+### Verification and constraints
+- Regression tests were added but **not run**. No workflow was manually dispatched; no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device test was started.
+- Work remains on main. Strata host code and SideStore systems were not modified. Husk license and attribution notices remain preserved.
+- Next large runtime batch: implement GNU symbol-version metadata and version-aware dlvsym/dependency binding, then broaden Bionic NDK API coverage and continue ART/JNI lifecycle completion.
