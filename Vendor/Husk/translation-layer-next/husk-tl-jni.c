@@ -826,7 +826,10 @@ static jo new_object(jo cls, void *mid, int how, const jvalue *a, tl_va_list *ap
     if (m) {
         jvalue local[16];
         jvalue *args = how == 1 ? va_arguments(m, ap, local) : (jvalue *)a;
-        if (!args || !m->valid_sig) { tl_jni_unref(o); return NULL; }
+        if (!m->valid_sig || (m->nargs > 0 && !args)) {
+            if (!tl_jni_pending()) tl_jni_throw("java/lang/NoSuchMethodError", "invalid JNI constructor arguments");
+            tl_jni_unref(o); return NULL;
+        }
         if (cls->klass.jc->dvm && !strcmp(cls->klass.jc->name, "java/lang/String") && !strcmp(m->name, "<init>")) {
             bool dvm_string_init(const char *sig, const jvalue *p, jvalue *ret);
             jvalue r = {0};
