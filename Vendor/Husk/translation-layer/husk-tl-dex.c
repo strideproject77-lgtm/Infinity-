@@ -167,6 +167,7 @@ static bool dex_read_encoded_value(tl_dex_context *ctx, const tl_dex_file *dex,
         out->raw64 = (uint64_t)(int64_t)(int8_t)raw; return true;
     case 0x02: /* VALUE_SHORT */
         if (count > 2) return false;
+        if (count < 2 && (raw & (UINT64_C(1) << (count * 8 - 1)))) raw |= UINT64_MAX << (count * 8);
         out->raw64 = (uint64_t)(int64_t)(int16_t)raw; return true;
     case 0x03: /* VALUE_CHAR */
         if (count > 2) return false;
