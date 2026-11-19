@@ -1609,9 +1609,23 @@ PRIM_ARRAYS(GEN_ARRAYS)
 typedef struct jni_critical_array_access {
     jobj *array;
     void *address;
+    size_t bytes, element_size;
+    uint32_t length;
+    char etype;
     struct jni_critical_array_access *next;
 } jni_critical_array_access;
 static __thread jni_critical_array_access *t_critical_array_accesses;
+
+static size_t jni_critical_element_size(char etype)
+{
+    switch (etype) {
+        case 'Z': case 'B': return 1;
+        case 'C': case 'S': return 2;
+        case 'I': case 'F': return 4;
+        case 'J': case 'D': return 8;
+        default: return 0;
+    }
+}
 
 static void *jni_GetPrimitiveArrayCritical(void *env, jo a, uint8_t *copy)
 {
@@ -1620,18 +1634,46 @@ static void *jni_GetPrimitiveArrayCritical(void *env, jo a, uint8_t *copy)
         tl_jni_throw("java/lang/IllegalArgumentException", "GetPrimitiveArrayCritical requires a primitive array");
         return NULL;
     }
-    jni_critical_array_access *access = malloc(sizeof(*access));
-    if (!access) {
-        tl_jni_throw("java/lang/OutOfMemoryError", "tracking JNI critical array access");
+    size_t element_size = jni_critical_element_size(a->arr.etype);
+    if (!element_size || (size_t)a->arr.len > SIZE_MAX / element_size) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "GetPrimitiveArrayCritical received an invalid primitive array layout");
         return NULL;
     }
+    size_t bytes = (size_t)a->arr.len * element_size;
+    jni_critical_array_access *access = calloc(1, sizeof(*access));
+    void *address = malloc(bytes ? bytes : 1);
+    if (!access || !address) {
+        free(access); free(address);
+        tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI critical array copy");
+        return NULL;
+    }
+    if (bytes) memcpy(address, a->arr.data, bytes);
     access->array = a;
-    access->address = a->arr.data;
+    access->address = address;
+    access->bytes = bytes;
+    access->element_size = element_size;
+    access->length = a->arr.len;
+    access->etype = a->arr.etype;
     access->next = t_critical_array_accesses;
     t_critical_array_accesses = access;
-    if (copy) *copy = 0;
-    return access->address;
+    if (copy) *copy = 1;
+    return address;
 }
+
+static bool jni_critical_array_copyback(jni_critical_array_access *access)
+{
+    jobj *array = access->array;
+    if (!array || array->kind != TL_K_PRIM_ARRAY || array->arr.etype != access->etype ||
+        array->arr.len != access->length ||
+        (size_t)array->arr.len > SIZE_MAX / access->element_size ||
+        (size_t)array->arr.len * access->element_size != access->bytes) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "JNI critical array changed while elements were acquired");
+        return false;
+    }
+    if (access->bytes) memcpy(array->arr.data, access->address, access->bytes);
+    return true;
+}
+
 static void jni_ReleasePrimitiveArrayCritical(void *env, jo a, void *p, int32_t mode)
 {
     (void)env;
@@ -1646,14 +1688,20 @@ static void jni_ReleasePrimitiveArrayCritical(void *env, jo a, void *p, int32_t 
         return;
     }
     jni_critical_array_access *access = *slot;
+    if (mode != 2 && !jni_critical_array_copyback(access)) return;
+    if (mode == 1) return; /* JNI_COMMIT copies back but retains the buffer. */
     *slot = access->next;
+    free(access->address);
     free(access);
 }
+
 static void jni_critical_array_accesses_detach(void)
 {
     while (t_critical_array_accesses) {
         jni_critical_array_access *access = t_critical_array_accesses;
         t_critical_array_accesses = access->next;
+        (void)jni_critical_array_copyback(access);
+        free(access->address);
         free(access);
     }
 }
