@@ -50,11 +50,6 @@ jobj *tl_jni_ref(jobj *o) { if (o) __atomic_add_fetch(&o->refs, 1, __ATOMIC_RELA
 
 /* JNI local references are scoped to the calling native thread and its pushed frames.
  * The guest object pointer remains the handle; each recorded slot owns one refcount. */
-typedef struct {
-    jobj **items;
-    size_t count, capacity;
-    struct jni_local_frame *unused_type_anchor;
-} jni_local_frame_storage;
 typedef struct jni_local_frame {
     jobj **items;
     size_t count, capacity;
