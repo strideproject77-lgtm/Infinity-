@@ -23,6 +23,8 @@
 #include "husk-tl-xmem.h"
 
 void tl_jni_hle_install(void);
+void *tl_bionic_input_queue_create(void);
+void tl_bionic_input_queue_destroy(void *queue);
 void tl_hle_configure(const char *pkg, const char *apk, const char *data, int w, int h);
 void tl_hle_set_activity(jobj *a);
 jobj *tl_hle_assets(void);
@@ -339,9 +341,14 @@ static void *ui_main(void *arg)
     N.window = tl_nwindow_get();
     if (N.callbacks.onStart) N.callbacks.onStart(&N.na);
     if (N.callbacks.onResume) N.callbacks.onResume(&N.na);
-    /* InputQueue is not implemented yet. Never hand the app a fake opaque queue. */
-    if (N.callbacks.onInputQueueCreated)
-        tl_log_line("na: app requested AInputQueue; callback withheld because no real queue is available");
+    /* The NDK queue owns a real event list and wake pipe; its opaque handle is
+       passed only after that backing queue has been initialized successfully. */
+    void *input_queue = NULL;
+    if (N.callbacks.onInputQueueCreated) {
+        input_queue = tl_bionic_input_queue_create();
+        if (input_queue) N.callbacks.onInputQueueCreated(&N.na, input_queue);
+        else tl_log_line("na: unable to create the NDK input queue; callback not delivered");
+    }
     if (!N.generic) {
         typedef void (*win_fn)(void *env, void *self, uint8_t portrait, int depth);
         win_fn set_window_info = (win_fn)NATIVE("nativeSetWindowInfo", "(ZI)V");
@@ -364,14 +371,17 @@ static void *ui_main(void *arg)
     int (*poll_once)(int, int *, int *, void **) = tl_bionic_find("ALooper_pollOnce");
     if (!poll_once) {
         tl_log_line("na: ALooper_pollOnce is unavailable; activity loop cannot run");
-        return NULL;
-    }
-    while (!atomic_load(&N.stop_requested)) {
-        poll_once(200, NULL, NULL, NULL);
-        if (tl_jni_pending()) tl_jni_clear();
+    } else {
+        while (!atomic_load(&N.stop_requested)) {
+            poll_once(200, NULL, NULL, NULL);
+            if (tl_jni_pending()) tl_jni_clear();
+        }
     }
 
     tl_log_line("na: delivering activity teardown");
+    if (input_queue && N.callbacks.onInputQueueDestroyed)
+        N.callbacks.onInputQueueDestroyed(&N.na, input_queue);
+    if (input_queue) tl_bionic_input_queue_destroy(input_queue);
     if (N.callbacks.onPause) N.callbacks.onPause(&N.na);
     if (N.callbacks.onWindowFocusChanged) N.callbacks.onWindowFocusChanged(&N.na, 0);
     if (N.callbacks.onNativeWindowDestroyed && N.window)
