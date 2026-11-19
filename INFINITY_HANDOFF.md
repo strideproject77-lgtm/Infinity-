@@ -729,3 +729,25 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Unified relocation-cache reads/writes with acquire/release atomics, matching the IFUNC resolver path.
 - Relocation binding now detects the IFUNC in-progress sentinel rather than accidentally treating it as a callable address if a resolver recursively re-enters symbol binding.
 - Extended the source-contract assertion for the recursive-binding guard. Tests remain unrun.
+
+
+## 2026-11-20 — GNU ELF symbol versioning and Bionic dlvsym integration
+
+### Implemented on main
+- Added parsing and storage for GNU DT_VERSYM, DT_VERDEF/DT_VERDEFNUM, and DT_VERNEED/DT_VERNEEDNUM metadata.
+- Added bounded validation of version-definition and version-requirement linked lists, auxiliary records, version strings, and the per-symbol version-index array. Malformed version metadata now rejects the library before relocation or symbol lookup.
+- Added per-symbol version-name resolution for exported definitions and undefined imports.
+- Added version-aware exported-symbol lookup across dependency scopes. Ordinary lookup skips non-default version aliases; explicit version lookup selects the exact named version.
+- Relocation binding now honors the importing library's GNU version requirement instead of resolving only by symbol name. An unresolved version requirement fails the load rather than silently binding an ABI-incompatible symbol.
+- Added public tl_ld_sym_version and tl_ld_sym_deep_version entry points.
+- Implemented Bionic dlvsym and __loader_dlvsym version-aware behavior for global, next, system-handle, and library-handle lookups; exported dlvsym through the Bionic symbol table.
+- Added source-contract regression coverage for end-to-end GNU versioning and Bionic dlvsym wiring.
+
+### Integration status
+- **Overall Husk source integration estimate: 73%** (previous baseline: 68%; +5 percentage points). This is a substantial shared ELF ABI capability: versioned imports and version-specific dynamic lookup now have real linker paths rather than name-only resolution. It is an engineering estimate, not a measured APK compatibility score.
+- **Verified real-device APK execution remains 0% demonstrated.** No game or APK compatibility is claimed from this source-only batch.
+
+### Verification and constraints
+- Regression tests were added but NOT run. No workflow was manually dispatched, no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device launch was started.
+- Work remains on main. Strata host code and SideStore systems were not modified. Husk license and attribution notices remain preserved.
+- Next major batch: broaden Bionic pthread/NDK surface with ABI-correct wrappers and implement missing lifecycle behavior in JNI/ART. No name-only stubs should be treated as compatibility; unsupported APIs must remain explicit and diagnosable.
