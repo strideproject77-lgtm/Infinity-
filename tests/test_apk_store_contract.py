@@ -119,9 +119,9 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("INFINITYHuskSessionLogger", runtime)
         self.assertIn("PERFORMANCE", runtime)
         self.assertIn("RUNTIME_ERROR", runtime)
-        self.assertIn("INFINITYHuskNativeLog.recentLines(800)", runtime)
-        self.assertIn("Export native stderr log", runtime)
-        self.assertIn("Export Husk log", runtime)
+        self.assertIn("INFINITYHuskNativeLog.recentLines(800)", launch)
+        self.assertIn("Export native stderr log", launch)
+        self.assertIn("Export Husk log", launch)
         self.assertIn("LAUNCH_ERROR", launch)
         self.assertNotIn("removeItem(at: logURL)", launch)
 
