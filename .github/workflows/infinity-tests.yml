@@ -101,6 +101,7 @@ jobs:
           swiftc -typecheck \
             -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
             LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift \
             /tmp/INFINITYHuskBridgeSmoke.swift
           swiftc -typecheck \
             -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
