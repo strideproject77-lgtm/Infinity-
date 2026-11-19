@@ -105,5 +105,35 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("Imported \\(imported.0.displayName) successfully.", center)
         self.assertIn("installedAPKs = (try? INFINITYAPKStore.installedApps()) ?? []", center)
 
+    def test_husk_session_logging_captures_native_output_and_exports_logs(self):
+        native_log = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskNativeLog.swift")
+        runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
+        launch = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn("dup2(pipeWriteFD, STDOUT_FILENO)", native_log)
+        self.assertIn("dup2(pipeWriteFD, STDERR_FILENO)", native_log)
+        self.assertIn("installCrashHandlers()", native_log)
+        self.assertIn("husk-native.log", native_log)
+        self.assertIn("husk-prev.log", native_log)
+        self.assertIn("recentLines", native_log)
+        self.assertIn("INFINITYHuskNativeLog.start()", launch)
+        self.assertIn("INFINITYHuskSessionLogger", runtime)
+        self.assertIn("PERFORMANCE", runtime)
+        self.assertIn("RUNTIME_ERROR", runtime)
+        self.assertIn("INFINITYHuskNativeLog.recentLines(800)", runtime)
+        self.assertIn("Export native stderr log", runtime)
+        self.assertIn("Export Husk log", runtime)
+        self.assertIn("LAUNCH_ERROR", launch)
+        self.assertNotIn("removeItem(at: logURL)", launch)
+
+    def test_launch_attempt_records_preflight_and_preserves_unique_native_diagnostic_files(self):
+        launch = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn('runtime.recordSessionEvent("LAUNCH_REQUESTED"', launch)
+        self.assertIn('runtime.recordSessionEvent("RUNTIME_PREPARATION"', launch)
+        self.assertIn('runtime.recordSessionEvent("HUSK_LAUNCH_REQUEST"', launch)
+        self.assertIn('UUID().uuidString + ".log"', launch)
+        self.assertIn('sessionLogger.finish(outcome: "launch failed")', launch)
+        self.assertIn('Button {\n                        showSessionLog = true', launch)
+
+
 if __name__ == "__main__":
     unittest.main()
