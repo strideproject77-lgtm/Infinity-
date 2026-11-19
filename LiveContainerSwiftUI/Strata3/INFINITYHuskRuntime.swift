@@ -1,6 +1,119 @@
 import Foundation
 import Combine
 import QuartzCore
+import SwiftUI
+import UIKit
+
+
+/// Persistent, per-launch diagnostic capture for the embedded Husk session.
+/// The file is append-only for the lifetime of one launch; prior sessions are retained.
+@MainActor
+final class INFINITYHuskSessionLogger: ObservableObject {
+    @Published private(set) var logURL: URL?
+    @Published private(set) var lines: [String] = []
+    @Published private(set) var isRecording = false
+
+    private var handle: FileHandle?
+    private let formatter: ISO8601DateFormatter = {
+        let value = ISO8601DateFormatter()
+        value.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return value
+    }()
+
+    var contents: String { lines.joined(separator: "\n") }
+
+    @discardableResult
+    func begin(packageName: String, displayName: String, version: String?,
+               engine: String?, apkURL: URL) -> URL? {
+        finish(outcome: "previous session closed before a new launch")
+        do {
+            let documents = try FileManager.default.url(for: .documentDirectory,
+                                                        in: .userDomainMask,
+                                                        appropriateFor: nil,
+                                                        create: true)
+            let safePackage = packageName.replacingOccurrences(
+                of: "[^A-Za-z0-9._-]", with: "_", options: .regularExpression
+            )
+            let directory = documents
+                .appendingPathComponent("INFINITY", isDirectory: true)
+                .appendingPathComponent("SessionLogs", isDirectory: true)
+                .appendingPathComponent(safePackage, isDirectory: true)
+            try FileManager.default.createDirectory(at: directory,
+                                                    withIntermediateDirectories: true)
+            let stamp = formatter.string(from: Date())
+                .replacingOccurrences(of: ":", with: "-")
+            let file = directory.appendingPathComponent(
+                "Session-\(stamp)-\(UUID().uuidString.prefix(8)).log"
+            )
+            guard FileManager.default.createFile(atPath: file.path, contents: nil) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            handle = try FileHandle(forWritingTo: file)
+            logURL = file
+            lines = []
+            isRecording = true
+            record("SESSION_START", "INFINITY Husk diagnostic session")
+            record("APP", "name=\(displayName) package=\(packageName) version=\(version ?? "unknown")")
+            record("ENGINE", engine ?? "unidentified")
+            record("APK", "name=\(apkURL.lastPathComponent) readable=\(FileManager.default.isReadableFile(atPath: apkURL.path))")
+            record("HOST", "device=\(UIDevice.current.model) iOS=\(UIDevice.current.systemVersion) appBuild=\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown")")
+            return file
+        } catch {
+            logURL = nil
+            isRecording = false
+            recordInMemory("LOGGER_ERROR", error.localizedDescription)
+            return nil
+        }
+    }
+
+    func record(_ event: String, _ details: String = "") {
+        guard isRecording else { return }
+        let line = "[\(formatter.string(from: Date()))] [\(event)]\(details.isEmpty ? "" : " \(details)")"
+        lines.append(line)
+        if lines.count > 500 { lines.removeFirst(lines.count - 500) }
+        if let data = (line + "\n").data(using: .utf8) {
+            do { try handle?.write(contentsOf: data) }
+            catch { recordInMemory("LOGGER_WRITE_ERROR", error.localizedDescription) }
+        }
+    }
+
+    func finish(outcome: String) {
+        guard isRecording else { return }
+        record("SESSION_END", outcome)
+        do { try handle?.synchronize() } catch { }
+        try? handle?.close()
+        handle = nil
+        isRecording = false
+    }
+
+    private func recordInMemory(_ event: String, _ details: String) {
+        let line = "[\(formatter.string(from: Date()))] [\(event)] \(details)"
+        lines.append(line)
+        if lines.count > 500 { lines.removeFirst(lines.count - 500) }
+    }
+}
+
+@available(iOS 16.0, *)
+struct INFINITYHuskSessionLogView: View {
+    @ObservedObject var logger: INFINITYHuskSessionLogger
+
+    var body: some View {
+        ScrollView {
+            Text(logger.contents.isEmpty ? "No session log has been created yet." : logger.contents)
+                .font(.system(.caption, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+        }
+        .navigationTitle("Session Log")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if let url = logger.logURL {
+                ShareLink(item: url) { Label("Export", systemImage: "square.and.arrow.up") }
+            }
+        }
+    }
+}
 
 /// Main-thread owner for the native Husk session embedded in Strata.
 @MainActor
@@ -75,10 +188,13 @@ final class INFINITYHuskRuntime: ObservableObject {
     private var pollingTask: Task<Void, Never>?
     private var diagnosticLogURL: URL?
     private var jitlessModeEnabled = false
+    private var sessionLogger: INFINITYHuskSessionLogger?
+    private var lastMetricsLogDate = Date.distantPast
+    private var lastRecordedState: State = .idle
 
     var isRunning: Bool { state == .running || state == .starting }
 
-    func prepareNative(certificatesDirectory: URL,
+    func attachSessionLogger(_ logger: INFINITYHuskSessionLogger) {\n        sessionLogger = logger\n        lastRecordedState = state\n        lastMetricsLogDate = Date.distantPast\n    }\n\n    func recordSessionEvent(_ event: String, details: String = "") {\n        sessionLogger?.record(event, details)\n    }\n\n    func prepareNative(certificatesDirectory: URL,
                        systemFilesRoot: URL,
                        extraFontsDirectory: URL? = nil,
                        sharedStorageDirectory: URL? = nil) throws {
