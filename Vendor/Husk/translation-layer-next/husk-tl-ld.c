@@ -2175,9 +2175,9 @@ static bool parse_dynamic(tl_lib *L, uint64_t dyn_vaddr, uint64_t dyn_size)
         case DT_SYMTAB_: L->symtab = d[i].d_val; break;
         case DT_VERSYM_: L->versym = d[i].d_val; break;
         case DT_VERDEF_: L->verdef = d[i].d_val; break;
-        case DT_VERDEFNUM_: L->verdefnum = (uint32_t)d[i].d_val; break;
+        case DT_VERDEFNUM_: if (d[i].d_val > UINT32_MAX) return false; L->verdefnum = (uint32_t)d[i].d_val; break;
         case DT_VERNEED_: L->verneed = d[i].d_val; break;
-        case DT_VERNEEDNUM_: L->verneednum = (uint32_t)d[i].d_val; break;
+        case DT_VERNEEDNUM_: if (d[i].d_val > UINT32_MAX) return false; L->verneednum = (uint32_t)d[i].d_val; break;
         case DT_GNU_HASH_: L->gnu_hash = d[i].d_val; break;
         case DT_HASH_: L->sysv_hash = d[i].d_val; break;
         case DT_RELA_: L->rela = d[i].d_val; break;
@@ -2206,7 +2206,7 @@ static bool validate_version_tables(const tl_lib *L)
         || ((L->verdef || L->verneed) && !L->versym)
         || (L->verdef && !L->verdefnum) || (L->verneed && !L->verneednum))
         return false;
-    if (L->versym && !image_range_fits(L, L->versym, (uint64_t)L->nsyms * sizeof(uint16_t)))
+    if (L->versym && !image_range_fits(L, L->versym, (uint64_t)L->ncache * sizeof(uint16_t)))
         return false;
     uint64_t off = L->verdef;
     for (uint32_t i = 0; i < L->verdefnum; i++) {
@@ -2239,7 +2239,7 @@ static bool validate_version_tables(const tl_lib *L)
 
 static const char *symbol_version_name(const tl_lib *L, uint32_t symbol_index, bool defined)
 {
-    if (!L->versym || symbol_index >= L->nsyms) return NULL;
+    if (!L->versym || symbol_index >= L->ncache) return NULL;
     uint16_t index = ((const uint16_t *)at(L, L->versym))[symbol_index] & 0x7fffu;
     if (index <= 1) return NULL;
     if (defined) {
