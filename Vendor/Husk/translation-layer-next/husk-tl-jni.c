@@ -89,6 +89,16 @@ static bool local_frame_add_owned(jobj *o)
     f->items[f->count++] = o;
     return true;
 }
+static jo local_frame_adopt(jobj *o)
+{
+    if (!o) return NULL;
+    if (!local_frame_add_owned(o)) {
+        tl_jni_unref(o);
+        tl_jni_throw("java/lang/OutOfMemoryError", "recording JNI return reference");
+        return NULL;
+    }
+    return o;
+}
 static bool local_frame_remove(jobj *o)
 {
     for (jni_local_frame *f = t_local_frame; f; f = f->parent) {
@@ -217,7 +227,7 @@ tl_jclass *tl_jni_class(const char *name)
 
 const char *tl_jni_class_name(const jobj *o) { return o && o->kind == TL_K_CLASS ? o->klass.jc->name : (o && o->cls ? o->cls->name : "?"); }
 
-jobj *tl_jni_class_object(const char *name) { return tl_jni_class(name)->mirror; }
+jobj *tl_jni_class_object(const char *name) { return local_frame_adopt(tl_jni_class(name)->mirror); }
 
 jobj *tl_jni_new_object(tl_jclass *cls)
 {
@@ -750,7 +760,7 @@ static jo jni_FindClass(void *env, const char *name)
     if (tl_dvm && !known && !array) {
         /* the Java runtime is up: a class exists when some DEX on its class paths defines it */
         tl_jclass *c = tl_jni_class(name);
-        if (c->dvm || framework) return c->mirror;
+        if (c->dvm || framework) return local_frame_adopt(c->mirror);
         tl_log_line("jni: FindClass(%s) -> NoClassDefFoundError", name);
         char msg[200]; snprintf(msg, sizeof(msg), "%s", name);
         tl_jni_throw("java/lang/NoClassDefFoundError", msg);
@@ -766,7 +776,7 @@ static jo jni_FindClass(void *env, const char *name)
     return NULL;
 }
 
-static jo jni_GetSuperclass(void *env, jo cls) { (void)env; return cls && cls->kind == TL_K_CLASS && cls->klass.jc->super ? cls->klass.jc->super->mirror : NULL; }
+static jo jni_GetSuperclass(void *env, jo cls) { (void)env; return cls && cls->kind == TL_K_CLASS && cls->klass.jc->super ? local_frame_adopt(cls->klass.jc->super->mirror) : NULL; }
 
 bool dvm_assignable(tl_jclass *sub, tl_jclass *sup);
 /* superclasses, interfaces (the interpreter knows a class's) and arrays: Unity asks IsInstanceOf(trustManager, X509TrustManager) */
@@ -796,7 +806,7 @@ static jo jni_ExceptionOccurred(void *env)
 {
     static __thread jobj *t_seen;
     if (t_pending && g_trace >= 1 && t_pending != t_seen) { t_seen = t_pending; jni_ExceptionDescribe(env); }
-    return tl_jni_ref(t_pending);
+    return local_frame_adopt(tl_jni_ref(t_pending));
 }
 static void jni_ExceptionDescribe(void *env)
 {
@@ -885,14 +895,14 @@ static jo jni_AllocObject(void *env, jo cls)
     (void)env;
     if (!cls || cls->kind != TL_K_CLASS) return NULL;
     if (!ensure_class_initialized(cls->klass.jc)) return NULL;
-    return tl_jni_new_object(cls->klass.jc);
+    return local_frame_adopt(tl_jni_new_object(cls->klass.jc));
 }
 static jo jni_GetObjectClass(void *env, jo o)
 {
     (void)env;
     if (!o) return NULL;
-    if (o->kind == TL_K_CLASS) return tl_jni_class("java/lang/Class")->mirror;
-    return o->cls ? o->cls->mirror : NULL;
+    if (o->kind == TL_K_CLASS) return local_frame_adopt(tl_jni_class("java/lang/Class")->mirror);
+    return o->cls ? local_frame_adopt(o->cls->mirror) : NULL;
 }
 
 static void *jni_GetMethodID_impl(jo cls, const char *name, const char *sig, bool is_static)
@@ -990,9 +1000,9 @@ static jo new_object(jo cls, void *mid, int how, const jvalue *a, tl_va_list *ap
     }
     return o;
 }
-static jo jni_NewObjectA(void *env, jo cls, void *mid, const jvalue *a) { (void)env; return new_object(cls, mid, 2, a, NULL); }
-static jo jni_NewObjectV(void *env, jo cls, void *mid, tl_va_list *ap) { (void)env; return new_object(cls, mid, 1, NULL, ap); }
-jo tl_vai_jni_NewObject(tl_va_frame *f) { tl_va_list ap; tl_va_start(f, 3, 0, &ap); return new_object((jo)f->gp[1], (void *)f->gp[2], 1, NULL, &ap); }
+static jo jni_NewObjectA(void *env, jo cls, void *mid, const jvalue *a) { (void)env; return local_frame_adopt(new_object(cls, mid, 2, a, NULL)); }
+static jo jni_NewObjectV(void *env, jo cls, void *mid, tl_va_list *ap) { (void)env; return local_frame_adopt(new_object(cls, mid, 1, NULL, ap)); }
+jo tl_vai_jni_NewObject(tl_va_frame *f) { tl_va_list ap; tl_va_start(f, 3, 0, &ap); return local_frame_adopt(new_object((jo)f->gp[1], (void *)f->gp[2], 1, NULL, &ap)); }
 TL_VA_STUB(tl_va_jni_NewObject, tl_vai_jni_NewObject);
 extern void tl_va_jni_NewObject(void);
 
@@ -1136,8 +1146,8 @@ static jo jni_ToReflectedMethod(void *env, jo cls, void *mid, uint8_t is_static)
 {
     (void)env; (void)cls; (void)is_static;
     tl_jmeth *m = mid;
-    if (tl_dvm && m && m->dvm) return dvm_make_executable(m->dvm);
-    return m ? reflected(!strcmp(m->name, "<init>") ? "java/lang/reflect/Constructor" : "java/lang/reflect/Method", m) : NULL;
+    if (tl_dvm && m && m->dvm) return local_frame_adopt(dvm_make_executable(m->dvm));
+    return m ? local_frame_adopt(reflected(!strcmp(m->name, "<init>") ? "java/lang/reflect/Constructor" : "java/lang/reflect/Method", m)) : NULL;
 }
 static jo jni_ToReflectedField(void *env, jo cls, void *fid, uint8_t is_static)
 {
@@ -1145,9 +1155,9 @@ static jo jni_ToReflectedField(void *env, jo cls, void *fid, uint8_t is_static)
     if (tl_dvm && fid) {
         tl_jfield *f = fid;
         void *df = dvm_field_of_jfield(f->cls, f->name, f->is_static);
-        if (df) return dvm_make_field_object(df);
+        if (df) return local_frame_adopt(dvm_make_field_object(df));
     }
-    return fid ? reflected("java/lang/reflect/Field", fid) : NULL;
+    return fid ? local_frame_adopt(reflected("java/lang/reflect/Field", fid)) : NULL;
 }
 
 #define REF_Object(x) ((jo)tl_jni_ref((jo)(x)))
@@ -1224,11 +1234,11 @@ static char *from_utf16(const uint16_t *u, size_t n)
     return out;
 }
 
-static jo jni_NewString(void *env, const uint16_t *chars, int32_t len) { (void)env; char *s = from_utf16(chars, (size_t)len); jo o = tl_jni_new_string(s); free(s); return o; }
+static jo jni_NewString(void *env, const uint16_t *chars, int32_t len) { (void)env; char *s = from_utf16(chars, (size_t)len); jo o = tl_jni_new_string(s); free(s); return local_frame_adopt(o); }
 static int32_t jni_GetStringLength(void *env, jo s) { (void)env; return (int32_t)utf16_len(tl_jni_string(s) ? tl_jni_string(s) : ""); }
 static const uint16_t *jni_GetStringChars(void *env, jo s, uint8_t *copy) { (void)env; if (copy) *copy = 1; return to_utf16(tl_jni_string(s) ? tl_jni_string(s) : "", NULL); }
 static void jni_ReleaseStringChars(void *env, jo s, const uint16_t *c) { (void)env; (void)s; free((void *)c); }
-static jo jni_NewStringUTF(void *env, const char *utf) { (void)env; return utf ? tl_jni_new_string(utf) : NULL; }
+static jo jni_NewStringUTF(void *env, const char *utf) { (void)env; return utf ? local_frame_adopt(tl_jni_new_string(utf)) : NULL; }
 static int32_t jni_GetStringUTFLength(void *env, jo s) { (void)env; return (int32_t)strlen(tl_jni_string(s) ? tl_jni_string(s) : ""); }
 static const char *jni_GetStringUTFChars(void *env, jo s, uint8_t *copy) { (void)env; if (copy) *copy = 1; return strdup(tl_jni_string(s) ? tl_jni_string(s) : ""); }
 static void jni_ReleaseStringUTFChars(void *env, jo s, const char *c) { (void)env; (void)s; free((void *)c); }
@@ -1254,10 +1264,10 @@ static jo jni_NewObjectArray(void *env, int32_t len, jo cls, jo init)
 {
     (void)env;
     jo a = tl_jni_new_obj_array(cls ? cls->klass.jc : NULL, (uint32_t)len);
-    for (int32_t i = 0; init && i < len; i++) a->oarr.v[i] = tl_jni_ref(init);
-    return a;
+    for (int32_t i = 0; a && init && i < len; i++) a->oarr.v[i] = tl_jni_ref(init);
+    return local_frame_adopt(a);
 }
-static jo jni_GetObjectArrayElement(void *env, jo a, int32_t i) { (void)env; return (a && i >= 0 && (uint32_t)i < a->oarr.len) ? tl_jni_ref(a->oarr.v[i]) : NULL; }
+static jo jni_GetObjectArrayElement(void *env, jo a, int32_t i) { (void)env; return (a && i >= 0 && (uint32_t)i < a->oarr.len) ? local_frame_adopt(tl_jni_ref(a->oarr.v[i])) : NULL; }
 static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
 {
     (void)env;
@@ -1271,7 +1281,7 @@ static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
     X(Int, int32_t, 'I') X(Long, int64_t, 'J') X(Float, float, 'F') X(Double, double, 'D')
 
 #define GEN_ARRAYS(T, CT, K) \
-    static jo jni_New##T##Array(void *env, int32_t len) { (void)env; return tl_jni_new_prim_array(K, (uint32_t)len); } \
+    static jo jni_New##T##Array(void *env, int32_t len) { (void)env; return local_frame_adopt(tl_jni_new_prim_array(K, (uint32_t)len)); } \
     static CT *jni_Get##T##ArrayElements(void *env, jo a, uint8_t *copy) { (void)env; if (copy) *copy = 0; return a ? a->arr.data : NULL; } \
     static void jni_Release##T##ArrayElements(void *env, jo a, CT *e, int32_t mode) { (void)env; (void)a; (void)e; (void)mode; } \
     static void jni_Get##T##ArrayRegion(void *env, jo a, int32_t s, int32_t n, CT *buf) { (void)env; \
@@ -1355,13 +1365,13 @@ static jo jni_NewDirectByteBuffer(void *env, void *addr, int64_t cap)
         tl_jmeth *m = lookup_method(c, "<init>", "(JI)V", false);
         jvalue args[2]; args[0].j = (int64_t)(uintptr_t)addr; args[1].j = 0; args[1].i = (int32_t)cap;
         invoke(o, m, true, args);
-        return o;
+        return local_frame_adopt(o);
     }
     jobj *o = tl_jni_new_object(tl_jni_class("java/nio/DirectByteBuffer"));
     jvalue a, c; a.l = addr; c.j = cap;
     tl_jni_set_field(o, "address", "J", a);
     tl_jni_set_field(o, "capacity", "J", c);
-    return o;
+    return local_frame_adopt(o);
 }
 static void *jni_GetDirectBufferAddress(void *env, jo o) { (void)env; return o ? tl_jni_get_field(o, "address", "J").l : NULL; }
 static int64_t jni_GetDirectBufferCapacity(void *env, jo o) { (void)env; return o ? tl_jni_get_field(o, "capacity", "J").j : -1; }
