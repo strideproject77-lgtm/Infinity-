@@ -199,6 +199,16 @@ final class INFINITYHuskRuntime: ObservableObject {
     func attachSessionLogger(_ logger: INFINITYHuskSessionLogger) {
         sessionLogger = logger
         lastRecordedState = state
+        lastMetricsLogDate = .distantPast
+    }
+
+    func recordSessionEvent(_ event: String, details: String = "") {
+        sessionLogger?.record(event, details)
+    }
+
+    func attachSessionLogger(_ logger: INFINITYHuskSessionLogger) {
+        sessionLogger = logger
+        lastRecordedState = state
         lastMetricsLogDate = Date.distantPast
     }
 
@@ -297,6 +307,7 @@ final class INFINITYHuskRuntime: ObservableObject {
             }
         }
         guard accepted else { throw RuntimeError.rejectedLaunch }
+        sessionLogger?.record("HUSK_LAUNCH_ACCEPTED", "engine=\(engine) surface=\(width)x\(height)")
         selectedEngine = engine
         self.jitlessModeEnabled = jitlessEnabled
         self.diagnosticLogURL = diagnosticLogURL
@@ -377,6 +388,7 @@ final class INFINITYHuskRuntime: ObservableObject {
         // Always ask the adapter to stop; it is an idempotent no-op without a session.
         // Native shutdown may wait for engine threads; never block the SwiftUI main actor.
         isStopping = true
+        sessionLogger?.record("STOP_REQUESTED", "runtime shutdown requested")
         Task { [weak self] in
             await Task.detached(priority: .userInitiated) {
                 infinity_husk_stop()
@@ -384,6 +396,8 @@ final class INFINITYHuskRuntime: ObservableObject {
             }.value
             guard let self else { return }
             self.refreshState()
+            self.sessionLogger?.finish(outcome: "runtime stopped; finalState=\(self.state) frames=\(self.frameCount)")
+            self.sessionLogger = nil
             self.resetPublishedSession()
             self.isStopping = false
         }
@@ -406,9 +420,23 @@ final class INFINITYHuskRuntime: ObservableObject {
         } else {
             loadedAPK = nil
         }
+        if state != lastRecordedState {
+            sessionLogger?.record("STATE", "\(lastRecordedState) -> \(state) frames=\(frameCount)")
+            lastRecordedState = state
+        }
+        if Date().timeIntervalSince(lastMetricsLogDate) >= 5, isRunning {
+            sessionLogger?.record("PERFORMANCE", String(format: "fps=%.1f mean_ms=%.2f max_ms=%.2f frames=%lu",
+                                                        framesPerSecond, meanFrameMilliseconds,
+                                                        maxFrameMilliseconds, frameCount))
+            lastMetricsLogDate = Date()
+        }
         if state == .failed && lastError == nil {
             lastError = INFINITYJITLess.failureMessage(logURL: diagnosticLogURL,
                                                        jitlessEnabled: jitlessModeEnabled)
+            sessionLogger?.record("RUNTIME_ERROR", lastError ?? "Husk entered failed state without an error message")
+            sessionLogger?.finish(outcome: "failed")
+        } else if state == .ended {
+            sessionLogger?.finish(outcome: "ended normally; frames=\(frameCount)")
         }
     }
 
@@ -453,6 +481,8 @@ final class INFINITYHuskRuntime: ObservableObject {
         selectedEngine = nil
         diagnosticLogURL = nil
         jitlessModeEnabled = false
+        lastRecordedState = .idle
+        lastMetricsLogDate = .distantPast
     }
 
     private func withOptionalCString<T>(_ value: String?,
