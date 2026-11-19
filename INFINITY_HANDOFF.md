@@ -260,3 +260,46 @@ At the end of implementation, update this file and report:
 - Tests/builds/workflows: explicitly "not run, per instruction".
 - Device compatibility: explicitly "not verified; real-device tests deferred".
 - Confirmation that SideStore source/configuration/targets/signing/install/refresh systems were not modified.
+
+
+## 2026-11-19 — Independent Husk integration audit (after Antigravity handover)
+
+Audit baseline: `927a2bf4efd57462d31195c8511122b80b60ec48` on `main`. No Antigravity implementation commit is present on the remote branch after the handover-plan commit; uncommitted files on the user's PC are not visible to this repository audit.
+
+### Verified source call chain
+
+`Strata app-list import → INFINITYAPKStore.install → Documents/Strata3/AndroidApps/<package>/base.apk → installed Android-app row/detail → INFINITYAPKLaunchView → INFINITYHuskRuntime.prepareNative/prepareJava → infinity_husk_launch_engine → engine-specific Husk launch function → Husk asynchronous launch thread → Java tl_javaapp_start or the selected native backend`.
+
+The native dispatcher is not a placeholder: it validates APK/data/ANGLE paths, reserves the single runtime session atomically, checks Java runtime readiness for Java apps, and dispatches to the selected upstream Husk entry point. The upstream Java engine path boots the prepared runtime and calls `tl_javaapp_start`; the shared Husk state/frame/pause functions route Java lifecycle and input to the Java app implementation.
+
+### Component status at this audit baseline
+
+| Component | Source status | Evidence / limitation |
+|---|---|---|
+| APK import and persistence | Implemented in source | APK path validates manifest/DEX and stores a package record plus private data directory |
+| XAPK/APKS/APKM extraction | Import/storage implemented | Base and split APK files are preserved; split identity/version validation and execution loading are not complete |
+| Strata app-list integration | Implemented in source | Android entries appear in the same Manage Apps list and share its search/refresh behavior; they are not native iOS app models |
+| Husk native launch dispatch | Wired in source | Swift calls the INFINITY C dispatcher, which calls real Husk engine launch functions |
+| Java/ART startup | Wired in source | Runtime assets are checked, `husk_java_set_runtime` is configured, and upstream `tl_javaapp_start` is called |
+| ARM64 ELF loader | Present in vendored runtime | Full ABI/relocation coverage and app-level execution are not verified by source presence alone |
+| Bionic compatibility | Present in vendored runtime | Required libc/Bionic behavior for target apps remains to be established from runtime traces |
+| JNI and DEX | Present in vendored runtime | DEX `sget` opcodes 0x60–0x66 and `sput` 0x67–0x6d exist in the current interpreter; the older 0x60 log is not explained by current source and may be from a stale/different binary or path |
+| Android framework APIs | Partially implemented in Husk | Coverage for the 2048 APK's exact missing APIs and the previous `R$layout` static-field report is not yet verified |
+| ANGLE / Metal surface | Wired in source | Launch requires the embedded readable ANGLE framework and a valid CAMetalLayer; actual device rendering is unverified |
+| Touch and lifecycle | Wired in source | Metal view sends multi-touch; shared Husk dispatcher routes touch and pause/resume by engine |
+| Java host callbacks | Not wired in the inspected Swift host | C API exposes keyboard, clipboard, share, orientation and document-picker callbacks, but the inspected Strata Swift runtime does not register the host callbacks yet |
+| Audio and controllers | Upstream entry points exist | End-to-end host input/audio behavior is not verified in an installed build |
+| Session diagnostics | Implemented in source | Structured session events and native stdout/stderr capture are present; actual crash/session evidence still needs device testing |
+| Split-package execution | Blocked | Launch explicitly rejects packages requiring splits; do not pass only base.apk to Husk |
+| QEMU | Optional / not required for current native path | Keep out of the critical path unless a measured compatibility gap requires it |
+
+### Priority implementation order from this audit
+
+1. Wire the missing Java host callbacks with safe main-thread UI ownership and explicit callback lifetime management.
+2. Trace the 2048 APK's previous `R$layout` field failure against the exact current DEX class/field resolver and runtime logs; do not re-add opcodes already present.
+3. Implement split-package loading only through an upstream-supported package-loading contract, validating package/version/ABI and preserving safe cleanup. Until then, keep split execution blocked.
+4. Add source-level regression tests for each new bridge contract and update this handoff after every implementation batch.
+
+### Verification boundary
+
+This audit inspected source and upstream call paths only. No GitHub Actions run, Xcode build, Codemagic build, IPA packaging, signing, export, or real-device APK test was started. 2048 and Hill Climb Racing compatibility remain **not verified**. No SideStore source, target, signing, installation, or refresh system was modified.
