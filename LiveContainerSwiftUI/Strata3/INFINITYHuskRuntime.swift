@@ -202,6 +202,8 @@ final class INFINITYHuskSessionLogger: ObservableObject {
     @Published private(set) var isRecording = false
 
     private var handle: FileHandle?
+    private var memoryWarningObserver: NSObjectProtocol?
+    private var thermalStateObserver: NSObjectProtocol?
     private let formatter: ISO8601DateFormatter = {
         let value = ISO8601DateFormatter()
         value.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -240,7 +242,9 @@ final class INFINITYHuskSessionLogger: ObservableObject {
             logURL = file
             lines = []
             isRecording = true
+            installSystemDiagnostics()
             record("SESSION_START", "INFINITY Husk diagnostic session")
+            record("THERMAL_STATE", thermalStateDescription(ProcessInfo.processInfo.thermalState))
             record("APP", "name=\(displayName) package=\(packageName) version=\(version ?? "unknown")")
             record("ENGINE", engine ?? "unidentified")
             record("APK", "name=\(apkURL.lastPathComponent) readable=\(FileManager.default.isReadableFile(atPath: apkURL.path))")
@@ -267,12 +271,58 @@ final class INFINITYHuskSessionLogger: ObservableObject {
 
     func finish(outcome: String) {
         guard isRecording else { return }
+        removeSystemDiagnostics()
         record("SESSION_END", outcome)
         do { try handle?.synchronize() } catch { }
         INFINITYHuskNativeLog.flushNow()
         try? handle?.close()
         handle = nil
         isRecording = false
+    }
+
+    private func installSystemDiagnostics() {
+        let center = NotificationCenter.default
+        memoryWarningObserver = center.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.record("MEMORY_WARNING", "iOS reported memory pressure during the active APK session")
+            }
+        }
+        thermalStateObserver = center.addObserver(
+            forName: ProcessInfo.thermalStateDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.record("THERMAL_STATE", self.thermalStateDescription(ProcessInfo.processInfo.thermalState))
+            }
+        }
+    }
+
+    private func removeSystemDiagnostics() {
+        let center = NotificationCenter.default
+        if let memoryWarningObserver {
+            center.removeObserver(memoryWarningObserver)
+            self.memoryWarningObserver = nil
+        }
+        if let thermalStateObserver {
+            center.removeObserver(thermalStateObserver)
+            self.thermalStateObserver = nil
+        }
+    }
+
+    private func thermalStateDescription(_ state: ProcessInfo.ThermalState) -> String {
+        switch state {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
     }
 
     private func recordInMemory(_ event: String, _ details: String) {
