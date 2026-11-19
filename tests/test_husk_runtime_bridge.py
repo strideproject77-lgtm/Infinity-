@@ -282,6 +282,20 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("symbol_index >= L->ncache", loader)
         self.assertIn("d[i].d_val > UINT32_MAX", loader)
 
+    def test_bionic_pthread_identity_naming_and_cond_clock_apis_are_real(self):
+        pthread = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
+        for marker in (
+            "static int b_getname_np", "pthread_getname_np(t, name, length)",
+            "static int b_gettid_np", "pthread_threadid_np(t, &tid)",
+            "static int b_condattr_getclock", "*clock = (*a & 2L) ? 1 : 0",
+            'TL_WRAP("pthread_getname_np", b_getname_np)',
+            'TL_WRAP("pthread_gettid_np", b_gettid_np)',
+            'TL_WRAP("pthread_condattr_getclock", b_condattr_getclock)',
+            "if (!pthread_equal(t, pthread_self())) return 95;"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, pthread)
+
     def test_bionic_dl_error_formatter_supports_versioned_symbol_diagnostics(self):
         bionic = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic.c")
         self.assertIn("static void dl_fail(const char *fmt, ...)", bionic)
