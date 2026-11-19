@@ -1534,7 +1534,12 @@ static int32_t jni_GetArrayLength(void *env, jo a)
         tl_jni_throw("java/lang/IllegalArgumentException", "GetArrayLength requires an array reference");
         return 0;
     }
-    return (int32_t)(a->kind == TL_K_OBJ_ARRAY ? a->oarr.len : a->arr.len);
+    size_t length = a->kind == TL_K_OBJ_ARRAY ? a->oarr.len : a->arr.len;
+    if (length > INT32_MAX) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "JNI array length exceeds jint range");
+        return 0;
+    }
+    return (int32_t)length;
 }
 static jo jni_NewObjectArray(void *env, int32_t len, jo cls, jo init)
 {
