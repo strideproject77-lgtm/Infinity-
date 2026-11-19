@@ -146,7 +146,14 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("invalid DT_SONAME string offset", loader)
         self.assertIn("L->relasz % sizeof(elf_rela)", loader)
         self.assertIn("L->relrsz % 8", loader)
-        self.assertIn("GNU hash", loader) if "GNU hash" in loader else self.assertIn("chain_words", loader)
+        self.assertIn("chain_words", loader)
+        self.assertIn("dynamic symbol table exceeds the mapped image", loader)
+        self.assertIn("symbol has an invalid or unterminated name", loader)
+        self.assertIn("relocation references symbol", loader)
+        self.assertIn("if (!image_range_fits(L, r_offset, 8)) return false;", loader)
+        self.assertIn("resolver_vaddr", loader)
+        self.assertIn("TLS relocation references symbol", loader)
+        self.assertIn("if (!image_range_fits(L, word, 8)) return false;", loader)
 
     def test_bionic_symbol_table_lookup_fails_closed_on_bad_input_or_oom(self):
         bionic = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic.c")
