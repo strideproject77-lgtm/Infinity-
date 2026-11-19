@@ -2075,15 +2075,12 @@ static bool validate_dynamic_metadata(tl_lib *L)
         || !L->symtab || !image_range_fits(L, L->symtab, sizeof(elf_sym))) return false;
 
     if ((L->relasz && (!L->rela || L->relasz % sizeof(elf_rela) || !image_range_fits(L, L->rela, L->relasz)))
-        || (!L->relasz && L->rela)
         || (L->pltrelsz && (!L->jmprel || L->pltrelsz % sizeof(elf_rela) || !image_range_fits(L, L->jmprel, L->pltrelsz)))
-        || (!L->pltrelsz && L->jmprel)
         || (L->arelasz && (!L->arela || L->arelasz < 4 || !image_range_fits(L, L->arela, L->arelasz)))
-        || (!L->arelasz && L->arela)
         || (L->relrsz && (!L->relr || L->relrsz % 8 || !image_range_fits(L, L->relr, L->relrsz)))
-        || (!L->relrsz && L->relr)
         || (L->init_arraysz && (!L->init_array || L->init_arraysz % 8 || !image_range_fits(L, L->init_array, L->init_arraysz)))
-        || (!L->init_arraysz && L->init_array)) return false;
+        ) return false;
+    if (L->init && !image_range_fits(L, L->init, 4)) return false;
 
     for (int i = 0; i < L->nneeded; i++)
         if (!dynamic_string(L, L->needed[i])) return false;
