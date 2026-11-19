@@ -1249,7 +1249,9 @@ static uint16_t *to_utf16(const char *s, size_t *outlen)
 }
 static char *from_utf16(const uint16_t *u, size_t n)
 {
+    if ((!u && n) || n > (SIZE_MAX - 1) / 3) return NULL;
     char *out = malloc(n * 3 + 1); size_t k = 0;
+    if (!out) return NULL;
     for (size_t i = 0; i < n; i++) {
         uint32_t c = u[i];
         if (c >= 0xD800 && c < 0xDC00 && i + 1 < n) { c = 0x10000 + ((c - 0xD800) << 10) + (u[i + 1] - 0xDC00); i++; }
@@ -1262,11 +1264,31 @@ static char *from_utf16(const uint16_t *u, size_t n)
     return out;
 }
 
-static jo jni_NewString(void *env, const uint16_t *chars, int32_t len) { (void)env; char *s = from_utf16(chars, (size_t)len); jo o = tl_jni_new_string(s); free(s); return local_frame_adopt(o); }
+static jo jni_NewString(void *env, const uint16_t *chars, int32_t len)
+{
+    (void)env;
+    if (len < 0 || (!chars && len)) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "NewString received invalid UTF-16 input");
+        return NULL;
+    }
+    char *s = from_utf16(chars, (size_t)len);
+    if (!s) { tl_jni_throw("java/lang/OutOfMemoryError", "converting JNI UTF-16 string"); return NULL; }
+    jo o = tl_jni_new_string(s);
+    free(s);
+    if (!o) tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI string");
+    return local_frame_adopt(o);
+}
 static int32_t jni_GetStringLength(void *env, jo s) { (void)env; return (int32_t)utf16_len(tl_jni_string(s) ? tl_jni_string(s) : ""); }
 static const uint16_t *jni_GetStringChars(void *env, jo s, uint8_t *copy) { (void)env; if (copy) *copy = 1; return to_utf16(tl_jni_string(s) ? tl_jni_string(s) : "", NULL); }
 static void jni_ReleaseStringChars(void *env, jo s, const uint16_t *c) { (void)env; (void)s; free((void *)c); }
-static jo jni_NewStringUTF(void *env, const char *utf) { (void)env; return utf ? local_frame_adopt(tl_jni_new_string(utf)) : NULL; }
+static jo jni_NewStringUTF(void *env, const char *utf)
+{
+    (void)env;
+    if (!utf) { tl_jni_throw("java/lang/NullPointerException", "NewStringUTF input is null"); return NULL; }
+    jo o = tl_jni_new_string(utf);
+    if (!o) tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI UTF string");
+    return local_frame_adopt(o);
+}
 static int32_t jni_GetStringUTFLength(void *env, jo s) { (void)env; return (int32_t)strlen(tl_jni_string(s) ? tl_jni_string(s) : ""); }
 static const char *jni_GetStringUTFChars(void *env, jo s, uint8_t *copy) { (void)env; if (copy) *copy = 1; return strdup(tl_jni_string(s) ? tl_jni_string(s) : ""); }
 static void jni_ReleaseStringUTFChars(void *env, jo s, const char *c) { (void)env; (void)s; free((void *)c); }
@@ -1291,15 +1313,36 @@ static int32_t jni_GetArrayLength(void *env, jo a) { (void)env; return a ? (int3
 static jo jni_NewObjectArray(void *env, int32_t len, jo cls, jo init)
 {
     (void)env;
-    jo a = tl_jni_new_obj_array(cls ? cls->klass.jc : NULL, (uint32_t)len);
-    for (int32_t i = 0; a && init && i < len; i++) a->oarr.v[i] = tl_jni_ref(init);
+    if (len < 0 || !cls || cls->kind != TL_K_CLASS) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "NewObjectArray received invalid length or element class");
+        return NULL;
+    }
+    if (init && !jni_IsInstanceOf(env, init, cls)) {
+        tl_jni_throw("java/lang/ArrayStoreException", "initial object is not assignable to array element class");
+        return NULL;
+    }
+    jo a = tl_jni_new_obj_array(cls->klass.jc, (uint32_t)len);
+    if (!a) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI object array"); return NULL; }
+    for (int32_t i = 0; init && i < len; i++) a->oarr.v[i] = tl_jni_ref(init);
     return local_frame_adopt(a);
 }
-static jo jni_GetObjectArrayElement(void *env, jo a, int32_t i) { (void)env; return (a && i >= 0 && (uint32_t)i < a->oarr.len) ? local_frame_adopt(tl_jni_ref(a->oarr.v[i])) : NULL; }
+static jo jni_GetObjectArrayElement(void *env, jo a, int32_t i)
+{
+    (void)env;
+    if (!a || a->kind != TL_K_OBJ_ARRAY) { tl_jni_throw("java/lang/IllegalArgumentException", "GetObjectArrayElement requires an object array"); return NULL; }
+    if (i < 0 || (uint32_t)i >= a->oarr.len) { tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "object array index out of bounds"); return NULL; }
+    return a->oarr.v[i] ? local_frame_adopt(tl_jni_ref(a->oarr.v[i])) : NULL;
+}
 static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
 {
     (void)env;
-    if (!a || i < 0 || (uint32_t)i >= a->oarr.len) return;
+    if (!a || a->kind != TL_K_OBJ_ARRAY) { tl_jni_throw("java/lang/IllegalArgumentException", "SetObjectArrayElement requires an object array"); return; }
+    if (i < 0 || (uint32_t)i >= a->oarr.len) { tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "object array index out of bounds"); return; }
+    if (v && a->cls && a->cls->name[0] == '[' && !jni_IsInstanceOf(env, v, tl_jni_class_object(a->cls->name + 2))) {
+        /* The array's component-class check is handled below without manufacturing a guest-visible handle. */
+        tl_jclass *component = tl_jni_class(a->cls->name + 2);
+        if (!component || !v->cls || !assignable(v->cls, component)) { tl_jni_throw("java/lang/ArrayStoreException", "object is not assignable to array component type"); return; }
+    }
     tl_jni_unref(a->oarr.v[i]);
     a->oarr.v[i] = tl_jni_ref(v);
 }
@@ -1386,16 +1429,22 @@ static int32_t jni_MonitorExit(void *env, jo o) { (void)env; if (o) dvm_monitor_
 static jo jni_NewDirectByteBuffer(void *env, void *addr, int64_t cap)
 {
     (void)env;
+    if (cap < 0 || cap > INT32_MAX || (!addr && cap > 0)) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "NewDirectByteBuffer received invalid address or capacity");
+        return NULL;
+    }
     if (tl_dvm) {
         /* the Java runtime's own DirectByteBuffer, made as ART makes it for JNI: DirectByteBuffer(long address, int capacity) */
         tl_jclass *c = tl_jni_class("java/nio/DirectByteBuffer");
         jobj *o = tl_jni_new_object(c);
+        if (!o) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating DirectByteBuffer"); return NULL; }
         tl_jmeth *m = lookup_method(c, "<init>", "(JI)V", false);
         jvalue args[2]; args[0].j = (int64_t)(uintptr_t)addr; args[1].j = 0; args[1].i = (int32_t)cap;
         invoke(o, m, true, args);
         return local_frame_adopt(o);
     }
     jobj *o = tl_jni_new_object(tl_jni_class("java/nio/DirectByteBuffer"));
+    if (!o) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating DirectByteBuffer"); return NULL; }
     jvalue a, c; a.l = addr; c.j = cap;
     tl_jni_set_field(o, "address", "J", a);
     tl_jni_set_field(o, "capacity", "J", c);
