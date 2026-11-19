@@ -82,8 +82,8 @@ class HuskJITLessContractTests(unittest.TestCase):
     def test_launch_uses_a_fresh_husk_log_and_resets_jitless_after_stop(self):
         launch = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
         runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
-        self.assertIn('engine == .unity ? "unity-run.log" : "native-run.log"', launch)
-        self.assertIn("removeItem(at: logURL)", launch)
+        self.assertIn('(engine == .unity ? "unity-run-" : "native-run-") + UUID().uuidString + ".log"', launch)
+        self.assertNotIn("removeItem(at: logURL)", launch)
         self.assertIn("diagnosticLogURL: logURL", launch)
         self.assertIn("try? INFINITYJITLess.configure(enabled: false)", runtime)
 
