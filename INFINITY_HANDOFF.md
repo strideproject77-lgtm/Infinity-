@@ -337,3 +337,14 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - Added document selection handling that copies selected files into the app's private per-package data directory before returning stable paths to the Java runtime. Picker cancellation is also returned to Husk.
 - Host requests are marshalled to the main queue before touching UIKit. Clipboard return memory is allocated with `strdup`, matching Husk's documented malloc-owned callback contract.
 - No tests/builds/workflows were run. These callback paths are source-integrated but remain unverified on a built app/device. SideStore remains untouched.
+
+
+## 2026-11-19 — DEX static field initializer support (2048 compatibility priority)
+
+- Added bounds-checked parsing for DEX `encoded_array` static initial values referenced by each `class_def_item.static_values_off`.
+- Static primitive initializers now populate existing class static storage for byte, short, char, int, long, float, double, boolean and null values. String constants are represented as Husk `TL_KIND_STRING` objects.
+- Nested encoded arrays and annotations are consumed with recursion/count bounds. Unsupported type/field/method/enum reference kinds are consumed without storing invalid host pointers.
+- Malformed offsets, counts, or encoded values are rejected for that class initializer and logged; fields not supplied by the encoded array retain Java's zero/default values.
+- This fills a concrete DEX gap: the previous parser allocated `static_values` but never read `static_values_off`, so generated Android resource constants such as `R$layout` IDs could remain zero even though the `sget` opcode was already implemented.
+- This is a source-level compatibility improvement, not proof that the earlier 2048 failure is resolved. The exact APK/runtime path and 2048 launch remain unverified until an authorized device build/test.
+- No tests, scripts, workflows, Xcode/Codemagic builds, IPA packaging/signing/export, or installs were run. SideStore was not modified.

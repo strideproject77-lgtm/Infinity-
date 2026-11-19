@@ -95,6 +95,134 @@ static const char *dex_get_string(const tl_dex_file *dex, uint32_t idx)
     return (const char *)p;
 }
 
+/* Bounded readers for DEX encoded_array static initial values. */
+static bool dex_read_uleb128_checked(const uint8_t **cursor, const uint8_t *end, uint32_t *out)
+{
+    uint32_t value = 0;
+    for (unsigned shift = 0; shift < 35; shift += 7) {
+        if (*cursor >= end) return false;
+        uint8_t byte = *(*cursor)++;
+        if (shift == 28 && (byte & 0xF0)) return false;
+        value |= (uint32_t)(byte & 0x7F) << shift;
+        if (!(byte & 0x80)) { *out = value; return true; }
+    }
+    return false;
+}
+
+static uint64_t dex_read_encoded_le(const uint8_t *bytes, unsigned count)
+{
+    uint64_t value = 0;
+    for (unsigned i = 0; i < count; i++) value |= (uint64_t)bytes[i] << (i * 8);
+    return value;
+}
+
+static bool dex_read_encoded_value(tl_dex_context *ctx, const tl_dex_file *dex,
+                                   const uint8_t **cursor, const uint8_t *end,
+                                   tl_dex_val *out, unsigned depth)
+{
+    if (!cursor || !*cursor || *cursor >= end || !out || depth > 32) return false;
+    uint8_t header = *(*cursor)++;
+    unsigned type = header & 0x1F;
+    unsigned arg = header >> 5;
+    out->raw64 = 0;
+
+    if (type == 0x1E) return arg == 0; /* VALUE_NULL */
+    if (type == 0x1F) {               /* VALUE_BOOLEAN */
+        if (arg > 1) return false;
+        out->raw64 = arg;
+        return true;
+    }
+    if (type == 0x1C) {               /* VALUE_ARRAY */
+        uint32_t count = 0;
+        if (arg != 0 || !dex_read_uleb128_checked(cursor, end, &count) || count > 100000) return false;
+        for (uint32_t i = 0; i < count; i++) {
+            tl_dex_val ignored = { .raw64 = 0 };
+            if (!dex_read_encoded_value(ctx, dex, cursor, end, &ignored, depth + 1)) return false;
+        }
+        return true;
+    }
+    if (type == 0x1D) {               /* VALUE_ANNOTATION */
+        uint32_t annotation_type = 0, count = 0;
+        if (arg != 0 || !dex_read_uleb128_checked(cursor, end, &annotation_type) ||
+            !dex_read_uleb128_checked(cursor, end, &count) || count > 100000) return false;
+        (void)annotation_type;
+        for (uint32_t i = 0; i < count; i++) {
+            uint32_t name_idx = 0;
+            tl_dex_val ignored = { .raw64 = 0 };
+            if (!dex_read_uleb128_checked(cursor, end, &name_idx) ||
+                !dex_read_encoded_value(ctx, dex, cursor, end, &ignored, depth + 1)) return false;
+            (void)name_idx;
+        }
+        return true;
+    }
+
+    unsigned count = arg + 1;
+    if (count > 8 || (size_t)(end - *cursor) < count) return false;
+    uint64_t raw = dex_read_encoded_le(*cursor, count);
+    *cursor += count;
+
+    switch (type) {
+    case 0x00: /* VALUE_BYTE */
+        if (count != 1) return false;
+        out->raw64 = (uint64_t)(int64_t)(int8_t)raw; return true;
+    case 0x02: /* VALUE_SHORT */
+        if (count > 2) return false;
+        out->raw64 = (uint64_t)(int64_t)(int16_t)raw; return true;
+    case 0x03: /* VALUE_CHAR */
+        if (count > 2) return false;
+        out->raw64 = (uint16_t)raw; return true;
+    case 0x04: /* VALUE_INT */
+        if (count > 4) return false;
+        if (count < 4 && (raw & (UINT64_C(1) << (count * 8 - 1)))) raw |= UINT64_MAX << (count * 8);
+        out->raw64 = (uint64_t)(int64_t)(int32_t)raw; return true;
+    case 0x06: /* VALUE_LONG */
+        if (count < 8 && (raw & (UINT64_C(1) << (count * 8 - 1)))) raw |= UINT64_MAX << (count * 8);
+        out->raw64 = raw; return true;
+    case 0x10: /* VALUE_FLOAT: encoded bytes occupy the high end of the IEEE word */
+        if (count > 4) return false;
+        out->raw32 = (uint32_t)(raw << ((4 - count) * 8)); return true;
+    case 0x11: /* VALUE_DOUBLE */
+        out->raw64 = raw << ((8 - count) * 8); return true;
+    case 0x17: { /* VALUE_STRING */
+        if (raw >= dex->hdr->string_ids_size) return false;
+        tl_dex_object *string = calloc(1, sizeof(*string));
+        if (!string) return false;
+        string->flags = TL_KIND_STRING;
+        string->str_utf8 = strdup(dex_get_string(dex, (uint32_t)raw));
+        if (!string->str_utf8) { free(string); return false; }
+        string->clazz = tl_dex_find_class(ctx, "Ljava/lang/String;");
+        out->l = string;
+        return true;
+    }
+    case 0x18: /* VALUE_TYPE */
+    case 0x19: /* VALUE_FIELD */
+    case 0x1A: /* VALUE_METHOD */
+    case 0x1B: /* VALUE_ENUM */
+        /* Not represented by tl_dex_val yet; consume safely, never store an invalid pointer. */
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool dex_load_static_values(tl_dex_context *ctx, tl_dex_file *dex,
+                                   tl_dex_class *clazz, uint32_t offset, size_t size)
+{
+    if (!offset) return true;
+    if (!clazz || offset >= size || !clazz->static_values) return false;
+    const uint8_t *cursor = dex->data + offset;
+    const uint8_t *end = dex->data + size;
+    uint32_t count = 0;
+    if (!dex_read_uleb128_checked(&cursor, end, &count) ||
+        count > (uint32_t)clazz->num_static_fields) return false;
+    for (uint32_t i = 0; i < count; i++) {
+        tl_dex_val value = { .raw64 = 0 };
+        if (!dex_read_encoded_value(ctx, dex, &cursor, end, &value, 0)) return false;
+        clazz->static_values[i] = value;
+    }
+    return true;
+}
+
 static const char *dex_get_type(const tl_dex_file *dex, uint32_t idx)
 {
     if (!dex || idx >= dex->hdr->type_ids_size) return "";
@@ -422,6 +550,7 @@ static tl_dex_file *parse_dex_buffer(tl_dex_context *ctx, uint8_t *data, size_t 
         uint32_t access_flags = (uint32_t)cd[4] | ((uint32_t)cd[5] << 8) | ((uint32_t)cd[6] << 16) | ((uint32_t)cd[7] << 24);
         uint32_t superclass_idx = (uint32_t)cd[8] | ((uint32_t)cd[9] << 8) | ((uint32_t)cd[10] << 16) | ((uint32_t)cd[11] << 24);
         uint32_t class_data_off = (uint32_t)cd[24] | ((uint32_t)cd[25] << 8) | ((uint32_t)cd[26] << 16) | ((uint32_t)cd[27] << 24);
+        uint32_t static_values_off = (uint32_t)cd[28] | ((uint32_t)cd[29] << 8) | ((uint32_t)cd[30] << 16) | ((uint32_t)cd[31] << 24);
 
         tl_dex_class *c = calloc(1, sizeof(*c));
         c->ctx = ctx;
@@ -468,6 +597,12 @@ static tl_dex_file *parse_dex_buffer(tl_dex_context *ctx, uint8_t *data, size_t 
                     .clazz = c, .name = fname, .type = ftype, .access_flags = flags, .is_static = false, .slot = f
                 };
                 if (fid < hdr->field_ids_size) dex->resolved_fields[fid] = &c->fields[static_fields_count + f];
+            }
+
+            if (static_values_off &&
+                !dex_load_static_values(ctx, dex, c, static_values_off, size)) {
+                dex_log("dex: malformed static_values array for %s at offset %u; remaining static fields keep defaults",
+                        c->descriptor ? c->descriptor : "?", static_values_off);
             }
 
             c->num_methods = direct_methods_count + virtual_methods_count;
