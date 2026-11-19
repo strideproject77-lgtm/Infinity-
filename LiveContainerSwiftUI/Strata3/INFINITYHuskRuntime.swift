@@ -102,6 +102,7 @@ final class INFINITYHuskGamepadManager: ObservableObject {
     func start() {
         guard !isStarted else { return }
         isStarted = true
+        GCController.shouldMonitorBackgroundEvents = false
         let center = NotificationCenter.default
         for name in [Notification.Name.GCControllerDidConnect,
                      Notification.Name.GCControllerDidDisconnect] {
