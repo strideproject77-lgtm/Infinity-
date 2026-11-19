@@ -292,6 +292,25 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn('TL_WRAP("pthread_attr_setstack", b_attr_setstack)', pthread)
         self.assertIn("if (stack_result) { pthread_attr_destroy(&a); return rc(stack_result); }", pthread)
 
+    def test_jni_local_reference_frames_are_thread_scoped_and_released_on_detach(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            "static __thread jni_local_frame *t_local_frame",
+            "local_frame_reserve",
+            "local_frame_add_owned",
+            "local_frame_remove",
+            "static int32_t jni_PushLocalFrame",
+            "static jo jni_PopLocalFrame",
+            "static jo jni_NewLocalRef",
+            "static int32_t jni_EnsureLocalCapacity",
+            "local_frames_detach()",
+            "OutOfMemoryError"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+        self.assertNotIn("static int32_t jni_PushLocalFrame(void *env, int32_t cap) { (void)env; (void)cap; return 0; }", jni)
+        self.assertNotIn("static jo jni_PopLocalFrame(void *env, jo r) { (void)env; return r; }", jni)
+
     def test_nativeactivity_has_joinable_teardown_and_never_fakes_input_queue(self):
         native = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.h")
