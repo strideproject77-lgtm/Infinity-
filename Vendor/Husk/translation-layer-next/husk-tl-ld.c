@@ -640,14 +640,15 @@ static bool is_cxx_runtime_symbol(const char *name)
     return false;
 }
 
-static void *lookup_for_version(tl_lib *L, const char *name, const char *version)
+static void *lookup_for_version(tl_lib *L, const char *name, const char *version, const char *required_file)
 {
     build_scope(L);
-    const elf_sym *s = lib_find_version(L, name, version);
-    if (s) return resolved_symbol_value((tl_lib *)L, s, NULL);
     for (int i = 0; i < L->ndeps; i++) {
-        s = lib_find_version(L->deps[i], name, version);
-        if (s) return resolved_symbol_value(L->deps[i], s, NULL);
+        tl_lib *dep = L->deps[i];
+        if (required_file && strcmp(dep->soname, required_file)
+            && strcmp(base_name(dep->name), required_file)) continue;
+        const elf_sym *s = lib_find_version(dep, name, version);
+        if (s) return resolved_symbol_value(dep, s, NULL);
     }
     return NULL;
 }
@@ -1930,13 +1931,14 @@ static uint64_t bind_symbol(tl_lib *L, uint32_t symidx, bool *failed)
         if (*failed) return 0;
     } else {
         const char *required_version = symbol_version_name(L, symidx, false);
+        const char *required_file = symbol_version_file(L, symidx);
         uint16_t version_index = L->versym ? (((const uint16_t *)at(L, L->versym))[symidx] & 0x7fffu) : 1;
-        if (version_index > 1 && !required_version) {
-            tl_log_line("ld: %s: symbol %s has an unresolved GNU version requirement", L->name, name);
+        if (version_index > 1 && (!required_version || !required_file)) {
+            tl_log_line("ld: %s: symbol %s has an incomplete GNU version requirement", L->name, name);
             *failed = true;
             return 0;
         }
-        void *a = required_version ? lookup_for_version(L, name, required_version) : lookup_for(L, name, NULL);
+        void *a = required_version ? lookup_for_version(L, name, required_version, required_file) : lookup_for(L, name, NULL);
         if (a) {
             val = (uint64_t)(uintptr_t)a;
         } else if ((s->st_info >> 4) == STB_WEAK_) {
@@ -2235,6 +2237,25 @@ static bool validate_version_tables(const tl_lib *L)
         if (i + 1 < L->verneednum) { if (!vn->next || off + vn->next < off) return false; off += vn->next; }
     }
     return true;
+}
+
+static const char *symbol_version_file(const tl_lib *L, uint32_t symbol_index)
+{
+    if (!L->versym || symbol_index >= L->ncache) return NULL;
+    uint16_t index = ((const uint16_t *)at(L, L->versym))[symbol_index] & 0x7fffu;
+    if (index <= 1) return NULL;
+    uint64_t off = L->verneed;
+    for (uint32_t i = 0; i < L->verneednum; i++) {
+        const elf_verneed *vn = (const elf_verneed *)at(L, off);
+        uint64_t auxoff = off + vn->aux;
+        for (uint16_t j = 0; j < vn->count; j++) {
+            const elf_vernaux *aux = (const elf_vernaux *)at(L, auxoff);
+            if ((aux->other & 0x7fffu) == index) return dynamic_string(L, vn->file);
+            auxoff += aux->next;
+        }
+        off += vn->next;
+    }
+    return NULL;
 }
 
 static const char *symbol_version_name(const tl_lib *L, uint32_t symbol_index, bool defined)
