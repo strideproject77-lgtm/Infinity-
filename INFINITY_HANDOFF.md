@@ -1234,3 +1234,27 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Implement a real NativeActivity input-queue contract end-to-end or record a formally agreed scope exclusion; do not pass a fake queue.
 - Close the remaining ART/JNI lifecycle contracts where the embedded runtime architecture supports them. Keep unsupported VM destruction/critical pin semantics explicit until actually implemented.
 - Preserve the agreed gate: no tests, compilation, workflows, IPA build/export, signing, or device testing until genuine source integration is complete.
+
+## 2026-11-20 — NativeActivity UI-thread self-stop lifecycle hardening
+
+### Implemented on main
+- `tl_na_stop()` now detects when shutdown is requested from the NativeActivity UI thread itself. It sets the stop request and detaches the current thread rather than attempting to join itself (which would deadlock). The UI loop then exits through its existing bounded poll and lifecycle teardown path.
+- External callers still join the UI thread, but a failed `pthread_join` is now logged and does not falsely mark the thread as joined.
+- Added a source-contract test that checks the self-thread branch, detach-before-join ordering, join failure path, and stop request.
+
+### Commits
+- NativeActivity self-stop lifecycle fix: `3ca5182261e7237d2ba3df6a9ed32bf1de589292`
+- NativeActivity self-stop source-contract coverage: `73e35392f5867fc1534995366181664343fa04f4`
+
+### Integration status and verification
+- **Overall Husk source integration estimate remains 99%.** This batch closes a teardown edge case but does not close the outstanding JNI handle architecture or genuine NDK input queue integration, so it does not justify rounding to 100%.
+- Static source inspection only. The new test was added but not executed; no compiler was run.
+- No GitHub workflow, IPA build/export, signing, or device testing was started.
+- JNI local/global/weak-global reference identity remains incomplete; NativeActivity still has no genuine NDK `AInputQueue` contract; full ART/JNI VM lifecycle, exception/class-loader behavior, and actual VM/GC critical-region pinning remain incomplete.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next implementation targets
+- Complete a repository-wide JNI object-boundary inventory and a coherent reference-handle representation before changing `New/DeleteGlobalRef`, weak-global operations, local frames, object-returning APIs, and `GetObjectRefType` together. Do not add a partial raw-pointer shim that can free or alias the wrong object.
+- Implement an actual NDK-compatible NativeActivity input queue backed by real translated touch/key events and lifecycle ownership; do not fabricate an input queue pointer.
+- Keep ART/JNI unsupported behavior explicit until the underlying semantics are implemented.
+- Preserve the no-test/no-compile/no-workflow/no-IPA gate until the agreed source integration scope is genuinely complete.
