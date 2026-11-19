@@ -32,12 +32,14 @@ class APKStoreContractTests(unittest.TestCase):
     def test_native_graphics_are_required_inside_the_signed_app_bundle(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
         view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
         self.assertIn("static var hasEmbeddedAngle", store)
         self.assertIn("static var hasEmbeddedMoltenVK", store)
         self.assertIn("isANGLEEmbeddedAndReadable", store)
-        self.assertIn("INFINITYAPKStore.nativeRuntimeBundle() != nil", view)
-        self.assertIn("INFINITYAPKStore.isMoltenVKEmbeddedAndReadable", view)
-        self.assertIn("not embedded and signed", view)
+        self.assertIn("guard let nativeBundle = INFINITYAPKStore.nativeRuntimeBundle()", view)
+        self.assertIn("RuntimeError.nativeRuntimeNotPrepared", view)
+        self.assertIn("angleLibrary.standardizedFileURL == embeddedANGLE", runtime)
+        self.assertIn("moltenVKLibrary.standardizedFileURL == embeddedMoltenVK", runtime)
 
     def test_runtime_data_install_is_staged_and_rollback_safe(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
