@@ -51,6 +51,8 @@ on:
       - "tests/test_husk_jitless.py"
       - "tests/test_runtime_assets_builder.py"
       - ".github/workflows/infinity-tests.yml"
+      - ".github/workflows/infinity-strata-framework-build.yml"
+      - "tests/test_strata_framework_workflow.py"
   workflow_dispatch:
 
 permissions:
