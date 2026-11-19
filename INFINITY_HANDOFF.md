@@ -1070,3 +1070,33 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Next batch toward 90%
 - Continue the JNI reference-handle redesign only after mapping all internal raw-pointer consumers and adding a compatibility conversion layer; do not fake `GetObjectRefType` or weak-global semantics.
 - Continue auditing DEX interface/class-loader assignability and NativeActivity event delivery; keep unsupported paths explicit until the full contracts exist.
+
+## 2026-11-20 — JNI primitive-array access and release lifecycle
+
+### Implemented on main
+- Replaced direct primitive-array element exposure with per-thread tracked copies for all eight JNI primitive array types. `isCopy` is set to true and allocation/size overflow failures are surfaced.
+- Implemented `Release<Type>ArrayElements` mode behavior: mode 0 copies back and frees, `JNI_COMMIT` copies back while retaining the buffer for a later release, and `JNI_ABORT` discards and frees.
+- Each outstanding element buffer is associated with its exact array, element type, length, and byte size. Mismatched pointers/arrays, invalid release modes, and changed array dimensions are rejected.
+- Outstanding ordinary array copies are copied back and freed when the native thread detaches.
+- Added tracked `GetPrimitiveArrayCritical` / `ReleasePrimitiveArrayCritical` pairing. The runtime exposes underlying storage (`isCopy=false`) and validates exact array/pointer pairing and release mode; it does not claim a moving-GC pin implementation.
+- Fixed transactional native-registration typedef ordering discovered during source audit.
+- Added source-contract coverage for ordinary and critical array access lifecycles. The source-contract test was not executed.
+
+### Commits
+- Primitive array copy/release implementation and staged-registration declaration-order correction: `01f30a7c263cb7d3aa49c0fcee7961f608730c03`
+- Array dimension tracking and release consistency checks: `2691d451fc8e824cf47fc8aa0d7ee2a14d8b0ee5`
+- Primitive array source-contract tests and assertion-string cleanup: `059d14d80393a83b8e7122925e27357a6ecb73dd`
+- Critical array acquisition/release tracking: `1b9e644360bfe6c0d3e93dd0e76de2e3bb2dc9ce`
+- Critical array source-contract assertions: `8d3f5d15a681be9608b88ee08ed0cd8fb730f5e8`
+
+### Integration status and verification
+- **Overall Husk source integration estimate: 92%** (previous: 89%; +3 percentage points). This is a source-coverage engineering estimate, not a measured compatibility or runtime-success score.
+- The JNI array implementation has source-contract assertions only. No tests or compiler were run; no GitHub workflow, IPA build/export, signing, or device test was started.
+- JNI raw-pointer local/global/weak reference identity remains unresolved. Critical-array access tracking does not implement a moving-GC pin. Embedded U+0000 remains unsupported by the internal NUL-terminated guest string representation.
+- Genuine NDK `AInputQueue`, full ART exception/class-loader behavior, and remaining Bionic synchronization semantics remain open integration gaps.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next batch toward 95%
+- Audit and implement additional JNI boundary contracts that can be completed without inventing handle identity or ART behavior.
+- Continue NativeActivity and Bionic lifecycle gaps only where a real compatible contract can be delivered; retain explicit unsupported behavior otherwise.
+- Keep all validation deferred until source integration reaches 100%, then perform the single consolidated test/build/device phase.
