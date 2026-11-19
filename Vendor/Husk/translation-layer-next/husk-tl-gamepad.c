@@ -46,7 +46,7 @@ bool tl_pad_connected(int slot)
 
 bool tl_pad_read(int slot, tl_pad_state *out)
 {
-    if (slot < 0 || slot >= TL_PADS) return false;
+    if (slot < 0 || slot >= TL_PADS || !out) return false;
     pthread_mutex_lock(&P.lock);
     bool ok = P.connected[slot];
     if (ok) *out = P.last[slot];
@@ -107,7 +107,7 @@ static const int k_keycode[TL_PAD_BUTTONS] = { 96, 97, 99, 100, 102, 103, 106, 1
 
 void tl_pad_update(int slot, const tl_pad_state *s)
 {
-    if (slot < 0 || slot >= TL_PADS) return;
+    if (slot < 0 || slot >= TL_PADS || !s) return;
     struct { int action, keycode; int64_t down; } keys[TL_PAD_BUTTONS + 2];
     int nkeys = 0;
     float axes[MAX_AXES];
