@@ -2,15 +2,6 @@ name: INFINITY Husk iOS static runtime build
 
 on:
   workflow_dispatch:
-    paths:
-      - "Vendor/Husk/Package.swift"
-      - "Vendor/Husk/include/**"
-      - "Vendor/Husk/bridge/**"
-      - "Vendor/Husk/translation-layer/**"
-      - "Vendor/Husk/translation-layer-next/**"
-      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
-      - ".github/workflows/infinity-husk-package-build.yml"
-  workflow_dispatch:
 
 permissions:
   contents: read
