@@ -80,3 +80,10 @@
 - The packaging script validates each ZIP with `unzip -t` and fails if either IPA or the Xcode archive is missing.
 - Changes committed on `main`: packaging script commit `d2acc89`; Codemagic artifact declaration commit `e1c3aa0`; handoff update follows.
 - This is source/configuration verification only. No Codemagic build was started; the three ZIP outputs have not yet been produced by a real run.
+
+
+## 2026-11-19 — Android APK launch action visibility
+- Fixed the APK detail screen so the **Launch** navigation action is always visible; it was previously hidden whenever engine/runtime readiness checks failed, making it impossible for users to enter the launch diagnostics screen.
+- Runtime preparation now reports a dedicated, explicit error when an imported package requires split APK loading. Split packages remain blocked from unsafe base-APK-only execution.
+- Updated host-side source-contract tests to assert the always-visible Launch action and the split-package safety gate.
+- Source changes committed on `main`; no IPA build or device execution was started. The Launch button visibility is source-verified, not yet verified in an installed build. Subway Surfers compatibility remains unverified until a real device launch test.
