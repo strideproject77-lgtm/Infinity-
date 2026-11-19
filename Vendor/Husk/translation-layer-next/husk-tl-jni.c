@@ -1371,8 +1371,8 @@ static int32_t jni_GetStringUTFLength(void *env, jo s)
     if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringUTFLength received a null or non-string reference"); return 0; }
     size_t n = 0;
     char *encoded = jni_mutf8_from_utf8(value, &n);
-    free(encoded);
     if (!encoded) { tl_jni_throw("java/lang/OutOfMemoryError", "encoding JNI Modified UTF-8 length"); return 0; }
+    free(encoded);
     if (n > INT32_MAX) { tl_jni_throw("java/lang/OutOfMemoryError", "JNI Modified UTF-8 string exceeds jint length"); return 0; }
     return (int32_t)n;
 }
@@ -1410,9 +1410,9 @@ static void jni_GetStringUTFRegion(void *env, jo s, int32_t start, int32_t len, 
     if ((size_t)start > n || (size_t)len > n - (size_t)start) {
         tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "UTF string region out of bounds");
     } else {
-        char *out = from_utf16(u + start, (size_t)len);
-        if (!out) tl_jni_throw("java/lang/OutOfMemoryError", "encoding UTF string region");
-        else { if (len) strcpy(buf, out); free(out); }
+        char *out = jni_mutf8_encode(u + start, (size_t)len, NULL);
+        if (!out) tl_jni_throw("java/lang/OutOfMemoryError", "encoding Modified UTF-8 string region");
+        else { if (len || out[0]) strcpy(buf, out); free(out); }
     }
     free(u);
 }
