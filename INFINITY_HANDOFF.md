@@ -1128,3 +1128,32 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Continue JNI reference lifecycle only after mapping every internal raw-pointer consumer; do not claim local/global/weak identity until the representation actually supports it.
 - Preserve the agreed rule: no test suite, compilation, workflow, IPA build/export, signing, or device testing until source integration reaches 100%.
 - Follow-up static marker audit corrected one source-contract string to match the new critical-copy allocation diagnostic (`tracking JNI critical array access` → `allocating JNI critical array copy`): `d6afa7e85d432494ab88e0b59083214200945fbc`. Marker presence was inspected; tests remain unexecuted.
+
+
+## 2026-11-20 — JNI string character-buffer ownership and release lifecycle
+
+### Implemented on main
+- Added a per-thread registry for JNI string character buffers. Each entry records the exact guest string reference, returned buffer pointer, and access kind.
+- `GetStringChars` / `ReleaseStringChars` now use tracked UTF-16 copies; release must match the exact string and pointer.
+- `GetStringUTFChars` / `ReleaseStringUTFChars` now use tracked Modified UTF-8 copies with the same exact-pair validation.
+- `GetStringCritical` / `ReleaseStringCritical` now have their own tracked critical-access kind rather than aliasing the ordinary UTF-16 API. The implementation returns a copy and reports `isCopy=true`; it does not claim a VM/GC pin.
+- Invalid cross-string, cross-kind, or already-released buffer pairs are rejected instead of freeing arbitrary pointers. Allocation and tracking failures free temporary buffers and report OutOfMemoryError.
+- Outstanding string buffers are released on `DetachCurrentThread`, alongside the existing primitive-array and critical-array cleanup.
+- Added a dedicated source-contract test for all three access kinds, exact-pair release, and detach cleanup. Static marker audit found all 16 expected markers.
+
+### Commits
+- JNI UTF-16, Modified UTF-8, and critical string buffer tracking: `799d2e9d5328161079a29c69b8c1d366cd8ba932`
+- String-buffer lifecycle source-contract coverage: `3c18e046df1de341e44bf81fde8e8902261e908b`
+
+### Integration status and verification
+- **Overall Husk source integration estimate: 95%** (previous: 93%; +2 percentage points). This is a source integration engineering estimate, not measured runtime compatibility.
+- Static source-contract marker audit: 16/16 markers present. The test was not executed; no compiler was run.
+- No GitHub workflow, IPA build/export, signing, or device testing was started. The agreed single consolidated validation phase remains deferred until 100%.
+- String critical access uses an allocated copy (`isCopy=true`), not a pinned VM string. JNI restrictions while critical access is held and VM/GC pin semantics remain incomplete.
+- JNI raw-pointer local/global/weak reference identity, embedded-NUL guest string storage, genuine NDK `AInputQueue`, and complete ART exception/class-loader behavior remain open integration gaps.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next target: 97%
+- Continue the JNI reference-lifecycle audit only after mapping every raw-pointer consumer and defining safe conversion at all JNI boundaries.
+- Audit remaining JNI string region/length and exception edge cases without claiming embedded-NUL support until guest string storage is length-aware.
+- Keep all execution-based validation deferred until source integration reaches 100%.
