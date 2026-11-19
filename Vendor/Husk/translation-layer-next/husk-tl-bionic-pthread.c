@@ -371,7 +371,10 @@ static int b_sem_timedwait(void *g, const struct timespec *abs)
     host_sem *s = hs(g);
     if (!s) { tl_set_guest_errno(12); return -1; }
     struct timespec now, rel;
-    clock_gettime(CLOCK_REALTIME, &now);
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
+        tl_set_guest_errno(tl_errno_to_guest(errno));
+        return -1;
+    }
     rel.tv_sec = abs->tv_sec - now.tv_sec;
     rel.tv_nsec = abs->tv_nsec - now.tv_nsec;
     if (rel.tv_nsec < 0) { rel.tv_sec--; rel.tv_nsec += 1000000000L; }
