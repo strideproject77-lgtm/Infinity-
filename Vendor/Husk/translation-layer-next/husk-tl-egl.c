@@ -267,6 +267,35 @@ static void *tex_window_of(EGLSurface s)
     pthread_mutex_unlock(&g_tex_lock);
     return w;
 }
+
+static bool register_tex_surface(EGLSurface surface, void *window)
+{
+    bool registered = false;
+    pthread_mutex_lock(&g_tex_lock);
+    for (int i = 0; i < MAX_TEX_SURFACES; i++) {
+        if (g_tex_surf[i].s) continue;
+        g_tex_surf[i].s = surface;
+        g_tex_surf[i].win = window;
+        registered = true;
+        break;
+    }
+    pthread_mutex_unlock(&g_tex_lock);
+    return registered;
+}
+
+static bool register_comp_surface(EGLSurface surface)
+{
+    bool registered = false;
+    pthread_mutex_lock(&g_tex_lock);
+    for (int i = 0; i < MAX_COMP_SURFACES; i++) {
+        if (g_comp_surf[i]) continue;
+        g_comp_surf[i] = surface;
+        registered = true;
+        break;
+    }
+    pthread_mutex_unlock(&g_tex_lock);
+    return registered;
+}
 /* The Java runtime's compositor (husk-tl-dvm-android.c), where it is linked: it holds the screen's surface, so an app that makes
  * an EGL window of its own (SDL, Unity on a SurfaceView) draws off screen and each swap hands the frame to it, to be put on the
  * screen under the app's views. Two window surfaces on one layer is what a phone refuses (EGL_BAD_ALLOC). */
@@ -316,25 +345,35 @@ static EGLSurface w_eglCreateWindowSurface(EGLDisplay d, EGLConfig cfg, void *wi
 {
     cfg = cfg_real(cfg);
     if (tl_nwindow_texture(win)) {
-        EGLint pb[] = { EGL_WIDTH, tl_nwindow_width(win), EGL_HEIGHT, tl_nwindow_height(win), EGL_NONE };
-        EGLSurface s = a_eglCreatePbufferSurface(d, cfg, pb);
-        if (s) {
-            pthread_mutex_lock(&g_tex_lock);
-            for (int i = 0; i < MAX_TEX_SURFACES; i++) if (!g_tex_surf[i].s) { g_tex_surf[i].s = s; g_tex_surf[i].win = win; break; }
-            pthread_mutex_unlock(&g_tex_lock);
+        int width = tl_nwindow_width(win), height = tl_nwindow_height(win);
+        if (width <= 0 || height <= 0) {
+            tl_log_line("egl: refusing TextureView surface with invalid size %dx%d", width, height);
+            return NULL;
         }
-        tl_log_line("egl: TextureView window %dx%d -> off-screen surface %p", pb[1], pb[3], s);
+        EGLint pb[] = { EGL_WIDTH, width, EGL_HEIGHT, height, EGL_NONE };
+        EGLSurface s = a_eglCreatePbufferSurface(d, cfg, pb);
+        if (s && !register_tex_surface(s, win)) {
+            tl_log_line("egl: TextureView surface registry full (%d); destroying untracked surface", MAX_TEX_SURFACES);
+            a_eglDestroySurface(d, s);
+            s = NULL;
+        }
+        tl_log_line("egl: TextureView window %dx%d -> off-screen surface %p", width, height, s);
         return s;
     }
     if (tl_javaapp_compositing && tl_javaapp_compositing()) {
-        EGLint pb[] = { EGL_WIDTH, tl_nwindow_width(win), EGL_HEIGHT, tl_nwindow_height(win), EGL_NONE };
-        EGLSurface s = a_eglCreatePbufferSurface(d, cfg, pb);
-        if (s) {
-            pthread_mutex_lock(&g_tex_lock);
-            for (int i = 0; i < MAX_COMP_SURFACES; i++) if (!g_comp_surf[i]) { g_comp_surf[i] = s; break; }
-            pthread_mutex_unlock(&g_tex_lock);
+        int width = tl_nwindow_width(win), height = tl_nwindow_height(win);
+        if (width <= 0 || height <= 0) {
+            tl_log_line("egl: refusing compositor surface with invalid size %dx%d", width, height);
+            return NULL;
         }
-        tl_log_line("egl: window %dx%d -> surface %p, composited under the app's views", pb[1], pb[3], s);
+        EGLint pb[] = { EGL_WIDTH, width, EGL_HEIGHT, height, EGL_NONE };
+        EGLSurface s = a_eglCreatePbufferSurface(d, cfg, pb);
+        if (s && !register_comp_surface(s)) {
+            tl_log_line("egl: compositor surface registry full (%d); destroying untracked surface", MAX_COMP_SURFACES);
+            a_eglDestroySurface(d, s);
+            s = NULL;
+        }
+        tl_log_line("egl: window %dx%d -> surface %p, composited under the app's views", width, height, s);
         return s;
     }
     if (E.frame_dir[0] || g_offscreen_windows) {
