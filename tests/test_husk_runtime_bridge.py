@@ -84,6 +84,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("parse_descriptor_type", jni)
         self.assertIn("m->nargs >= 255", jni)
         self.assertIn("jvalue *va_arguments(", jni)
+        self.assertIn("args_from_va(m, ap, args)", jni)
         self.assertIn("m->nargs <= 16 ? local : calloc", jni)
         self.assertNotIn("jvalue args[40]", jni)
         self.assertIn("free(args);", jni)
