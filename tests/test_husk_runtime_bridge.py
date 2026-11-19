@@ -318,6 +318,28 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("static env_t g_env, g_vm;", jni)
         self.assertNotIn("static int32_t vm_GetEnv(void *vm, void **penv, int32_t version) { (void)vm; (void)version; *penv = &g_env; return 0; }", jni)
 
+    def test_jni_modified_utf8_and_native_registration_lifecycle(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        internal = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-internal.h")
+        for marker in (
+            "jni_mutf8_encode",
+            "jni_mutf8_from_utf8",
+            "jni_mutf8_to_utf8",
+            "Modified UTF-8",
+            "GetStringUTFLength received a null or non-string reference",
+            "encoding Modified UTF-8 string region",
+            "current guest string storage is NUL-terminated",
+            "RegisterNatives received an incomplete native method",
+            "growing JNI native method table",
+            "static int32_t jni_UnregisterNatives(void *env, jo cls)",
+            "owner->natives[read].registered_on == registered",
+            "tl_jni_throw(\"java/lang/OutOfMemoryError\"",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+        self.assertIn("tl_jclass *registered_on;", internal)
+        self.assertNotIn("static int32_t jni_UnregisterNatives(void *env, jo cls) { (void)env; (void)cls; return 0; }", jni)
+
     def test_jni_constructors_validate_lengths_types_and_allocation_failures(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
