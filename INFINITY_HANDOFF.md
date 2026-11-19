@@ -133,3 +133,12 @@
 - Manual run `44446024968` confirmed the previous SwiftASN1 path check was removed, but Xcode exited before package resolution because `-resolvePackageDependencies` was passed `-derivedDataPath` without a scheme.
 - Added the canonical `LiveContainer` scheme to the package-resolution invocation. The same DerivedData path remains shared with the subsequent framework build.
 - The previous run did not reach compilation; the next manual dispatch is still required to validate package resolution and actual Swift/Objective-C compilation. No IPA packaging or signing was run.
+
+
+## 2026-11-19 — Framework build invocation correction
+
+- Inspected both failed manual runs `44446236878` and `44446222524`. Package resolution completed successfully, but the framework build command failed before compilation because Xcode rejects `-derivedDataPath` with a target-only invocation unless a scheme/test product is also selected.
+- Kept the intended target-only build (so this check does not silently compile/package the full LiveContainer app) and removed `-derivedDataPath` from that command. The previous workaround had added a scheme only to package resolution; adding a scheme to the target build could change the selected build graph, so it was not used as a blind fix.
+- Made the SwiftPM checkout location explicit with one runner-temporary `-clonedSourcePackagesDirPath` shared by dependency resolution and framework compilation. This preserves a consistent package cache without requiring a DerivedData path on the target build.
+- Added strict shell handling to dependency resolution and retained `pipefail` for the compiler log pipeline. Xcode 26.2 remains pinned; macOS framework validation remains manual-dispatch only; signing and IPA packaging remain disabled.
+- This is a workflow configuration correction, not proof of compilation. The next manual dispatch must validate the actual Swift/Objective-C target build and expose any source-level diagnostics. Linux push tests should run automatically after this commit. No Codemagic build, IPA export, signing, or device execution was started.
