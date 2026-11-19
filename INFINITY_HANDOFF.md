@@ -845,3 +845,37 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Complete NativeActivity input delivery and lifecycle teardown rather than counting its existing placeholder queue as complete.
 - Audit Bionic robust-mutex/owner-death semantics against what the Apple host can actually support; unsupported robust behavior must return an explicit error rather than claim success.
 - Continue JNI global/local reference lifecycle and ART thread attach/detach integration.
+
+
+## 2026-11-20 — NativeActivity lifecycle teardown and truthful input-queue handling
+
+### Audit findings before implementation
+- Existing NativeActivity input delivery was not a real Android `AInputQueue`: `onInputQueueCreated` was passed the address of the global NativeActivity state, an opaque pointer that did not implement the NDK queue contract.
+- The UI/looper thread ran forever, with no stop flag, join path, or ordered `onPause` / window-destroyed / `onStop` / `onDestroy` teardown.
+- JNI object reference helpers currently use shared object reference counts; full per-thread JNI local-frame and VM attach/detach semantics remain a separate incomplete area and are not counted as completed here.
+
+### Implemented on main
+- Added an atomic NativeActivity stop request and a bounded looper poll loop.
+- Added `tl_na_stop()`, which requests shutdown and joins the UI thread before native runtime code/callbacks are unloaded.
+- Added ordered lifecycle teardown callbacks: pause, focus loss, native-window destruction, stop, and destroy.
+- Wired the Infinity runtime stop path and rejected-launch cleanup to stop NativeActivity before unloading/resetting the Husk runtime.
+- Removed the invalid fake `onInputQueueCreated` invocation. Apps requesting an input queue now receive an explicit diagnostic; the callback is withheld until a real NDK-compatible queue exists.
+- Added source-contract regression coverage for stop/join, teardown callbacks, and the absence of the fake queue pointer.
+
+### Commits
+- NativeActivity stop and lifecycle teardown: `e14998bff04e37df65b90f3cef14a66e1f51a68e`
+- Public stop declaration: `307d49f20d567a8a2e114b020732594e23861b95`
+- Join NativeActivity before runtime unload: `5083957c33ba7de654b72952f2c74354ef5db0d6`
+- Lifecycle/input-queue contract coverage: `90c7a274de13e201fb6df339d2e0692618348c6f`
+- Stop NativeActivity during rejected-launch cleanup: `6ae3b0325bd81e5227a8ab538dc31f00b5807e3e`
+
+### Integration status and evidence
+- **Overall Husk source integration estimate: 82%** (previous: 81%; +1 percentage point). The increase reflects a real, wired NativeActivity shutdown path and removal of a false-positive input-queue callback. It does not count the still-missing AInputQueue implementation.
+- **Verified compile/runtime/device execution remains unproven for this batch.** Source-contract tests were added but not run, per the agreed one-consolidated-test policy.
+- No GitHub Actions workflow was dispatched; no IPA/Xcode/Codemagic build, signing/export, or device test was started.
+- SideStore and its project configuration were not modified. Husk licensing/attribution notices remain intact.
+
+### Next large batch
+- Implement an actual NDK-compatible input queue/event contract and connect touch/key events, or keep NativeActivity input-queue apps explicitly unsupported until that complete path exists.
+- Continue JNI per-thread local-reference frames and correct `AttachCurrentThread` / `DetachCurrentThread` ownership.
+- Audit robust mutex attributes and owner-death behavior; never claim robust semantics that the Darwin host cannot provide.
