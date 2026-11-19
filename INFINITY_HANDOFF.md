@@ -646,3 +646,5 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Regression test was added but **not run**. No manual workflow dispatch, IPA build, Xcode/macOS build, signing/export, Codemagic run, or device test was started.
 - Work remains on `main`; Strata and SideStore systems were not modified. Husk license and attribution notices remain preserved.
 - Next project-wide priorities: finish ELF dynamic metadata/relocation validation, broaden Bionic/API coverage, close ART/JNI lifecycle and garbage-collection gaps, and complete graphics/audio/platform integration before consolidated testing.
+
+- Follow-up in the same project-wide batch: the ELF loader now checks allocation of its library metadata object and exits through a controlled load failure rather than dereferencing a null allocation; the regression contract covers this path.
