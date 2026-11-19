@@ -333,6 +333,9 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "(uint32_t)n > a->arr.len - (uint32_t)s",
             "cap < 0 || cap > INT32_MAX || (!addr && cap > 0)",
             "allocating DirectByteBuffer",
+            "GetPrimitiveArrayCritical requires a primitive array",
+            "ReleasePrimitiveArrayCritical requires a primitive array",
+            "t_pending = NULL;",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
