@@ -130,7 +130,7 @@ struct INFINITYAPKInstalledAppDetail: View {
                 } label: {
                     Label("Launch", systemImage: "play.fill")
                 }
-                Text("Launch is always available here. If a runtime component is missing, the launch screen will show the exact blocker instead of hiding the button.")
+                Text("Launch is always available here. Runtime assets required? Tap Launch and the screen will show the exact missing component instead of hiding the button.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
