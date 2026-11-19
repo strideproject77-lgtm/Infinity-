@@ -1502,8 +1502,8 @@ static void build_tables(void)
     SLOT(228, jni_ExceptionOccurred);   /* replaced below: ExceptionCheck returns a boolean */
     SLOT(229, jni_NewDirectByteBuffer); SLOT(230, jni_GetDirectBufferAddress); SLOT(231, jni_GetDirectBufferCapacity);
     SLOT(232, jni_GetObjectRefType);
-    g_env.functions = g_env_fns;
     g_vm.functions = g_vm_fns;
+    (void)thread_env();
 }
 
 static uint8_t jni_ExceptionCheck(void *env)
