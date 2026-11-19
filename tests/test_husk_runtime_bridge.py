@@ -448,6 +448,28 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
                 self.assertIn(marker, stop)
         self.assertLess(stop.index("pthread_detach(N.ui)"), stop.index("pthread_join(N.ui, NULL)"))
 
+    def test_bionic_lazy_pthread_objects_handle_allocation_and_init_failures(self):
+        source = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
+        for marker in (
+            "static __thread int t_obj_error;",
+            "if (!g || !make) { t_obj_error = EINVAL; return NULL; }",
+            "atomic_store_explicit(&o->magic, 0, memory_order_release);",
+            "static int obj_error(void)",
+            "if (!m) { pthread_mutexattr_destroy(&a); t_obj_error = ENOMEM; return NULL; }",
+            "r = pthread_mutex_init(m, &a);",
+            "if (!c) { t_obj_error = ENOMEM; return NULL; }",
+            "int r = pthread_cond_init(c, NULL);",
+            "if (!l) { t_obj_error = ENOMEM; return NULL; }",
+            "int r = pthread_rwlock_init(l, NULL);",
+            "if (!m) return obj_error();",
+            "if (!c) return obj_error();",
+            "if (!mutex) return obj_error();",
+            "return l ? rc(fn(l)) : obj_error();",
+            "if (clock_gettime(clk, &now) != 0) return rc(errno);",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, source)
+
     def test_bionic_semaphore_rejects_unsupported_process_sharing(self):
         source = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
         for marker in (
