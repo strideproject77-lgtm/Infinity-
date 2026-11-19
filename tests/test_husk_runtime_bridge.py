@@ -119,6 +119,21 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("invalid/truncated static_values array", dvm)
         self.assertIn("defaulting statics", dvm)
 
+    def test_dex_field_resolution_cache_respects_staticness(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        resolver = dvm[dvm.index("typedef struct fref"):dvm.index("/* ================================================================== the interpreter */")]
+        self.assertIn("bool is_static;", resolver)
+        self.assertIn("cached->is_static == is_static", resolver)
+        self.assertIn("wrong_static", resolver)
+        self.assertIn("dvm_find_field_exact(c, name, type, !is_static)", resolver)
+
+    def test_dex_field_indices_and_opcode_staticness_are_validated(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        self.assertIn("idx >= d->nfield", dvm)
+        self.assertIn("invalid instance field index", dvm)
+        self.assertIn("invalid static field index", dvm)
+        self.assertIn("IncompatibleClassChangeError", dvm)
+
     def test_java_runtime_is_rejected_when_boot_assets_are_missing(self):
         adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
         for asset in (
