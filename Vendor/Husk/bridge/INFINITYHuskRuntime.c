@@ -194,10 +194,15 @@ bool infinity_husk_launch_engine(int engine,
     }
 
     /* Publish the selected backend only after Husk accepted the launch. */
-    if (!accepted && queued_splits > 0)
-        infinity_husk_clear_split_packages();
-    else if (accepted)
+    if (!accepted && queued_splits > 0) {
+        /* A failed pthread start leaves Husk's state FAILED, not IDLE.
+           Reset that rejected, never-running session before another app is queued. */
+        if (husk_unity_state() != 0) husk_native_unload();
+        else husk_native_clear_packages();
         atomic_store(&g_queued_split_packages, 0);
+    } else if (accepted) {
+        atomic_store(&g_queued_split_packages, 0);
+    }
     atomic_store(&g_infinity_engine,
                  accepted ? engine : INFINITY_ENGINE_NONE);
     return accepted;

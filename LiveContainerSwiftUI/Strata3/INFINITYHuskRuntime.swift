@@ -265,14 +265,16 @@ final class INFINITYHuskRuntime: ObservableObject {
         if !additionalPackages.isEmpty && engine != .sdl {
             throw RuntimeError.splitPackageNotSupported
         }
-        infinity_husk_clear_split_packages()
-        for package in additionalPackages {
-            let queued = package.standardizedFileURL.path.withCString {
-                infinity_husk_queue_split_package($0)
-            }
-            guard queued else {
-                infinity_husk_clear_split_packages()
-                throw RuntimeError.rejectedLaunch
+        if !additionalPackages.isEmpty {
+            infinity_husk_clear_split_packages()
+            for package in additionalPackages {
+                let queued = package.standardizedFileURL.path.withCString {
+                    infinity_husk_queue_split_package($0)
+                }
+                guard queued else {
+                    infinity_husk_clear_split_packages()
+                    throw RuntimeError.rejectedLaunch
+                }
             }
         }
 
