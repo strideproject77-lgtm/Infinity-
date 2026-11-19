@@ -143,6 +143,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("p->p_vaddr > UINT64_MAX - p->p_memsz", loader)
         self.assertIn("invalid or excessive PT_LOAD segment", loader)
         self.assertIn("dynamic table is outside the mapped image or truncated", loader)
+        self.assertIn("out of memory for library metadata", loader)
         self.assertNotIn("eh->e_phoff + (uint64_t)eh->e_phnum * eh->e_phentsize > flen", loader)
 
     def test_jni_field_ids_resolve_by_exact_descriptor(self):
