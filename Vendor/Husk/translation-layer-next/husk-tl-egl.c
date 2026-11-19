@@ -283,6 +283,14 @@ static bool register_tex_surface(EGLSurface surface, void *window)
     return registered;
 }
 
+/* The Java runtime's compositor (husk-tl-dvm-android.c), where it is linked: it holds the screen's surface, so an app that makes
+ * an EGL window of its own (SDL, Unity on a SurfaceView) draws off screen and each swap hands the frame to it, to be put on the
+ * screen under the app's views. Two window surfaces on one layer is what a phone refuses (EGL_BAD_ALLOC). */
+__attribute__((weak)) bool tl_javaapp_compositing(void);
+__attribute__((weak)) void tl_javaapp_app_pixels(const void *px, int w, int h);
+#define MAX_COMP_SURFACES 8
+static EGLSurface g_comp_surf[MAX_COMP_SURFACES];
+
 static bool register_comp_surface(EGLSurface surface)
 {
     bool registered = false;
@@ -296,13 +304,6 @@ static bool register_comp_surface(EGLSurface surface)
     pthread_mutex_unlock(&g_tex_lock);
     return registered;
 }
-/* The Java runtime's compositor (husk-tl-dvm-android.c), where it is linked: it holds the screen's surface, so an app that makes
- * an EGL window of its own (SDL, Unity on a SurfaceView) draws off screen and each swap hands the frame to it, to be put on the
- * screen under the app's views. Two window surfaces on one layer is what a phone refuses (EGL_BAD_ALLOC). */
-__attribute__((weak)) bool tl_javaapp_compositing(void);
-__attribute__((weak)) void tl_javaapp_app_pixels(const void *px, int w, int h);
-#define MAX_COMP_SURFACES 8
-static EGLSurface g_comp_surf[MAX_COMP_SURFACES];
 static bool comp_surface(EGLSurface s)
 {
     bool r = false;
