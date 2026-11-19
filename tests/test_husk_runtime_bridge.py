@@ -382,6 +382,29 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("(uint32_t)(s + n) <= a->arr.len", jni)
         self.assertNotIn("(size_t)(start + len) <= n", jni)
 
+    def test_jni_string_character_buffers_are_tracked_by_kind_and_thread(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            "typedef enum {",
+            "JNI_STRING_ACCESS_UTF16 = 1",
+            "JNI_STRING_ACCESS_MUTF8 = 2",
+            "JNI_STRING_ACCESS_CRITICAL = 3",
+            "static __thread jni_string_access *t_string_accesses",
+            "static bool jni_string_access_track(",
+            "static bool jni_string_access_release(",
+            "JNI string buffer is not outstanding for this string and access kind",
+            "tracking UTF-16 string characters",
+            "tracking JNI Modified UTF-8 characters",
+            "tracking critical UTF-16 string characters",
+            "jni_string_access_release(s, c, JNI_STRING_ACCESS_UTF16)",
+            "jni_string_access_release(s, c, JNI_STRING_ACCESS_MUTF8)",
+            "jni_string_access_release(s, c, JNI_STRING_ACCESS_CRITICAL)",
+            "static void jni_string_accesses_detach(void)",
+            "jni_string_accesses_detach();",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+
     def test_jni_primitive_array_elements_obey_copy_and_release_modes(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
