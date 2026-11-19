@@ -292,6 +292,25 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn('TL_WRAP("pthread_attr_setstack", b_attr_setstack)', pthread)
         self.assertIn("if (stack_result) { pthread_attr_destroy(&a); return rc(stack_result); }", pthread)
 
+    def test_bionic_mutex_timed_and_clock_locking_and_semaphore_bounds_are_explicit(self):
+        pthread = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
+        for marker in (
+            "static int mutex_timedlock_until(",
+            "deadline->tv_nsec < 0 || deadline->tv_nsec >= 1000000000L",
+            "pthread_mutex_trylock(m)",
+            "clock_gettime(clock_id, &now)",
+            "return 110; /* ETIMEDOUT in the Bionic errno namespace */",
+            "static int b_mutex_timedlock(",
+            "static int b_mutex_clocklock(",
+            'TL_WRAP("pthread_mutex_timedlock", b_mutex_timedlock)',
+            'TL_WRAP("pthread_mutex_clocklock", b_mutex_clocklock)',
+            "value > INT_MAX",
+            "if (s->count == INT_MAX)",
+            "tl_set_guest_errno(75)"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, pthread)
+
     def test_bionic_pthread_identity_naming_and_cond_clock_apis_are_real(self):
         pthread = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
         for marker in (
