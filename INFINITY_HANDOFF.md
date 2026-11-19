@@ -317,15 +317,16 @@ This audit inspected source and upstream call paths only. No GitHub Actions run,
 
 ## 2026-11-19 — Husk SDL split-package launch integration (implementation only)
 
-- Added a narrow native bridge for queuing and clearing additional APK package paths before launch. The upstream Husk helper enforces its 15-package limit, checks idle state and path length, and reuses its existing dynamic-linker split queue.
-- Split packages are consumed only by Husk's SDL backend, which explicitly calls `tl_sdl_add_package` before starting SDL. The bridge rejects split sets for engines without a documented package-set loader; it never silently launches only the base APK.
-- Added deterministic split discovery from the installed package's private `splits/` directory. Preflight verifies the stored split count, regular non-symlink files, package identity and matching version code.
-- Connected validated split paths to the C queue with scoped C-string lifetimes. Launch now permits complete valid SDL split packages to reach the actual Husk SDL launch function.
+- Added a narrow INFINITY C bridge for queueing and clearing additional APK paths before launch. It uses Husk's existing `tl_ld_queue_split` and `tl_ld_reset_session` APIs directly; no duplicate split loader or new upstream package queue was introduced.
+- Split paths are queued before the base APK is opened. Husk's SDL startup then calls `tl_ld_add_apk(base.apk)`, whose existing loader adds the queued splits immediately after the base. This preserves the loader's documented base-first ordering and makes split native libraries/resources available through its existing package set.
+- The bridge validates readable paths, path length, a maximum of 15 split APKs, idle runtime state and backend compatibility. Only SDL accepts additional APKs in the pinned Husk runtime; other engines remain blocked rather than silently launching an incomplete base APK.
+- Added deterministic split discovery from the installed package's private `splits/` directory. Preflight verifies stored split count, regular non-symlink files, package identity and matching version code.
+- Connected validated split paths through scoped C-string lifetimes. Launch queues them only after runtime/surface preflight and clears the loader queue on rejected launch.
 - Missing, malformed or unsupported-engine split packages remain blocked. OBB/asset-pack extraction and Play Asset Delivery emulation remain unsupported. Other engine split loading remains blocked until their runtime loaders expose a complete package-set contract.
 - The earlier 2048 static-field issue remains a separate investigation; no DEX opcode was duplicated or changed.
 - No tests, scripts, workflows, Xcode/Codemagic builds, IPA packaging/signing/export, or installs were run. Device compatibility remains unverified. SideStore systems were not modified.
 
-Files changed: `Vendor/Husk/include/INFINITYHuskRuntime.h`, `Vendor/Husk/bridge/INFINITYHuskRuntime.c`, `Vendor/Husk/translation-layer-next/husk-tl-unity-app.h`, `Vendor/Husk/translation-layer-next/husk-tl-unity-app.c`, `LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift`, `LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift`, `LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift`, and this handoff.
+Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`, `Vendor/Husk/bridge/INFINITYHuskRuntime.c`, `LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift`, `LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift`, `LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift`, and this handoff. Upstream `husk-tl-unity-app.c/.h` remain unchanged.
 
 
 ## 2026-11-19 — Java host callback bridge (implementation only)
