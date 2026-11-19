@@ -1503,10 +1503,93 @@ static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
     X(Boolean, uint8_t, 'Z') X(Byte, int8_t, 'B') X(Char, uint16_t, 'C') X(Short, int16_t, 'S') \
     X(Int, int32_t, 'I') X(Long, int64_t, 'J') X(Float, float, 'F') X(Double, double, 'D')
 
+/* JNI array element APIs return a caller-owned copy in this runtime. Keep
+ * each outstanding copy tied to its array so Release can honor all three
+ * JNI modes and thread detach can safely finish outstanding accesses. */
+typedef struct jni_array_access {
+    jobj *array;
+    void *copy;
+    size_t bytes;
+    char etype;
+    struct jni_array_access *next;
+} jni_array_access;
+static __thread jni_array_access *t_array_accesses;
+
+static void *jni_array_copy_out(jobj *array, char etype, size_t element_size, uint8_t *is_copy)
+{
+    if (!array || array->kind != TL_K_PRIM_ARRAY || array->arr.etype != etype) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "primitive array type mismatch");
+        return NULL;
+    }
+    if ((size_t)array->arr.len > SIZE_MAX / element_size) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "primitive array copy size overflow");
+        return NULL;
+    }
+    size_t bytes = (size_t)array->arr.len * element_size;
+    void *copy = malloc(bytes ? bytes : 1);
+    jni_array_access *access = malloc(sizeof(*access));
+    if (!copy || !access) {
+        free(copy); free(access);
+        tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI primitive array copy");
+        return NULL;
+    }
+    if (bytes) memcpy(copy, array->arr.data, bytes);
+    access->array = array;
+    access->copy = copy;
+    access->bytes = bytes;
+    access->etype = etype;
+    access->next = t_array_accesses;
+    t_array_accesses = access;
+    if (is_copy) *is_copy = 1;
+    return copy;
+}
+
+static void jni_array_release(jobj *array, void *elements, int32_t mode, char etype)
+{
+    if (!elements) return;
+    if (mode != 0 && mode != 1 && mode != 2) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "invalid JNI array release mode");
+        return;
+    }
+    jni_array_access **slot = &t_array_accesses;
+    while (*slot && ((*slot)->copy != elements || (*slot)->array != array || (*slot)->etype != etype))
+        slot = &(*slot)->next;
+    if (!*slot) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "JNI array elements pointer is not an outstanding copy for this array");
+        return;
+    }
+    jni_array_access *access = *slot;
+    if (mode != 2) {
+        if (!array || array->kind != TL_K_PRIM_ARRAY || array->arr.etype != etype ||
+            access->bytes != (size_t)array->arr.len * (access->bytes ? access->bytes / (size_t)array->arr.len : 0)) {
+            tl_jni_throw("java/lang/IllegalArgumentException", "JNI array changed while elements were acquired");
+            return;
+        }
+        if (access->bytes) memcpy(array->arr.data, access->copy, access->bytes);
+    }
+    if (mode == 1) return; /* JNI_COMMIT copies back but retains the buffer. */
+    *slot = access->next;
+    free(access->copy);
+    free(access);
+}
+
+static void jni_array_accesses_detach(void)
+{
+    while (t_array_accesses) {
+        jni_array_access *access = t_array_accesses;
+        t_array_accesses = access->next;
+        if (access->array && access->array->kind == TL_K_PRIM_ARRAY &&
+            access->array->arr.etype == access->etype && access->bytes)
+            memcpy(access->array->arr.data, access->copy, access->bytes);
+        free(access->copy);
+        free(access);
+    }
+}
+
 #define GEN_ARRAYS(T, CT, K) \
     static jo jni_New##T##Array(void *env, int32_t len) { (void)env; if (len < 0) { tl_jni_throw("java/lang/IllegalArgumentException", "negative primitive array length"); return NULL; } jo a = tl_jni_new_prim_array(K, (uint32_t)len); if (!a) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating primitive array"); return NULL; } return local_frame_adopt(a); } \
-    static CT *jni_Get##T##ArrayElements(void *env, jo a, uint8_t *copy) { (void)env; if (!a || a->kind != TL_K_PRIM_ARRAY || a->arr.etype != K) { tl_jni_throw("java/lang/IllegalArgumentException", "primitive array type mismatch"); return NULL; } if (copy) *copy = 0; return a->arr.data; } \
-    static void jni_Release##T##ArrayElements(void *env, jo a, CT *e, int32_t mode) { (void)env; (void)a; (void)e; (void)mode; } \
+    static CT *jni_Get##T##ArrayElements(void *env, jo a, uint8_t *copy) { (void)env; return (CT *)jni_array_copy_out(a, K, sizeof(CT), copy); } \
+    static void jni_Release##T##ArrayElements(void *env, jo a, CT *e, int32_t mode) { (void)env; jni_array_release(a, e, mode, K); } \
     static void jni_Get##T##ArrayRegion(void *env, jo a, int32_t s, int32_t n, CT *buf) { (void)env; \
         if (!a || a->kind != TL_K_PRIM_ARRAY || a->arr.etype != K) { tl_jni_throw("java/lang/IllegalArgumentException", "primitive array type mismatch"); return; } \
         if (s < 0 || n < 0 || (uint32_t)s > a->arr.len || (uint32_t)n > a->arr.len - (uint32_t)s || (!buf && n)) { tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "primitive array region out of bounds"); return; } \
@@ -1549,15 +1632,15 @@ static int32_t jni_RegisterNatives(void *env, jo cls, const native_method *m, in
         return -1;
     }
     if (!n) return 0;
-    if ((size_t)n > SIZE_MAX / sizeof(staged_native_registration)) {
-        tl_jni_throw("java/lang/OutOfMemoryError", "native registration batch is too large");
-        return -1;
-    }
     typedef struct staged_native_registration {
         tl_jclass *owner;
         char *name, *sig;
         void *fn;
     } staged_native_registration;
+    if ((size_t)n > SIZE_MAX / sizeof(staged_native_registration)) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "native registration batch is too large");
+        return -1;
+    }
     staged_native_registration *staged = calloc((size_t)n, sizeof(*staged));
     if (!staged) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating native registration transaction"); return -1; }
     tl_jclass *given = cls->klass.jc;
@@ -1755,6 +1838,7 @@ static int32_t vm_Detach(void *vm)
 {
     (void)vm;
     if (!t_vm_attached) return JNI_EDETACHED;
+    jni_array_accesses_detach();
     local_frames_detach();
     t_pending = NULL;
     t_vm_attached = false;
