@@ -1183,3 +1183,25 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Complete the remaining JNI reference-handle architecture only after all guest-facing and internal consumers are mapped; do not bolt on wrapper handles without converting every boundary.
 - Close the remaining NativeActivity input-queue and ART/JNI lifecycle gaps where the host architecture supports real implementations; explicitly document anything structurally unsupported rather than faking it.
 - Continue source-only implementation. Do not run tests, compile, workflows, IPA build/export, signing, or device testing until source integration reaches 100%.
+
+## 2026-11-20 — JNI array-length narrowing guard
+
+### Implemented on main
+- `GetArrayLength` now validates the object is an array, reads the guest array length as `size_t`, rejects lengths above `INT32_MAX` with an OutOfMemoryError diagnostic, and only then narrows to JNI `jint`.
+- Added source-contract coverage for the length extraction, upper-bound check, diagnostic, and safe return conversion.
+
+### Commits
+- JNI `GetArrayLength` range validation: `e8b8b300147325623da2abcb2e0c9772a56f736a`
+- Array-length source-contract coverage: `7ee8d2172f9db9caef9a4ca0cada4b6199ed9e01`
+
+### Integration status and verification
+- **Overall Husk source integration estimate: 98%** (previous: 97%; +1 percentage point). This remains an engineering estimate of source integration, not measured runtime compatibility.
+- Static source-contract audit for the new array-length boundary markers is recorded below; no tests were executed and no compiler was run.
+- No GitHub workflow, IPA build/export, signing, or device testing was started. The agreed consolidated validation phase remains deferred.
+- The remaining 2% is not merely polish: the JNI object handle representation is still raw `jobj *` and cannot distinguish local/global/weak-global reference identity; genuine NDK `AInputQueue` delivery is not implemented; complete ART exception/class-loader/VM lifecycle semantics and actual GC pinning for critical regions are not present. These must not be reported as complete.
+- NativeActivity currently withholds the input-queue callback rather than passing a fake queue. This is safer but leaves games requiring `AInputQueue` unsupported.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Completion gate
+- **Do not label Husk integration 100% while the above runtime-facing contracts are absent.** Reaching 100% requires a complete handle representation conversion across all JNI boundaries and a genuine supported NativeActivity input-queue path (or a formally agreed scope exclusion), plus the remaining ART/JNI lifecycle work.
+- Continue source-only implementation; no tests, compilation, workflows, IPA build/export, signing, or device testing until the integration scope is genuinely complete.
