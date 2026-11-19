@@ -67,6 +67,18 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("husk_unity_touch(phase, pointer_id, x, y)", adapter)
         self.assertIn("husk_unity_set_paused(paused)", adapter)
 
+
+    def test_dex_frames_validate_incoming_slots_and_native_stack_args_are_dynamic(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        self.assertIn("m->regs < m->ins", dvm)
+        self.assertIn("m->nparams > 4096", dvm)
+        self.assertIn("incoming_slots != m->ins", dvm)
+        self.assertIn("prototype/register mismatch", dvm)
+        self.assertIn("int64_t *stk = calloc(stack_capacity, sizeof(*stk))", dvm)
+        self.assertIn("free(stk);", dvm)
+        self.assertNotIn("int64_t stk[256]", dvm)
+        self.assertNotIn("ns < 256", dvm)
+
     def test_java_runtime_is_rejected_when_boot_assets_are_missing(self):
         adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
         for asset in (
