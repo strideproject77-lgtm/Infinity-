@@ -118,3 +118,11 @@
 - The automatic push workflow now correctly skips macOS-only bridge/parser checks; those remain available by manual dispatch.
 - A previously started macOS framework job from the earlier push is still resolving Xcode package dependencies. It has not yet compiled the updated SwiftUI framework, so full iOS compilation is still pending. It is being left running rather than cancelled.
 - This pass validates source contracts only. It does not prove the native logger compiles in the iOS target, does not prove APK execution, and is not an IPA build.
+
+
+## 2026-11-19 — SwiftASN1 framework workflow path correction
+
+- Inspected failed macOS framework run `44444921655`: SwiftPM successfully resolved and checked out SwiftASN1 1.7.3 and the other package dependencies. The workflow then failed before invoking the compiler because it incorrectly searched for a nonstandard `SourcePackages/checkouts/swift-asn1/build/Debug-iphoneos` directory immediately after package resolution.
+- Removed that invalid pre-build directory assertion and the manually injected `SWIFT_INCLUDE_PATHS` override. Xcode now owns package module compilation and search-path propagation through the normal SwiftPM integration.
+- Pinned a dedicated runner-temporary DerivedData path and passed the same path to both package resolution and the framework build, so package checkout/build products share one deterministic location.
+- This corrects the confirmed workflow-level failure only. The next manually dispatched macOS framework compile must still reveal any actual Swift/Objective-C integration errors. No IPA packaging, signing, Codemagic build, or device execution was started.
