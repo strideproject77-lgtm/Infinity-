@@ -378,3 +378,13 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - No unit tests, test scripts, GitHub Actions, Xcode builds, Codemagic builds, IPA packaging/signing/export, or device launches were run, as required by implementation-only mode.
 - 2048 and Hill Climb Racing remain unverified. No compatibility percentage is increased based solely on this source change.
 - SideStore source, settings, targets, bundle identifiers, entitlements, signing, installation, refresh, and workflows were not modified.
+
+
+## 2026-11-19 — Java DEX and asset loading across split APKs
+
+- Extended Husk's Java/Dalvik APK registration so `tl_dvm_add_apk` loads DEX files from every queued split APK as well as the base APK. It distinguishes code-bearing splits from resource-only splits: code-bearing splits must parse successfully; resource-only splits are still registered on the app class path.
+- Increased the Dalvik app class-path table from 64 to 128 entries so the boot/runtime class path plus the complete 48-APK package set can be represented without silently dropping late split paths.
+- Replaced the Java asset reader and asset-directory enumeration's hard-coded 16-APK scan with the shared `TL_LD_MAX_APKS` capacity. Java apps can now resolve assets from later splits in the same package set that the native linker has opened.
+- These changes complete the Java-side source wiring for split DEX/classes, resources and native libraries. They do not implement device-specific split selection; the importer still preserves all APK entries in the archive.
+- No tests, workflows, builds, IPA packaging/signing/export, or device launches were run. This remains source-level implementation, not proof that a particular split app launches correctly.
+- SideStore remains untouched.

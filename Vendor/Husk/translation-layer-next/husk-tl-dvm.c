@@ -147,11 +147,12 @@ static bool dex_add(const uint8_t *b, size_t size, const char *label)
 /* Every classes*.dex in a jar/APK, or a plain .dex file. The data is kept for the life of the process. */
 /* Every jar and APK on the class path, for VMClassLoader.getBootClassPathEntries: libcore serves classpath resources
    (Class.getResourceAsStream) from these, as Android's boot class loader does from its jars. */
-static char *g_cp[64]; static int g_ncp, g_nboot_cp;
+#define DVM_MAX_CLASS_PATH 128
+static char *g_cp[DVM_MAX_CLASS_PATH]; static int g_ncp, g_nboot_cp;
 int tl_dvm_class_path(const char **out, int max) { int n = g_ncp < max ? g_ncp : max; for (int i = 0; i < n; i++) out[i] = g_cp[i]; return n; }
 static bool open_path(const char *path)
 {
-    { size_t pl = strlen(path); if (pl > 4 && strcmp(path + pl - 4, ".dex") && g_ncp < 64) { bool dup = false; for (int i = 0; i < g_ncp && !dup; i++) dup = !strcmp(g_cp[i], path); if (!dup) g_cp[g_ncp++] = strdup(path); } }
+    { size_t pl = strlen(path); if (pl > 4 && strcmp(path + pl - 4, ".dex") && g_ncp < DVM_MAX_CLASS_PATH) { bool dup = false; for (int i = 0; i < g_ncp && !dup; i++) dup = !strcmp(g_cp[i], path); if (!dup) g_cp[g_ncp++] = strdup(path); } }
     size_t l = strlen(path);
     if (l > 4 && !strcmp(path + l - 4, ".dex")) {
         FILE *f = fopen(path, "rb");
@@ -2128,7 +2129,56 @@ bool tl_dvm_start(const char *const *boot, int nboot)
 
 bool tl_dvm_defines_class(const char *jni_name) { return jni_name && cdef_find(jni_name) != NULL; }
 
-bool tl_dvm_add_apk(const char *apk) { return open_path(apk); }
+/* A split can contain code (classes.dex/classes2.dex...) or only resources and native
+ * libraries. The common linker has already opened every queued APK before this is
+ * called. Add every split to the class path, and load its DEX when it has one. */
+static bool apk_has_dex_entries(const char *path, bool *valid_zip)
+{
+    tl_zip z;
+    char err[160];
+    *valid_zip = tl_zip_open(&z, path, err, sizeof(err));
+    if (!*valid_zip) {
+        tl_log_line("dvm: cannot inspect split %s: %s", path, err);
+        return false;
+    }
+
+    bool found = false;
+    for (int i = 1; i < 100; i++) {
+        char name[32];
+        if (i == 1) snprintf(name, sizeof(name), "classes.dex");
+        else snprintf(name, sizeof(name), "classes%d.dex", i);
+        if (tl_zip_find(&z, name)) { found = true; break; }
+    }
+    tl_zip_close(&z);
+    return found;
+}
+
+bool tl_dvm_add_apk(const char *apk)
+{
+    if (!open_path(apk)) return false;
+
+    for (int i = 0; i < TL_LD_MAX_APKS - 1; i++) {
+        const char *split = tl_ld_queued_split(i);
+        if (!split) break;
+
+        bool valid_zip = false;
+        bool has_dex = apk_has_dex_entries(split, &valid_zip);
+        if (!valid_zip) return false;
+
+        /* open_path registers resource-only splits on the app class path too.
+         * A split with DEX must also successfully parse it. */
+        bool opened = open_path(split);
+        if (has_dex && !opened) {
+            tl_log_line("dvm: failed to load DEX classes from split %s", split);
+            return false;
+        }
+        if (!has_dex) {
+            tl_log_line("dvm: resource-only split %s added to the app class path",
+                        strrchr(split, '/') ? strrchr(split, '/') + 1 : split);
+        }
+    }
+    return true;
+}
 
 /* ---- the app's class loader: what Class.getClassLoader says for the app's own classes (a PathClassLoader over its APKs, made by
  * husk.AppRunner), so code that reads resources through its class's loader, or checks a class came from its own loader, works */

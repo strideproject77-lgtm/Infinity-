@@ -197,7 +197,7 @@ static const tl_zip_entry *asset_find(const char *n, const tl_zip **zout)
 {
     /* "/lib/x.so": a file from the APK's root (openNonAssetFd), which asset names never start with */
     char path[1024]; if (n && n[0] == '/') snprintf(path, sizeof(path), "%s", n + 1); else snprintf(path, sizeof(path), "assets/%s", n ? n : "");
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < TL_LD_MAX_APKS; i++) {
         const tl_zip *z = tl_ld_apk_at(i);
         if (!z) { if (i == 0) continue; break; }
         const tl_zip_entry *e = tl_zip_find(z, path);
@@ -227,7 +227,7 @@ NAT(N_listAssets)
     char prefix[1024]; snprintf(prefix, sizeof(prefix), "assets/%s%s", dir ? dir : "", dir && *dir ? "/" : "");
     size_t pl = strlen(prefix);
     char **names = NULL; int n = 0, cap = 0;
-    for (int zi = 0; zi < 16; zi++) {
+    for (int zi = 0; zi < TL_LD_MAX_APKS; zi++) {
         const tl_zip *z = tl_ld_apk_at(zi);
         if (!z) { if (zi == 0) continue; break; }
         for (size_t i = 0; i < z->count; i++) {
