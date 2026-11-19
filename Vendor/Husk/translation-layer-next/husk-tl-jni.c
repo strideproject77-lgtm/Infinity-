@@ -3,6 +3,7 @@
 #include "husk-tl-jni.h"
 
 #include <pthread.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdatomic.h>
 #include <stdio.h>
