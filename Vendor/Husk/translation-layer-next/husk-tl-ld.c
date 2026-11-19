@@ -1991,13 +1991,33 @@ static bool do_relr(tl_lib *L, size_t *count)
 
 /* ----------------------------------------------------------------- mapping */
 
-static void parse_dynamic(tl_lib *L, uint64_t dyn_vaddr, uint64_t dyn_size)
+static bool image_range_fits(const tl_lib *L, uint64_t vaddr, uint64_t bytes)
 {
+    uint64_t image_bytes = (uint64_t)L->npages * PAGE;
+    return vaddr >= L->base_vaddr && vaddr - L->base_vaddr <= image_bytes
+        && bytes <= image_bytes - (vaddr - L->base_vaddr);
+}
+
+static const char *dynamic_string(const tl_lib *L, uint64_t offset)
+{
+    if (!L->strtab || !L->strsz || offset >= L->strsz
+        || !image_range_fits(L, L->strtab, L->strsz)) return NULL;
+    const char *s = (const char *)at(L, L->strtab + offset);
+    return memchr(s, 0, (size_t)(L->strsz - offset)) ? s : NULL;
+}
+
+static bool parse_dynamic(tl_lib *L, uint64_t dyn_vaddr, uint64_t dyn_size)
+{
+    if (!image_range_fits(L, dyn_vaddr, dyn_size) || dyn_size == 0
+        || dyn_size % sizeof(elf_dyn)) return false;
     const elf_dyn *d = at(L, dyn_vaddr);
     for (size_t i = 0; i < dyn_size / sizeof(elf_dyn); i++) {
         switch (d[i].d_tag) {
-        case DT_NULL_: return;
-        case DT_NEEDED_: if (L->nneeded < MAX_DEPS) L->needed[L->nneeded++] = d[i].d_val; break;
+        case DT_NULL_: return true;
+        case DT_NEEDED_:
+            if (L->nneeded >= MAX_DEPS) return false;
+            L->needed[L->nneeded++] = d[i].d_val;
+            break;
         case DT_STRTAB_: L->strtab = d[i].d_val; break;
         case DT_STRSZ_: L->strsz = d[i].d_val; break;
         case DT_SYMTAB_: L->symtab = d[i].d_val; break;
@@ -2018,6 +2038,66 @@ static void parse_dynamic(tl_lib *L, uint64_t dyn_vaddr, uint64_t dyn_size)
         default: break;
         }
     }
+    return false; /* a bounded dynamic segment must contain DT_NULL */
+}
+
+/* Validate all pointer/size pairs before hash, symbol, relocation or dependency code dereferences them. */
+static bool validate_dynamic_metadata(tl_lib *L)
+{
+    if (!L->strtab || !L->strsz || !image_range_fits(L, L->strtab, L->strsz)
+        || !L->symtab || !image_range_fits(L, L->symtab, sizeof(elf_sym))) return false;
+
+    if ((L->relasz && (!L->rela || L->relasz % sizeof(elf_rela) || !image_range_fits(L, L->rela, L->relasz)))
+        || (!L->relasz && L->rela)
+        || (L->pltrelsz && (!L->jmprel || L->pltrelsz % sizeof(elf_rela) || !image_range_fits(L, L->jmprel, L->pltrelsz)))
+        || (!L->pltrelsz && L->jmprel)
+        || (L->arelasz && (!L->arela || L->arelasz < 4 || !image_range_fits(L, L->arela, L->arelasz)))
+        || (!L->arelasz && L->arela)
+        || (L->relrsz && (!L->relr || L->relrsz % 8 || !image_range_fits(L, L->relr, L->relrsz)))
+        || (!L->relrsz && L->relr)
+        || (L->init_arraysz && (!L->init_array || L->init_arraysz % 8 || !image_range_fits(L, L->init_array, L->init_arraysz)))
+        || (!L->init_arraysz && L->init_array)) return false;
+
+    for (int i = 0; i < L->nneeded; i++)
+        if (!dynamic_string(L, L->needed[i])) return false;
+
+    if (L->sysv_hash) {
+        if (!image_range_fits(L, L->sysv_hash, 8)) return false;
+        const uint32_t *h = at(L, L->sysv_hash);
+        uint64_t words = 2ull + h[0] + h[1];
+        if (!h[0] || !h[1] || words > UINT64_MAX / 4
+            || !image_range_fits(L, L->sysv_hash, words * 4)) return false;
+    }
+
+    if (L->gnu_hash) {
+        if (!image_range_fits(L, L->gnu_hash, 16)) return false;
+        const uint8_t *g = at(L, L->gnu_hash);
+        uint32_t nb, symoff, bloom_n, bloom_shift;
+        memcpy(&nb, g, 4); memcpy(&symoff, g + 4, 4);
+        memcpy(&bloom_n, g + 8, 4); memcpy(&bloom_shift, g + 12, 4);
+        if (!nb || !bloom_n || bloom_shift >= 32) return false;
+        uint64_t prefix = 16ull + (uint64_t)bloom_n * 8 + (uint64_t)nb * 4;
+        if (!image_range_fits(L, L->gnu_hash, prefix)) return false;
+        const uint32_t *buckets = (const uint32_t *)(g + 16 + (size_t)bloom_n * 8);
+        uint64_t chain_vaddr = L->gnu_hash + prefix;
+        uint64_t chain_bytes = (uint64_t)L->npages * PAGE - (chain_vaddr - L->base_vaddr);
+        uint64_t chain_words = chain_bytes / 4;
+        for (uint32_t b = 0; b < nb; b++) {
+            uint32_t index = buckets[b];
+            if (!index) continue;
+            if (index < symoff) return false;
+            uint64_t ci = (uint64_t)index - symoff;
+            bool terminated = false;
+            while (ci < chain_words) {
+                uint32_t word;
+                memcpy(&word, (const uint8_t *)at(L, chain_vaddr) + ci * 4, 4);
+                if (word & 1) { terminated = true; break; }
+                ci++;
+            }
+            if (!terminated) return false;
+        }
+    }
+    return true;
 }
 
 /*
@@ -2649,11 +2729,21 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
         tl_log_line("ld: %s: dynamic table is outside the mapped image or truncated", name);
         return NULL;
     }
-    parse_dynamic(L, dyn_v, dyn_n);
-    if (L->strtab) {
+    if (!parse_dynamic(L, dyn_v, dyn_n) || !validate_dynamic_metadata(L)) {
+        tl_log_line("ld: %s: malformed or incomplete ELF dynamic metadata", name);
+        return NULL;
+    }
+    {
         const elf_dyn *d = at(L, dyn_v);
         for (size_t i = 0; i < dyn_n / sizeof(elf_dyn) && d[i].d_tag != DT_NULL_; i++) {
-            if (d[i].d_tag == DT_SONAME_) snprintf(L->soname, sizeof(L->soname), "%s", (const char *)at(L, L->strtab) + d[i].d_val);
+            if (d[i].d_tag == DT_SONAME_) {
+                const char *soname = dynamic_string(L, d[i].d_val);
+                if (!soname) {
+                    tl_log_line("ld: %s: invalid DT_SONAME string offset", name);
+                    return NULL;
+                }
+                snprintf(L->soname, sizeof(L->soname), "%s", soname);
+            }
         }
     }
     if (!L->soname[0]) snprintf(L->soname, sizeof(L->soname), "%s", name);
