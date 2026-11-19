@@ -267,6 +267,12 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("s && symbol_is_exported(s)", loader)
         self.assertNotIn("STT_GNU_IFUNC_) { *failed = true; return 0; }", loader)
 
+    def test_gnu_version_table_covers_import_symbols_beyond_hash_exports(self):
+        loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
+        self.assertIn("L->ncache * sizeof(uint16_t)", loader)
+        self.assertIn("symbol_index >= L->ncache", loader)
+        self.assertIn("d[i].d_val > UINT32_MAX", loader)
+
     def test_elf_gnu_symbol_versioning_and_dlvsym_are_wired_end_to_end(self):
         loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.h")
