@@ -395,15 +395,13 @@ struct INFINITYAPKLaunchView: View {
             runtime.recordSessionEvent("RUNTIME_PREPARATION", details: "success")
 
             let moltenVK = engine == .unreal ? INFINITYAPKStore.moltenVKLibraryURL : nil
-            if !splitPackages.isEmpty {
-                try runtime.queueSplitPackages(splitPackages)
-            }
             runtime.recordSessionEvent("HUSK_LAUNCH_REQUEST",
                                        details: "engine=\(engine) splitPackages=\(splitPackages.count)")
             try runtime.launch(engine: engine, apk: apk, dataDirectory: dataDirectory,
                                metalLayer: layer, width: width, height: height,
                                angleLibrary: angle, certificateBundle: certificates,
                                moltenVKLibrary: moltenVK,
+                               additionalPackages: splitPackages,
                                jitlessEnabled: jitlessEnabled,
                                diagnosticLogURL: logURL)
         } catch {

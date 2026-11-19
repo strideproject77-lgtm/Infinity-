@@ -238,6 +238,7 @@ final class INFINITYHuskRuntime: ObservableObject {
                 angleLibrary: URL,
                 certificateBundle: URL? = nil,
                 moltenVKLibrary: URL? = nil,
+                additionalPackages: [URL] = [],
                 jitlessEnabled: Bool = false,
                 diagnosticLogURL: URL? = nil) throws {
         if engine == .java && !javaRuntimePrepared {
@@ -261,6 +262,20 @@ final class INFINITYHuskRuntime: ObservableObject {
             }
         }
 
+        if !additionalPackages.isEmpty && engine != .sdl {
+            throw RuntimeError.splitPackageNotSupported
+        }
+        infinity_husk_clear_split_packages()
+        for package in additionalPackages {
+            let queued = package.standardizedFileURL.path.withCString {
+                infinity_husk_queue_split_package($0)
+            }
+            guard queued else {
+                infinity_husk_clear_split_packages()
+                throw RuntimeError.rejectedLaunch
+            }
+        }
+
         let layer = Unmanaged.passUnretained(metalLayer).toOpaque()
         let accepted = apk.path.withCString { apkPath in
             dataDirectory.path.withCString { dataPath in
@@ -275,8 +290,11 @@ final class INFINITYHuskRuntime: ObservableObject {
                 }
             }
         }
-        guard accepted else { throw RuntimeError.rejectedLaunch }
-        sessionLogger?.record("HUSK_LAUNCH_ACCEPTED", "engine=\(engine) surface=\(width)x\(height)")
+        guard accepted else {
+            infinity_husk_clear_split_packages()
+            throw RuntimeError.rejectedLaunch
+        }
+        sessionLogger?.record("HUSK_LAUNCH_ACCEPTED", "engine=\(engine) surface=\(width)x\(height) splitPackages=\(additionalPackages.count)")
         selectedEngine = engine
         self.jitlessModeEnabled = jitlessEnabled
         self.diagnosticLogURL = diagnosticLogURL
@@ -340,21 +358,6 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     func javaBack() {
         infinity_husk_java_back()
-    }
-
-    func queueSplitPackages(_ packages: [URL]) throws {
-        infinity_husk_clear_split_packages()
-        guard !packages.isEmpty else { return }
-        for package in packages {
-            let queued = package.standardizedFileURL.path.withCString {
-                infinity_husk_queue_split_package($0)
-            }
-            guard queued else {
-                infinity_husk_clear_split_packages()
-                throw RuntimeError.rejectedLaunch
-            }
-        }
-        sessionLogger?.record("SPLIT_PACKAGES_QUEUED", "\(packages.count) validated split APK(s) queued for Husk SDL")
     }
 
     func setPaused(_ paused: Bool) {
