@@ -757,3 +757,8 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Corrected the VERSYM extent to cover the full validated dynamic-symbol cache bound, not only the hash-covered exported-symbol count. Android shared objects commonly place undefined imports after the hash-covered definitions, so their version requirement indexes must also be addressable.
 - Added overflow rejection for 64-bit VERDEFNUM/VERNEEDNUM values before narrowing to the loader's 32-bit counters.
 - Added a regression contract for import-side version-index coverage. Tests remain unrun.
+
+
+### Bionic dlvsym diagnostic correctness
+- Upgraded the thread-local dlerror formatter to a real variadic formatter. Versioned lookup errors include both the symbol and requested version safely; the previous one-argument formatter could not represent a two-substitution dlvsym diagnostic correctly.
+- Added a source-contract assertion for the multi-argument diagnostic path.
