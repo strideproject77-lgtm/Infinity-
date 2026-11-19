@@ -134,6 +134,16 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("invalid static field index", dvm)
         self.assertIn("IncompatibleClassChangeError", dvm)
 
+    def test_jni_field_ids_resolve_by_exact_descriptor(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        hook = dvm.split("static bool hook_find_field(", 1)[1].split(
+            "static uint32_t hook_slots", 1
+        )[0]
+        self.assertIn("dvm_find_field_exact(c, name, sig, is_static)", hook)
+        self.assertNotIn("(void)sig", hook)
+        self.assertIn("JNI %s field not found", hook)
+        self.assertIn("dvm_ensure_init(f->cls)", hook)
+
     def test_java_runtime_is_rejected_when_boot_assets_are_missing(self):
         adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
         for asset in (
