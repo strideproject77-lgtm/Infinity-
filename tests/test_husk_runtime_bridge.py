@@ -68,6 +68,18 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("husk_unity_set_paused(paused)", adapter)
 
 
+    def test_jni_signature_parser_and_varargs_support_full_descriptor_limit(self):
+        internal = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-internal.h")
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("char argk[256]", internal)
+        self.assertIn("bool valid_sig", internal)
+        self.assertIn("parse_descriptor_type", jni)
+        self.assertIn("m->nargs >= 255", jni)
+        self.assertIn("jvalue *va_arguments(", jni)
+        self.assertIn("m->nargs <= 16 ? local : calloc", jni)
+        self.assertNotIn("jvalue args[40]", jni)
+        self.assertIn("free(args);", jni)
+
     def test_dex_frames_validate_incoming_slots_and_native_stack_args_are_dynamic(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         self.assertIn("m->regs < m->ins", dvm)
