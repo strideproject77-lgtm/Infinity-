@@ -204,6 +204,7 @@ final class INFINITYHuskRuntime: ObservableObject {
 
     func recordSessionEvent(_ event: String, details: String = "") {
         sessionLogger?.record(event, details)
+        INFINITYHuskNativeLog.log("session", details.isEmpty ? event : "\(event): \(details)")
     }
 
     func prepareNative(certificatesDirectory: URL,
