@@ -25,6 +25,9 @@ bool tl_na_start(const tl_ga_config *cfg);
 /* ANativeActivity_onCreate, then onStart, onResume, the window and focus: the engine takes it from there on its own threads. */
 bool tl_na_run(void);
 
+/* Request UI-thread lifecycle teardown and wait for it to finish. Safe before run. */
+void tl_na_stop(void);
+
 unsigned long tl_na_frames(void);
 void tl_na_touch(int phase, int id, float x, float y);       /* surface pixels, y down; phase 0 down, 1 move, 2 up, 3 cancel */
 void tl_na_set_paused(bool paused);
