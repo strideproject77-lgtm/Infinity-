@@ -24,20 +24,24 @@ jobs:
 
       - name: Resolve Xcode package dependencies
         run: |
+          set -euo pipefail
+          PACKAGE_CACHE="$RUNNER_TEMP/infinity-source-packages"
+          mkdir -p "$PACKAGE_CACHE"
           xcodebuild -resolvePackageDependencies \
             -project LiveContainer.xcodeproj \
             -scheme LiveContainer \
-            -derivedDataPath "$RUNNER_TEMP/infinity-strata-derived"
+            -clonedSourcePackagesDirPath "$PACKAGE_CACHE"
 
       - name: Build only the LiveContainerSwiftUI framework target
         run: |
           set -o pipefail
+          PACKAGE_CACHE="$RUNNER_TEMP/infinity-source-packages"
           xcodebuild \
             -project LiveContainer.xcodeproj \
             -target LiveContainerSwiftUI \
             -sdk iphoneos \
             -configuration Debug \
-            -derivedDataPath "$RUNNER_TEMP/infinity-strata-derived" \
+            -clonedSourcePackagesDirPath "$PACKAGE_CACHE" \
             -SYMROOT="$RUNNER_TEMP/infinity-strata-products" \
             -OBJROOT="$RUNNER_TEMP/infinity-strata-objects" \
             COMPILER_INDEX_STORE_ENABLE=NO \
