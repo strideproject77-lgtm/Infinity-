@@ -16,10 +16,18 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("requiresSplits: requiresSplits", store)
         self.assertIn("decodeIfPresent(Bool.self, forKey: .requiresSplits) ?? false", store)
 
-    def test_split_required_apps_are_not_offered_for_base_apk_only_launch(self):
+    def test_launch_action_is_visible_even_when_runtime_is_not_ready(self):
         view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn('Label("Launch", systemImage: "play.fill")', view)
+        self.assertIn("INFINITYAPKLaunchView(app: app)", view)
+        self.assertNotIn("if canLaunch", view)
+
+    def test_split_required_apps_are_blocked_with_an_explicit_launch_error(self):
+        view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
         self.assertIn("guard !app.requiresSplits", view)
-        self.assertIn("Split loading must be connected to the native runtime before this app can launch", view)
+        self.assertIn("RuntimeError.splitPackageNotSupported", view)
+        self.assertIn("current Husk adapter only accepts a single base APK", runtime)
 
     def test_native_graphics_are_required_inside_the_signed_app_bundle(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
