@@ -1547,51 +1547,89 @@ static int32_t jni_RegisterNatives(void *env, jo cls, const native_method *m, in
         tl_jni_throw("java/lang/IllegalArgumentException", "RegisterNatives received invalid class, method table, or count");
         return -1;
     }
+    if (!n) return 0;
+    if ((size_t)n > SIZE_MAX / sizeof(staged_native_registration)) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "native registration batch is too large");
+        return -1;
+    }
+    typedef struct staged_native_registration {
+        tl_jclass *owner;
+        char *name, *sig;
+        void *fn;
+    } staged_native_registration;
+    staged_native_registration *staged = calloc((size_t)n, sizeof(*staged));
+    if (!staged) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating native registration transaction"); return -1; }
     tl_jclass *given = cls->klass.jc;
     for (int32_t i = 0; i < n; i++) {
         if (!m[i].name || !m[i].sig || !m[i].fn) {
+            for (int32_t j = 0; j < i; j++) { free(staged[j].name); free(staged[j].sig); }
+            free(staged);
             tl_jni_throw("java/lang/IllegalArgumentException", "RegisterNatives received an incomplete native method");
+            return -1;
+        }
+        staged[i].name = strdup(m[i].name);
+        staged[i].sig = strdup(m[i].sig);
+        staged[i].fn = m[i].fn;
+        if (!staged[i].name || !staged[i].sig) {
+            for (int32_t j = 0; j <= i; j++) { free(staged[j].name); free(staged[j].sig); }
+            free(staged);
+            tl_jni_throw("java/lang/OutOfMemoryError", "copying JNI native method registration batch");
             return -1;
         }
     }
     bool tl_dvm_declares(tl_jclass *jc, const char *name, const char *sig);
     pthread_mutex_lock(&g_lock);
     for (int32_t i = 0; i < n; i++) {
-        /* JNI may register an inherited declaration through a subclass. Keep
-         * the registering class separate from the declaration owner so
-         * UnregisterNatives can undo exactly this registration operation. */
-        tl_jclass *c = given;
-        bool declared = tl_dvm_declares(c, m[i].name, m[i].sig);
+        tl_jclass *owner = given;
+        bool declared = tl_dvm_declares(owner, staged[i].name, staged[i].sig);
         for (tl_jclass *k = given->super; !declared && k; k = k->super)
-            if (tl_dvm_declares(k, m[i].name, m[i].sig)) { c = k; declared = true; }
+            if (tl_dvm_declares(k, staged[i].name, staged[i].sig)) { owner = k; declared = true; }
         if (!declared)
             tl_log_line("jni: RegisterNatives %s.%s%s: declared by no class in the chain, bound to %s anyway",
-                        given->name, m[i].name, m[i].sig, c->name);
-        char *name = strdup(m[i].name), *sig = strdup(m[i].sig);
-        if (!name || !sig) {
-            free(name); free(sig);
+                        given->name, staged[i].name, staged[i].sig, owner->name);
+        staged[i].owner = owner;
+    }
+    /* Reserve every destination before publishing any registration. A failed
+     * reserve may enlarge an earlier table's capacity, but leaves its entries
+     * and all observable bindings unchanged. */
+    for (int32_t i = 0; i < n; i++) {
+        tl_jclass *owner = staged[i].owner;
+        bool first = true;
+        size_t additions = 0;
+        for (int32_t j = 0; j < i; j++) if (staged[j].owner == owner) { first = false; break; }
+        if (!first) continue;
+        for (int32_t j = i; j < n; j++) if (staged[j].owner == owner) additions++;
+        if (additions > (size_t)INT_MAX - (size_t)owner->nnatives ||
+            (size_t)owner->nnatives + additions > SIZE_MAX / sizeof(*owner->natives)) {
             pthread_mutex_unlock(&g_lock);
-            tl_jni_throw("java/lang/OutOfMemoryError", "copying JNI native method registration");
+            for (int32_t j = 0; j < n; j++) { free(staged[j].name); free(staged[j].sig); }
+            free(staged);
+            tl_jni_throw("java/lang/OutOfMemoryError", "native method table capacity overflow");
             return -1;
         }
-        void *fn = m[i].fn;
-        void *grown = realloc(c->natives, (size_t)(c->nnatives + 1) * sizeof(*c->natives));
+        size_t required = (size_t)owner->nnatives + additions;
+        void *grown = realloc(owner->natives, required * sizeof(*owner->natives));
         if (!grown) {
-            free(name); free(sig);
             pthread_mutex_unlock(&g_lock);
-            tl_jni_throw("java/lang/OutOfMemoryError", "growing JNI native method table");
+            for (int32_t j = 0; j < n; j++) { free(staged[j].name); free(staged[j].sig); }
+            free(staged);
+            tl_jni_throw("java/lang/OutOfMemoryError", "reserving JNI native method table transaction");
             return -1;
         }
-        c->natives = grown;
-        c->natives[c->nnatives].name = name;
-        c->natives[c->nnatives].sig = sig;
-        c->natives[c->nnatives].fn = fn;
-        c->natives[c->nnatives].registered_on = given;
-        c->nnatives++;
-        TRACE("jni: RegisterNatives %s.%s%s -> %p", c->name, m[i].name, m[i].sig, m[i].fn);
+        owner->natives = grown;
+    }
+    for (int32_t i = 0; i < n; i++) {
+        tl_jclass *owner = staged[i].owner;
+        owner->natives[owner->nnatives].name = staged[i].name;
+        owner->natives[owner->nnatives].sig = staged[i].sig;
+        owner->natives[owner->nnatives].fn = staged[i].fn;
+        owner->natives[owner->nnatives].registered_on = given;
+        owner->nnatives++;
+        TRACE("jni: RegisterNatives %s.%s%s -> %p", owner->name, staged[i].name, staged[i].sig, staged[i].fn);
     }
     pthread_mutex_unlock(&g_lock);
-    if (n) __atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE);
+    free(staged);
+    __atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE);
     return 0;
 }
 int32_t tl_jni_register_one(jobj *cls, const char *name, const char *sig, void *fn)
