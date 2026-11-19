@@ -4,6 +4,7 @@ import QuartzCore
 import UIKit
 import UniformTypeIdentifiers
 import Darwin
+import GameController
 
 
 extension Notification.Name {
@@ -65,6 +66,124 @@ func infinityHuskHostPickDocuments(_ mimeTypes: UnsafePointer<CChar>?, _ multipl
     DispatchQueue.main.async {
         NotificationCenter.default.post(name: .infinityHuskDocumentPickerRequest, object: nil,
                                          userInfo: ["mimeTypes": value, "multiple": multiple != 0])
+    }
+}
+
+
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Adapted from Vendor/Husk/host-runtime/HuskGamepad.swift.
+ *
+ * iOS GameController supplies physical controllers; this adapter forwards
+ * state to Husk's existing native gamepad bridge.
+ */
+@MainActor
+final class INFINITYHuskGamepadManager: ObservableObject {
+    static let shared = INFINITYHuskGamepadManager()
+
+    @Published private(set) var names: [String] = []
+
+    private enum ButtonBit: UInt32 {
+        case a = 0, b, x, y, leftShoulder, rightShoulder
+        case leftStick, rightStick, start, select, mode
+        case dpadUp, dpadDown, dpadLeft, dpadRight
+        var mask: UInt32 { UInt32(1) << rawValue }
+    }
+
+    private static let slotCount = 4
+    private var slotByController: [ObjectIdentifier: Int] = [:]
+    private var controllerBySlot: [Int: GCController] = [:]
+    private var observers: [NSObjectProtocol] = []
+    private var pollingTimer: Timer?
+    private var isStarted = false
+
+    private init() {}
+
+    func start() {
+        guard !isStarted else { return }
+        isStarted = true
+        let center = NotificationCenter.default
+        for name in [Notification.Name.GCControllerDidConnect,
+                     Notification.Name.GCControllerDidDisconnect] {
+            let observer = center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.synchronizeControllers() }
+            }
+            observers.append(observer)
+        }
+        synchronizeControllers()
+    }
+
+    private func synchronizeControllers() {
+        let connected = GCController.controllers().filter { $0.extendedGamepad != nil }
+        let connectedIDs = Set(connected.map { ObjectIdentifier($0) })
+
+        for (identifier, slot) in Array(slotByController) where !connectedIDs.contains(identifier) {
+            infinity_husk_gamepad_disconnect(Int32(slot))
+            controllerBySlot.removeValue(forKey: slot)
+            slotByController.removeValue(forKey: identifier)
+            INFINITYHuskNativeLog.log("gamepad", "controller slot \(slot) disconnected")
+        }
+
+        for controller in connected {
+            let identifier = ObjectIdentifier(controller)
+            guard slotByController[identifier] == nil,
+                  let slot = (0..<Self.slotCount).first(where: { controllerBySlot[$0] == nil }) else {
+                continue
+            }
+            slotByController[identifier] = slot
+            controllerBySlot[slot] = controller
+            let name = controller.vendorName ?? controller.productCategory
+            name.withCString { infinity_husk_gamepad_connect(Int32(slot), $0) }
+            INFINITYHuskNativeLog.log("gamepad", "controller slot \(slot) connected: \(name)")
+        }
+
+        names = (0..<Self.slotCount).compactMap {
+            controllerBySlot[$0].map { $0.vendorName ?? $0.productCategory }
+        }
+
+        if controllerBySlot.isEmpty {
+            pollingTimer?.invalidate()
+            pollingTimer = nil
+        } else if pollingTimer == nil {
+            let timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.pollControllers() }
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            pollingTimer = timer
+        }
+    }
+
+    private func pollControllers() {
+        for (slot, controller) in controllerBySlot.sorted(by: { $0.key < $1.key }) {
+            guard let pad = controller.extendedGamepad else { continue }
+            var buttons: UInt32 = 0
+            func set(_ bit: ButtonBit, _ input: GCControllerButtonInput?) {
+                if input?.isPressed == true { buttons |= bit.mask }
+            }
+            set(.a, pad.buttonA)
+            set(.b, pad.buttonB)
+            set(.x, pad.buttonX)
+            set(.y, pad.buttonY)
+            set(.leftShoulder, pad.leftShoulder)
+            set(.rightShoulder, pad.rightShoulder)
+            set(.leftStick, pad.leftThumbstickButton)
+            set(.rightStick, pad.rightThumbstickButton)
+            set(.start, pad.buttonMenu)
+            set(.select, pad.buttonOptions)
+            set(.mode, pad.buttonHome)
+            set(.dpadUp, pad.dpad.up)
+            set(.dpadDown, pad.dpad.down)
+            set(.dpadLeft, pad.dpad.left)
+            set(.dpadRight, pad.dpad.right)
+
+            // iOS stick Y is positive upward; Android joystick Y is positive downward.
+            infinity_husk_gamepad_update(
+                Int32(slot), buttons,
+                pad.leftThumbstick.xAxis.value, -pad.leftThumbstick.yAxis.value,
+                pad.rightThumbstick.xAxis.value, -pad.rightThumbstick.yAxis.value,
+                pad.leftTrigger.value, pad.rightTrigger.value
+            )
+        }
     }
 }
 
@@ -166,6 +285,7 @@ final class INFINITYHuskSessionLogger: ObservableObject {
 @MainActor
 final class INFINITYHuskRuntime: ObservableObject {
     init() {
+        INFINITYHuskGamepadManager.shared.start()
         infinity_husk_java_set_host(infinityHuskHostShowKeyboard,
                                     infinityHuskHostSetClipboard,
                                     infinityHuskHostGetClipboard,
