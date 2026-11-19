@@ -1417,24 +1417,69 @@ static mref *resolve_mref(dvm_dex *d, uint32_t idx, bool is_static)
 
 /* ---- fields */
 
-typedef struct fref { dvm_field *df; tl_jfield *hf; tl_jclass *cls; char type; bool missing; } fref;
+typedef struct fref {
+    dvm_field *df;
+    tl_jfield *hf;
+    tl_jclass *cls;
+    char type;
+    bool missing;
+    bool is_static;
+    bool wrong_static;
+    bool invalid;
+} fref;
 
 static fref *resolve_fref(dvm_dex *d, uint32_t idx, bool is_static)
 {
-    fref *r = (fref *)__atomic_load_n(&d->fcache[idx], __ATOMIC_ACQUIRE);
-    if (r) return r;
-    r = calloc(1, sizeof(*r));
-    const uint8_t *fi = d->b + d->field_off + 8 * idx;
+    /* A malformed field_idx must become a Java verification error, never an
+       out-of-range read from field_ids or the per-DEX cache. */
+    static _Thread_local fref invalid_ref;
+    if (!d || idx >= d->nfield) {
+        memset(&invalid_ref, 0, sizeof(invalid_ref));
+        invalid_ref.invalid = true;
+        invalid_ref.is_static = is_static;
+        return &invalid_ref;
+    }
+
+    fref *cached = (fref *)__atomic_load_n(&d->fcache[idx], __ATOMIC_ACQUIRE);
+    if (cached && cached->is_static == is_static) return cached;
+
+    fref *r = calloc(1, sizeof(*r));
+    if (!r) {
+        memset(&invalid_ref, 0, sizeof(invalid_ref));
+        invalid_ref.invalid = true;
+        invalid_ref.is_static = is_static;
+        return &invalid_ref;
+    }
+    r->is_static = is_static;
+    const uint8_t *fi = d->b + d->field_off + 8u * idx;
     tl_jclass *cls = resolve_type(d, rd16(fi));
-    const char *type = dex_type(d, rd16(fi + 2)), *name = dex_str(d, rd32(fi + 4));
+    const char *type = dex_type(d, rd16(fi + 2));
+    const char *name = dex_str(d, rd32(fi + 4));
+    if (!cls || !type[0] || !name[0]) {
+        r->invalid = true;
+        return r;
+    }
     r->type = type[0] == '[' ? 'L' : type[0];
     dvm_class *c = dvm_class_of(cls);
-    if (c) r->df = dvm_find_field_exact(c, name, type, is_static);
+    if (c) {
+        r->df = dvm_find_field_exact(c, name, type, is_static);
+        if (!r->df)
+            r->wrong_static = dvm_find_field_exact(c, name, type, !is_static) != NULL;
+    }
     r->missing = !c && class_missing(cls);
-    if (!r->df && !r->missing) r->hf = tl_jni_field(cls, name, type, is_static);
+    if (!r->df && !r->missing && !r->wrong_static)
+        r->hf = tl_jni_field(cls, name, type, is_static);
     r->cls = r->df ? r->df->cls->jc : cls;
+
     pthread_mutex_lock(&g_lock);
-    if (!d->fcache[idx]) __atomic_store_n(&d->fcache[idx], (dvm_field *)r, __ATOMIC_RELEASE); else { free(r); r = (fref *)d->fcache[idx]; }
+    cached = (fref *)d->fcache[idx];
+    if (!cached) {
+        __atomic_store_n(&d->fcache[idx], (dvm_field *)r, __ATOMIC_RELEASE);
+    } else if (cached->is_static == is_static) {
+        free(r);
+        r = cached;
+    } /* A DEX field referenced with the opposite opcode gets its own uncached
+         result, so one access kind cannot poison the other kind's cache. */
     pthread_mutex_unlock(&g_lock);
     return r;
 }
@@ -1989,6 +2034,8 @@ dispatch:;
     case 0x59: case 0x5a: case 0x5b: case 0x5c: case 0x5d: case 0x5e: case 0x5f: {   /* iput* */
         jobj *o = RL(regs, B4);
         fref *f = resolve_fref(dex, FETCH(1), false);
+        if (f->invalid) { dvm_throw("java/lang/VerifyError", "invalid instance field index %u", FETCH(1)); goto exception; }
+        if (f->wrong_static) { dvm_throw("java/lang/IncompatibleClassChangeError", "static field used by instance opcode"); goto exception; }
         bool put = (w & 0xFF) >= 0x59;
         if (!o) { dvm_throw("java/lang/NullPointerException", "Attempt to %s field on a null object reference", put ? "write to" : "read from"); goto exception; }
         jvalue *slot;
@@ -2022,6 +2069,8 @@ dispatch:;
     case 0x60: case 0x61: case 0x62: case 0x63: case 0x64: case 0x65: case 0x66:     /* sget* */
     case 0x67: case 0x68: case 0x69: case 0x6a: case 0x6b: case 0x6c: case 0x6d: {   /* sput* */
         fref *f = resolve_fref(dex, FETCH(1), true);
+        if (f->invalid) { dvm_throw("java/lang/VerifyError", "invalid static field index %u", FETCH(1)); goto exception; }
+        if (f->wrong_static) { dvm_throw("java/lang/IncompatibleClassChangeError", "instance field used by static opcode"); goto exception; }
         if (f->missing) { throw_missing(f->cls); goto exception; }
         bool put = (w & 0xFF) >= 0x67;
         jvalue *slot;
