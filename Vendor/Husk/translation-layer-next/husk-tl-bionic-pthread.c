@@ -289,27 +289,42 @@ typedef struct { pthread_mutex_t m; pthread_cond_t c; int count; } host_sem;
 static void *make_sem(uint32_t value)
 {
     host_sem *s = calloc(1, sizeof(*s));
-    pthread_mutex_init(&s->m, NULL);
-    pthread_cond_init(&s->c, NULL);
+    if (!s) return NULL;
+    int r = pthread_mutex_init(&s->m, NULL);
+    if (r) { free(s); return NULL; }
+    r = pthread_cond_init(&s->c, NULL);
+    if (r) { pthread_mutex_destroy(&s->m); free(s); return NULL; }
     s->count = (int)value;
     return s;
 }
 
 static int b_sem_init(void *g, int pshared, unsigned value)
 {
-    if ((pshared != 0 && pshared != 1) || value > INT_MAX) return 22;
+    if (!g || (pshared != 0 && pshared != 1) || value > INT_MAX) {
+        tl_set_guest_errno(22);
+        return -1;
+    }
+    /* This host semaphore is process-local. Never claim pshared support when
+       the backing object cannot be shared between guest processes. */
+    if (pshared == 1) {
+        tl_set_guest_errno(95); /* ENOTSUP in the Bionic errno namespace */
+        return -1;
+    }
+    host_sem *s = make_sem(value);
+    if (!s) { tl_set_guest_errno(12); return -1; } /* ENOMEM */
     guest_obj *o = g;
     memset(g, 0, 16);
-    o->host = make_sem(value);
+    o->host = s;
     atomic_store(&o->magic, MAGIC_READY);
     return 0;
 }
 static int b_sem_destroy(void *g)
 {
+    if (!g) { tl_set_guest_errno(22); return -1; }
     guest_obj *o = g;
     if (atomic_load(&o->magic) == MAGIC_READY) {
         host_sem *s = o->host;
-        pthread_cond_destroy(&s->c); pthread_mutex_destroy(&s->m); free(s);
+        if (s) { pthread_cond_destroy(&s->c); pthread_mutex_destroy(&s->m); free(s); }
     }
     memset(g, 0, 16);
     return 0;
@@ -317,7 +332,8 @@ static int b_sem_destroy(void *g)
 static host_sem *hs(void *g) { return obj_host(g, make_sem); }
 static int b_sem_post(void *g)
 {
-    host_sem *s = hs(g);
+    host_sem *s = g ? hs(g) : NULL;
+    if (!s) { tl_set_guest_errno(g ? 12 : 22); return -1; }
     pthread_mutex_lock(&s->m);
     if (s->count == INT_MAX) { pthread_mutex_unlock(&s->m); tl_set_guest_errno(75); return -1; }
     s->count++;
@@ -327,7 +343,8 @@ static int b_sem_post(void *g)
 }
 static int b_sem_wait(void *g)
 {
-    host_sem *s = hs(g);
+    host_sem *s = g ? hs(g) : NULL;
+    if (!s) { tl_set_guest_errno(g ? 12 : 22); return -1; }
     pthread_mutex_lock(&s->m);
     while (s->count <= 0) pthread_cond_wait(&s->c, &s->m);
     s->count--;
@@ -336,7 +353,8 @@ static int b_sem_wait(void *g)
 }
 static int b_sem_trywait(void *g)
 {
-    host_sem *s = hs(g);
+    host_sem *s = g ? hs(g) : NULL;
+    if (!s) { tl_set_guest_errno(g ? 12 : 22); return -1; }
     int ok = 0;
     pthread_mutex_lock(&s->m);
     if (s->count > 0) { s->count--; ok = 1; }
@@ -346,7 +364,12 @@ static int b_sem_trywait(void *g)
 }
 static int b_sem_timedwait(void *g, const struct timespec *abs)
 {
+    if (!g || !abs || abs->tv_nsec < 0 || abs->tv_nsec >= 1000000000L) {
+        tl_set_guest_errno(22);
+        return -1;
+    }
     host_sem *s = hs(g);
+    if (!s) { tl_set_guest_errno(12); return -1; }
     struct timespec now, rel;
     clock_gettime(CLOCK_REALTIME, &now);
     rel.tv_sec = abs->tv_sec - now.tv_sec;
@@ -363,7 +386,9 @@ static int b_sem_timedwait(void *g, const struct timespec *abs)
 }
 static int b_sem_getvalue(void *g, int *v)
 {
+    if (!g || !v) { tl_set_guest_errno(22); return -1; }
     host_sem *s = hs(g);
+    if (!s) { tl_set_guest_errno(12); return -1; }
     pthread_mutex_lock(&s->m);
     *v = s->count;
     pthread_mutex_unlock(&s->m);
