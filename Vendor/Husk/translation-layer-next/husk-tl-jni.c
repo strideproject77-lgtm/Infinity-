@@ -1352,10 +1352,13 @@ static char *jni_mutf8_to_utf8(const char *input)
             if (i + 2 >= bytes) { free(units); return NULL; }
             unsigned char d = (unsigned char)input[i++];
             unsigned char e = (unsigned char)input[i++];
-            if ((d & 0xf0) != 0xe0 || (e & 0xc0) != 0x80) { free(units); return NULL; }
-            uint16_t low = (uint16_t)(((d & 0x0f) << 12) | ((e & 0x3f) << 6) | (input[i - 1] & 0x3f));
-            /* The low-surrogate bytes are validated below using the decoded three-byte unit. */
-            (void)low;
+            unsigned char f = (unsigned char)input[i++];
+            if (d != 0xed || (e & 0xf0) != 0xb0 || (f & 0xc0) != 0x80) { free(units); return NULL; }
+            uint16_t low = (uint16_t)(((d & 0x0f) << 12) | ((e & 0x3f) << 6) | (f & 0x3f));
+            if (low < 0xdc00 || low > 0xdfff) { free(units); return NULL; }
+            units[n++] = c;
+            units[n++] = low;
+            continue;
         } else if (c >= 0xdc00 && c <= 0xdfff) {
             free(units); return NULL;
         }
