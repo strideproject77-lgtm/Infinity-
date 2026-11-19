@@ -1,26 +1,6 @@
 name: INFINITY Strata SwiftUI runtime integration build
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "LiveContainer.xcodeproj/project.pbxproj"
-      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift"
-      - "LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift"
-      - "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
-      - "LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift"
-      - "LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift"
-      - "LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift"
-      - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.c"
-      - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"
-      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
-      - "LiveContainerSwiftUI/LiveContainerSwiftUI-Bridging-Header.h"
-      - "Vendor/Husk/Package.swift"
-      - "Vendor/Husk/include/**"
-      - "Vendor/Husk/bridge/**"
-      - "Vendor/Husk/translation-layer/**"
-      - "Vendor/Husk/translation-layer-next/**"
-      - ".github/workflows/infinity-strata-framework-build.yml"
   workflow_dispatch:
 
 permissions:
