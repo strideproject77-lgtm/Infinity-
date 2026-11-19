@@ -282,14 +282,23 @@ static bool comp_surface(EGLSurface s)
     pthread_mutex_unlock(&g_tex_lock);
     return r;
 }
+static bool rgba_frame_bytes(EGLint w, EGLint h, size_t *bytes)
+{
+    if (w <= 0 || h <= 0 || !bytes) return false;
+    size_t width = (size_t)w, height = (size_t)h;
+    if (width > SIZE_MAX / 4u || height > SIZE_MAX / (width * 4u)) return false;
+    *bytes = width * height * 4u;
+    return true;
+}
+
 /* The current frame of a surface, read back (bottom-up RGBA, in a buffer of this thread's). */
 static const uint8_t *read_back(EGLDisplay d, EGLSurface s, EGLint *pw, EGLint *ph)
 {
     EGLint w = 0, h = 0;
     a_eglQuerySurface(d, s, EGL_WIDTH, &w); a_eglQuerySurface(d, s, EGL_HEIGHT, &h);
-    if (w <= 0 || h <= 0 || !a_glReadPixels) return NULL;
+    size_t need = 0;
+    if (!a_glReadPixels || !rgba_frame_bytes(w, h, &need)) return NULL;
     static __thread uint8_t *buf; static __thread size_t cap;
-    size_t need = (size_t)w * h * 4;
     if (need > cap) { free(buf); buf = malloc(need); cap = buf ? need : 0; }
     if (!buf) return NULL;
     int old_fb = 0, old_pack = 0;
@@ -365,8 +374,13 @@ static void save_frame(EGLDisplay d, EGLSurface s, unsigned long n)
     EGLint w = 0, h = 0;
     a_eglQuerySurface(d, s, EGL_WIDTH, &w);
     a_eglQuerySurface(d, s, EGL_HEIGHT, &h);
-    if (w <= 0 || h <= 0 || !a_glReadPixels) return;
-    uint8_t *rgba = malloc((size_t)w * h * 4);
+    size_t rgba_bytes = 0;
+    if (!a_glReadPixels || !rgba_frame_bytes(w, h, &rgba_bytes)) return;
+    uint64_t rowbytes64 = (((uint64_t)(uint32_t)w * 3u) + 3u) & ~3ull;
+    uint64_t image_bytes64 = rowbytes64 * (uint32_t)h;
+    if (rowbytes64 > UINT32_MAX || image_bytes64 > UINT32_MAX - 54u) return;
+    uint8_t *rgba = malloc(rgba_bytes);
+    if (!rgba) return;
     int old_fb = 0, old_pack = 0;
     a_glGetIntegerv(0x8CAA /* GL_READ_FRAMEBUFFER_BINDING */, &old_fb);
     a_glGetIntegerv(0x0D05 /* GL_PACK_ALIGNMENT */, &old_pack);
@@ -384,13 +398,14 @@ static void save_frame(EGLDisplay d, EGLSurface s, unsigned long n)
     }
     FILE *f = fopen(path, "wb");
     if (f) {
-        uint32_t rowbytes = ((uint32_t)w * 3 + 3) & ~3u, size = 54 + rowbytes * (uint32_t)h;
+        uint32_t rowbytes = (uint32_t)rowbytes64, size = 54u + (uint32_t)image_bytes64;
         uint8_t hdr[54] = { 'B', 'M' };
         memcpy(hdr + 2, &size, 4); uint32_t off = 54; memcpy(hdr + 10, &off, 4);
         uint32_t dib = 40; memcpy(hdr + 14, &dib, 4); memcpy(hdr + 18, &w, 4); memcpy(hdr + 22, &h, 4);
         hdr[26] = 1; hdr[28] = 24; uint32_t img = rowbytes * (uint32_t)h; memcpy(hdr + 34, &img, 4);
         fwrite(hdr, 1, 54, f);
         uint8_t *row = calloc(1, rowbytes);
+        if (!row) { fclose(f); free(rgba); return; }
         for (int y = 0; y < h; y++) {
             const uint8_t *src = rgba + (size_t)y * w * 4;
             for (int x = 0; x < w; x++) { row[x * 3] = src[x * 4 + 2]; row[x * 3 + 1] = src[x * 4 + 1]; row[x * 3 + 2] = src[x * 4]; }
@@ -410,9 +425,9 @@ static void tex_swap(EGLDisplay d, EGLSurface s, void *win)
 {
     EGLint w = 0, h = 0;
     a_eglQuerySurface(d, s, EGL_WIDTH, &w); a_eglQuerySurface(d, s, EGL_HEIGHT, &h);
-    if (w <= 0 || h <= 0 || !a_glReadPixels) return;
+    size_t need = 0;
+    if (!a_glReadPixels || !rgba_frame_bytes(w, h, &need)) return;
     static __thread uint8_t *buf; static __thread size_t cap;
-    size_t need = (size_t)w * h * 4;
     if (need > cap) { free(buf); buf = malloc(need); cap = buf ? need : 0; }
     if (!buf) return;
     int old_fb = 0, old_pack = 0;
