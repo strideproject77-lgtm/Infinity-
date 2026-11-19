@@ -400,7 +400,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "array->arr.len != access->length",
             "typedef struct jni_critical_array_access",
             "static __thread jni_critical_array_access *t_critical_array_accesses",
-            "tracking JNI critical array access",
+            "allocating JNI critical array copy",
             "critical array pointer is not outstanding for this array",
             "static size_t jni_critical_element_size(char etype)",
             "static bool jni_critical_array_copyback(jni_critical_array_access *access)",
