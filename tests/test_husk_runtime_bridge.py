@@ -430,6 +430,20 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
 
+    def test_bionic_semaphore_rejects_unsupported_process_sharing(self):
+        source = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
+        for marker in (
+            "if (pshared == 1)",
+            "This host semaphore is process-local",
+            'tl_set_guest_errno(95); /* ENOTSUP in the Bionic errno namespace */',
+            "host_sem *s = make_sem(value);",
+            "if (!s) { tl_set_guest_errno(12); return -1; }",
+            "abs->tv_nsec < 0 || abs->tv_nsec >= 1000000000L",
+            "if (!g || !v) { tl_set_guest_errno(22); return -1; }",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, source)
+
     def test_jni_array_length_checks_jint_boundary(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
