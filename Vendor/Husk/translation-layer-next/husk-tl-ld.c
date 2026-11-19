@@ -122,6 +122,7 @@ struct tl_lib {
 };
 static inline bool data_page(const tl_lib *L, size_t page);
 static bool in_code(const tl_lib *L, uint64_t vaddr);
+static bool image_range_fits(const tl_lib *L, uint64_t vaddr, uint64_t bytes);
 static bool writable_range(const tl_lib *L, uint64_t lo, uint64_t hi);
 static inline bool writable_vaddr(const tl_lib *L, uint64_t va) { return writable_range(L, va, va + 1); }
 static bool redirect_data(const tl_lib *L, uint64_t vaddr);
@@ -1844,8 +1845,8 @@ static void reloc_both(tl_lib *L, uint64_t off, size_t bytes)
 
 static bool reloc_one_into(tl_lib *L, uint64_t r_offset, uint32_t type, uint32_t symidx, int64_t addend)
 {
+    if (!image_range_fits(L, r_offset, 8)) return false;
     uint64_t off = r_offset - L->base_vaddr;
-    if (off + 8 > L->npages * PAGE) return false;
     /* An imported dylib maps a code page read-only (it is signed and executable). Nothing writes there: the JIT region's views are one
      * memory, but a dylib's are not, so a relocation that names a code page stays as the .so has it. A page that shares its data with
      * code is not code on the data half: it has a writable copy, and the relocation goes there. */
@@ -1873,13 +1874,19 @@ static bool reloc_one_into(tl_lib *L, uint64_t r_offset, uint32_t type, uint32_t
     }
     case R_IRELATIVE: {
         /* The resolver is guest code: run it, store what it returns. */
-        uint64_t (*resolver)(void) = (uint64_t (*)(void))(uintptr_t)(L->rx + ((uint64_t)addend - L->base_vaddr));
+        uint64_t resolver_vaddr = (uint64_t)addend;
+        if (!image_range_fits(L, resolver_vaddr, 4)) return false;
+        uint64_t (*resolver)(void) = (uint64_t (*)(void))(uintptr_t)(L->rx + (resolver_vaddr - L->base_vaddr));
         *place = resolver();
         return true;
     }
     case R_TLSDESC: case R_TLS_DTPMOD: case R_TLS_DTPREL: {
         uint64_t symoff = 0;
         if (symidx) {
+            if (symidx >= L->ncache) {
+                tl_log_line("ld: %s: TLS relocation references symbol %u beyond the validated dynamic symbol table", L->name, symidx);
+                return false;
+            }
             const elf_sym *ts = sym_at(L, symidx);
             if (ts->st_shndx == SHN_UNDEF_) {
                 const char *tls_name = sym_name(L, ts);
@@ -1890,7 +1897,7 @@ static bool reloc_one_into(tl_lib *L, uint64_t r_offset, uint32_t type, uint32_t
         }
         if (!L->tls_id) { tl_log_line("ld: %s: a TLS relocation but no TLS segment", L->name); return false; }
         if (type == R_TLSDESC) {
-            if (off + 16 > L->npages * PAGE) return false;
+            if (!image_range_fits(L, r_offset, 16)) return false;
             place[0] = (uint64_t)(uintptr_t)&tl_tlsdesc_entry;
             place[1] = ((uint64_t)L->tls_id << 32) | (uint32_t)(symoff + (uint64_t)addend);
         } else if (type == R_TLS_DTPMOD) {
@@ -1990,6 +1997,7 @@ static bool do_relr(tl_lib *L, size_t *count)
     for (size_t i = 0; i < L->relrsz / 8; i++) {
         uint64_t word = rd64(w + i * 8);
         if (!(word & 1)) {
+            if (!image_range_fits(L, word, 8)) return false;
             if (!reloc_one(L, word, R_RELATIVE, 0, (int64_t)rd64(waddr(L, word - L->base_vaddr)))) return false;
             (*count)++;
             where = word + 8;
@@ -1997,6 +2005,7 @@ static bool do_relr(tl_lib *L, size_t *count)
             for (unsigned b = 1; b < 64; b++) {
                 if (word & (1ull << b)) {
                     uint64_t a = where + (uint64_t)(b - 1) * 8;
+                    if (!image_range_fits(L, a, 8)) return false;
                     if (!reloc_one(L, a, R_RELATIVE, 0, (int64_t)rd64(waddr(L, a - L->base_vaddr)))) return false;
                     (*count)++;
                 }
