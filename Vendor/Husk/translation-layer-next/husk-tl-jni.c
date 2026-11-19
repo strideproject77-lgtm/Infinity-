@@ -1282,7 +1282,21 @@ static jo jni_NewString(void *env, const uint16_t *chars, int32_t len)
     if (!o) tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI string");
     return local_frame_adopt(o);
 }
-static int32_t jni_GetStringLength(void *env, jo s) { (void)env; return (int32_t)utf16_len(tl_jni_string(s) ? tl_jni_string(s) : ""); }
+static int32_t jni_GetStringLength(void *env, jo s)
+{
+    (void)env;
+    const char *value = tl_jni_string(s);
+    if (!value) {
+        tl_jni_throw("java/lang/NullPointerException", "GetStringLength received a null or non-string reference");
+        return 0;
+    }
+    size_t length = utf16_len(value);
+    if (length > INT32_MAX) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "JNI UTF-16 string exceeds jint length");
+        return 0;
+    }
+    return (int32_t)length;
+}
 typedef enum {
     JNI_STRING_ACCESS_UTF16 = 1,
     JNI_STRING_ACCESS_MUTF8 = 2,
@@ -1302,7 +1316,7 @@ static bool jni_string_access_track(jobj *string, void *buffer, jni_string_acces
     if (!string || !buffer) return false;
     jni_string_access *access = malloc(sizeof(*access));
     if (!access) return false;
-    access->string = string;
+    access->string = tl_jni_ref(string);
     access->buffer = buffer;
     access->kind = kind;
     access->next = t_string_accesses;
@@ -1323,6 +1337,7 @@ static bool jni_string_access_release(jobj *string, const void *buffer, jni_stri
     jni_string_access *access = *slot;
     *slot = access->next;
     free(access->buffer);
+    tl_jni_unref(access->string);
     free(access);
     return true;
 }
@@ -1333,6 +1348,7 @@ static void jni_string_accesses_detach(void)
         jni_string_access *access = t_string_accesses;
         t_string_accesses = access->next;
         free(access->buffer);
+        tl_jni_unref(access->string);
         free(access);
     }
 }
