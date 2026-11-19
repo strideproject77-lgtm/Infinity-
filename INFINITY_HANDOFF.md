@@ -87,3 +87,16 @@
 - Runtime preparation now reports a dedicated, explicit error when an imported package requires split APK loading. Split packages remain blocked from unsafe base-APK-only execution.
 - Updated host-side source-contract tests to assert the always-visible Launch action and the split-package safety gate.
 - Source changes committed on `main`; no IPA build or device execution was started. The Launch button visibility is source-verified, not yet verified in an installed build. Subway Surfers compatibility remains unverified until a real device launch test.
+
+
+## 2026-11-19 — Advanced Husk session logging and launch diagnostics
+
+- Added an INFINITY-integrated adaptation of Husk's upstream `host-reference/HuskLog.swift`, retaining the GPL-2.0-or-later notice and recording the upstream source in the file header.
+- The native logger starts immediately before the first APK runtime preparation call. It redirects process stdout/stderr into durable native output files, mirrors messages into the in-app ring buffer and unified log, retains previous-run logs, and installs the upstream fatal-signal / uncaught-exception diagnostic handlers while leaving the JIT trap signals untouched.
+- Added a per-launch structured session log under `Documents/INFINITY/SessionLogs/<package>/`. It records app/build/device metadata, launch request, split-package gate, engine selection, APK validation, data/runtime readiness, JIT-less preparation, Husk launch acceptance, runtime state transitions, periodic FPS/mean/max frame time, pause/resume, errors, and shutdown outcome.
+- The launch surface now exposes a live Session Log viewer. It displays structured launch events and the latest native Husk output, and provides separate share/export actions for the session event log, `husk.log`, and `husk-native.log`.
+- Removed the previous deletion of the single `native-run.log`; each attempt now receives a unique diagnostic filename so earlier evidence is not overwritten.
+- Kept the APK detail screen's always-visible Launch action. Unsupported engine detection now reports a specific error; split APK execution remains safely blocked until split loading is implemented.
+- Added source-contract tests for native stderr capture, crash-log wiring, persistent session events, performance/error logging, log export, and unique native diagnostic files.
+- Verification status: source changes are committed on `main`; GitHub Actions validation is pending. No macOS build, IPA packaging, signing, or on-device APK launch was started. The native capture and UI are not claimed as build- or device-verified until CI and a real device test pass.
+- Limitation to preserve in reports: a hard OS jetsam kill or power loss may prevent a clean session-end event; the previous-run native log rotation is intended to preserve the available crash evidence. Raw upstream diagnostics are captured through stdout/stderr, while structured INFINITY lifecycle/performance events are recorded separately.
