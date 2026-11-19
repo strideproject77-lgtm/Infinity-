@@ -68,3 +68,15 @@
 - Updated the framework validation step to locate the resolved `swift-asn1/build/Debug-iphoneos` directory after package resolution and pass it through Xcode's `SWIFT_INCLUDE_PATHS` build setting. The step fails with an explicit message if the expected directory is absent.
 - This is a targeted build-configuration workaround; it is not yet verified until the automatically triggered framework validation completes. Do not claim the framework or IPA build is successful yet.
 - APK import UI/store source remains unchanged. No device import test or IPA artifact exists from run `44435588398`.
+
+
+## Codemagic three-ZIP artifact split — 2026-11-19
+
+- Replaced the previous single-output packaging behavior with three distinct ZIP outputs:
+  - `INFINITY-LiveContainer-Only.zip`: contains only `LiveContainer.ipa` at the ZIP root.
+  - `INFINITY-LiveContainer-SideStore.zip`: contains only `LiveContainer+SideStore.ipa` at the ZIP root.
+  - `INFINITY-Complete-Artifacts.zip`: preserves the existing full bundle with both IPA files, `archive.xcarchive`, available build/archive/submodule logs, metadata, and `BUILD-INFO.txt`.
+- Updated `codemagic.yaml` to publish all three ZIP files as separate Codemagic artifacts. The GitHub log mirror behavior is unchanged.
+- The packaging script validates each ZIP with `unzip -t` and fails if either IPA or the Xcode archive is missing.
+- Changes committed on `main`: packaging script commit `d2acc89`; Codemagic artifact declaration commit `e1c3aa0`; handoff update follows.
+- This is source/configuration verification only. No Codemagic build was started; the three ZIP outputs have not yet been produced by a real run.
