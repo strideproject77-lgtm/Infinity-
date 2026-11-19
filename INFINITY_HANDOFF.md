@@ -814,3 +814,34 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Tests were added but NOT run. No workflow manually dispatched; no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device test.
 - Work remains on main; Strata and SideStore untouched; Husk license/attribution preserved.
 - Next large batch: continue NDK NativeActivity/window/input and ART/JNI lifecycle work, keeping unsupported APIs explicit rather than claiming fake compatibility.
+
+
+## 2026-11-20 — Bionic timed mutex and semaphore ABI completion
+
+### Existing work confirmed before editing
+- The 80% baseline is already present on `main`: GNU ELF symbol versioning and dependency-specific version binding, Bionic `dlvsym`, pthread identity/condition-clock APIs, and caller-owned pthread stacks.
+- NativeActivity support is also already present in `husk-tl-nativeactivity.c/.h`, including a generic `ANativeActivity_onCreate` path, lifecycle callbacks, window creation/resizing, touch forwarding, controller forwarding, and pause/resume callbacks. This existing subsystem was inspected and was not counted again as new work. It remains an adapter with known gaps (notably its placeholder input queue and incomplete shutdown lifecycle), not a complete Android NDK implementation.
+
+### Implemented on main
+- Added Bionic `pthread_mutex_timedlock` with absolute CLOCK_REALTIME deadline handling, timespec nanosecond validation, immediate try-lock success, and explicit ETIMEDOUT reporting.
+- Added Bionic `pthread_mutex_clocklock` with explicit CLOCK_REALTIME/CLOCK_MONOTONIC selection and rejection of unsupported clock IDs.
+- Both timed-lock paths use the guest mutex's existing lazily-created host mutex and update optional mutex-owner tracing after successful acquisition.
+- Added semaphore initialization validation for supported process-sharing values and the Bionic signed count limit.
+- `sem_post` now detects count overflow and reports guest EOVERFLOW instead of allowing signed integer overflow.
+- Added source-contract regression assertions for the new mutex and semaphore behavior.
+
+### Commits
+- Timed mutex locking and semaphore overflow semantics: `8464911cc8a9ab700a416d7e527b10604d17305d`
+- Integer-limit include required by semaphore bounds: `3d1da9f1570217a2367e1cb3d997a0c0b1b470a2`
+- Regression contract coverage: `c1c76214f973a39acc15405d80baadb9b5274666`
+
+### Integration status and evidence
+- **Overall Husk source integration estimate: 81%** (previous handoff estimate: 80%; +1 percentage point). The increase is limited to the newly implemented timed-mutex and semaphore ABI behavior. This is a transparent engineering estimate based on source-level subsystem coverage, not a mathematically measured percentage or an APK compatibility score.
+- **Verified runtime/device execution remains 0% demonstrated.** The new tests are source-contract assertions only and were not run in this batch.
+- No GitHub Actions workflow was dispatched; no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device test was started.
+- Strata host architecture and SideStore systems were not changed. Husk license and attribution notices remain intact.
+
+### Next large project-wide batch
+- Complete NativeActivity input delivery and lifecycle teardown rather than counting its existing placeholder queue as complete.
+- Audit Bionic robust-mutex/owner-death semantics against what the Apple host can actually support; unsupported robust behavior must return an explicit error rather than claim success.
+- Continue JNI global/local reference lifecycle and ART thread attach/detach integration.
