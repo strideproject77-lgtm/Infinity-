@@ -219,6 +219,7 @@ struct INFINITYAPKLaunchView: View {
 
     @StateObject private var runtime = INFINITYHuskRuntime()
     @StateObject private var sessionLogger = INFINITYHuskSessionLogger()
+    @ObservedObject private var gamepads = INFINITYHuskGamepadManager.shared
     @State private var showSessionLog = false
     @State private var metalLayer: CAMetalLayer?
     @State private var launchAttempted = false
@@ -299,6 +300,16 @@ struct INFINITYAPKLaunchView: View {
                         Image(systemName: "doc.text.magnifyingglass")
                     }
                     .accessibilityLabel("View Session Log")
+                }
+                if !gamepads.names.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "gamecontroller.fill")
+                        Text(gamepads.names.joined(separator: ", "))
+                            .lineLimit(1)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Connected controllers: " + gamepads.names.joined(separator: ", "))
                 }
                 if !runtime.isRunning && !launchAttempted {
                     ProgressView("Preparing Android surface…")
