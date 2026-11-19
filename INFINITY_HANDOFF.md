@@ -1258,3 +1258,31 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Implement an actual NDK-compatible NativeActivity input queue backed by real translated touch/key events and lifecycle ownership; do not fabricate an input queue pointer.
 - Keep ART/JNI unsupported behavior explicit until the underlying semantics are implemented.
 - Preserve the no-test/no-compile/no-workflow/no-IPA gate until the agreed source integration scope is genuinely complete.
+
+## 2026-11-20 — Bionic pthread lazy-object initialization failure safety
+
+### Implemented on main
+- Reworked lazy host pthread-object creation so a failed initializer is never published with `MAGIC_READY`; the guest object returns to the zero/uninitialized state and a later call may retry safely.
+- Added per-thread host error propagation from the lazy initializer to Bionic-facing wrappers.
+- `make_mutex` now checks mutex-attribute initialization/type setup, allocation, and `pthread_mutex_init`, cleaning up partial state on every failure.
+- `make_cond` and `make_rwlock` now check allocation and pthread initialization results, freeing partially created objects on failure.
+- Mutex, condition-variable, and rwlock entry points now check the host object before calling pthread APIs and return mapped errors instead of dereferencing null pointers.
+- Condition timed-wait paths now validate the absolute timespec and check `clock_gettime` before timeout arithmetic.
+- Added source-contract assertions for the initialization failure and propagation paths.
+
+### Commits
+- Lazy pthread object creation and initializer failure handling: `38d6ce735f0044ddaf41890b547e013ec250201e`
+- Safe error propagation through mutex/condition/rwlock operations: `35b7297f31eaca9f9a75e9f03c8bf1510deba5fe`
+- Pthread initialization failure source-contract coverage: `bdecef7723cd0f9239eb5759f579eb53b2f96d6e`
+
+### Integration status and verification
+- **Overall Husk source integration estimate remains 99%.** This batch hardens real Bionic pthread failure paths, but it does not close the outstanding JNI reference-handle model or genuine NativeActivity NDK input queue contract.
+- Source-contract assertions were added but not executed. Only source inspection/static marker checks are permitted at this stage; no compiler was run.
+- No GitHub workflow, IPA build/export, signing, or device testing was started.
+- JNI local/global/weak-global reference identity remains incomplete; genuine NDK `AInputQueue` delivery remains absent; complete ART/JNI VM lifecycle, exception/class-loader semantics, and actual VM/GC critical-region pinning remain outstanding.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next implementation targets
+- Convert JNI object references coherently across every guest-facing JNI argument/return boundary before claiming local/global/weak-global reference identity.
+- Implement the actual NativeActivity input queue with valid NDK queue/event ownership and the existing translated touch/key sources; do not fabricate an opaque queue.
+- Continue source-only work and preserve the no-test/no-compile/no-workflow/no-IPA gate until the integration scope is genuinely complete.
