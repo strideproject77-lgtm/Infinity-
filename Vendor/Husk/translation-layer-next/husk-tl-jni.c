@@ -827,6 +827,7 @@ static jo new_object(jo cls, void *mid, int how, const jvalue *a, tl_va_list *ap
     if (m) {
         jvalue local[16];
         jvalue *args = how == 1 ? va_arguments(m, ap, local) : (jvalue *)a;
+        if (!args && how == 1 && tl_jni_pending()) { tl_jni_unref(o); return NULL; }
         if (!m->valid_sig) {
             tl_jni_throw("java/lang/NoSuchMethodError", "invalid JNI constructor descriptor");
             tl_jni_unref(o); return NULL;
