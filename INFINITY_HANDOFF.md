@@ -501,7 +501,7 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Files changed: Vendor/Husk/translation-layer-next/husk-tl-jni.c, Vendor/Husk/translation-layer-next/husk-tl-jni-internal.h, Vendor/Husk/translation-layer-next/husk-tl-dvm.c, and tests/test_husk_runtime_bridge.py.
 
 ### INFINITY + Husk integration status (engineering estimate, not a test result)
-- **Overall source integration estimate: 38%.** Conservative engineering estimate based on import/storage, Strata management/detail/launch surfaces, Swift-to-Husk bridge, and partial native/DEX/JNI/graphics/input implementations. This is not a measured compatibility score.
+- **Overall source integration estimate: approximately 60%.** Use the later, area-weighted breakdown in this handoff as the current source-level estimate; the earlier 38% note was a conservative interim snapshot and is superseded. This is not a measured compatibility score.
 - **Verified real APK execution on iPhone: 0% demonstrated in this handoff.** No current successful 2048 device launch evidence is recorded, so game compatibility percentages must remain unclaimed.
 - **Strata APK import and app-management surfaces:** implemented in source; device behavior/build not currently verified.
 - **Swift/Objective-C/C launch bridge:** source wiring exists; end-to-end invocation and lifecycle remain unverified.
@@ -526,3 +526,22 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Follow-up cleanup in this batch: the shared JNI varargs conversion helper is now used by both the small-stack and heap-backed argument paths, avoiding duplicated conversion logic.
 
 - Additional JNI safety follow-up: String constructor results are now copied into the placeholder object only after UTF-8/UTF-16 allocations succeed, with overflow and allocation failures converted to Java OutOfMemoryError. JNI A-call paths validate descriptors and non-empty argument arrays before String constructor handling.
+
+
+## 2026-11-19 — 2048-path DEX metadata and static-value hardening
+
+### Implemented in source
+- Added DEX header validation before the interpreter indexes any ID tables: declared file size, 0x70-byte header size, standard little-endian tag, map offset, data section range, and string/type/proto/field/method/class table ranges are checked with overflow-safe count/stride arithmetic.
+- Replaced unbounded encoded-value parsing with a bounded recursive parser. ULEB128 reads are capped and checked against the DEX mapping; nested arrays and annotations have a recursion ceiling; string/type/field/method/proto references are checked against their declared table counts.
+- Static-value arrays are now checked for a valid offset, a valid count no larger than the class's static-field count, and fully bounded values. Invalid/truncated arrays are logged and class statics retain their zero/default values rather than reading past the DEX buffer.
+- Added source-contract regression checks for DEX header/table bounds and recursive static-value parsing.
+
+### 2048 relevance and remaining work
+- This hardens the metadata path used when linking app classes, including generated `R$*` classes. It does **not** implement missing Android resource APIs and does not prove that `R$layout;->activity_main:I` now resolves on the target APK.
+- Current engineering estimate for 2048-specific source readiness remains **approximately 45%**; no new successful launch evidence exists. This is an implementation estimate, not a probability or compatibility result.
+- Overall Husk source integration remains **approximately 60%** using the area-weighted breakdown above. Verified 2048 execution on iPhone remains **0% demonstrated** until a real device launch succeeds.
+- Next priority remains: resolve the exact R$layout static-field failure from a fresh 2048 log, then implement the resource-table/layout APIs that the trace actually requests, followed by Activity lifecycle and rendering gaps.
+
+### Verification and constraints
+- Source-contract tests were added but **not run**. No workflow, Xcode compile, device launch, IPA build, Codemagic job, signing or export was started.
+- All changes are on `main`; Strata remains intact, SideStore systems were not modified, and Husk attribution/license notices remain preserved.
