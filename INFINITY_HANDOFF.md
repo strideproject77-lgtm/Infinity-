@@ -565,3 +565,26 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Overall Husk source integration remains approximately 60%. No basis for increasing the overall figure from this JNI change alone.
 - Regression test added but not run. No GitHub Actions workflow was manually started, no Xcode/macOS build, device launch, IPA build, Codemagic, signing or export was performed.
 - Work remains on main; Strata preserved; SideStore untouched.
+
+
+## 2026-11-19 — 2048 DEX field-linking and class-data hardening batch
+
+### Implemented on main
+- **Field resolution cache correctness:** DEX field cache entries now record whether the access was static or instance. A field reference resolved through one opcode family can no longer poison the other access mode's cache.
+- **Static/instance mismatch semantics:** the resolver checks the opposite field category when the expected category is absent and reports `IncompatibleClassChangeError` for a static field accessed as an instance field, or vice versa.
+- **Field index safety:** malformed field indices and allocation failures produce a controlled `VerifyError` path instead of indexing outside the DEX field table/cache.
+- **Class-data validation:** validates bounded ULEB128 counts and field/method index deltas before linking; rejects truncated class-data items, out-of-range member IDs and invalid code-item instruction/try ranges.
+- **Prototype and interface validation:** verifies method prototype indices, return/parameter type IDs, parameter-list bounds, interface-list offsets/counts and interface type IDs before dereferencing.
+- **Allocation guards:** member-table and interface-list allocations are checked before use.
+- **Regression contracts:** added checks for field-cache staticness, malformed field indices, class-data bounds, prototype validation and interface-list bounds.
+
+### 2048 relevance
+- The earlier failure `R$layout;->activity_main:I` occurs at DEX field resolution. This batch addresses a concrete cache-key/staticness weakness and strengthens linking of generated resource classes.
+- It is still **not confirmed fixed**: no new 2048 launch/log was produced. Resource table lookup, layout inflation, Activity lifecycle and rendering still need trace-driven implementation.
+- **2048 source-readiness estimate remains 45%**; **verified iPhone execution remains 0% demonstrated**. These are not compatibility claims.
+- **Overall Husk source integration remains approximately 60%**, using the existing area-weighted breakdown; no unsupported percentage increase is claimed.
+
+### Verification and constraints
+- Regression source tests were added but not manually executed in this session. The repository's push-triggered Linux workflow status should be checked separately; no macOS/Xcode build, device run, IPA build, signing/export or Codemagic run was initiated.
+- Work remains on `main`; Strata is preserved, SideStore systems are untouched, and upstream Husk license/attribution notices remain intact.
+- Next priority: inspect the Linux workflow result, then obtain a fresh 2048 runtime trace when the owner authorizes the consolidated device test. Use the first actual missing field/API/resource from that trace to drive the next implementation batch.
