@@ -524,3 +524,5 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 
 
 - Follow-up cleanup in this batch: the shared JNI varargs conversion helper is now used by both the small-stack and heap-backed argument paths, avoiding duplicated conversion logic.
+
+- Additional JNI safety follow-up: String constructor results are now copied into the placeholder object only after UTF-8/UTF-16 allocations succeed, with overflow and allocation failures converted to Java OutOfMemoryError. JNI A-call paths validate descriptors and non-empty argument arrays before String constructor handling.
