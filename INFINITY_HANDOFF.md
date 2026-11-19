@@ -605,3 +605,23 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Added a source-contract assertion to prevent regression.
 - The automatic Ubuntu test run for the preceding implementation commit completed successfully: **67 tests passed**, including source-contract and APK archive tests; shell build-script syntax checks also passed.
 - The four expensive macOS runtime workflows now expose only `workflow_dispatch`; they will not be automatically queued by ordinary source pushes. The IPA builder remains separately manual.
+
+
+## 2026-11-19 — Project-wide Husk Java runtime asset pipeline hardening
+
+### Implemented on main
+- Reworked `Vendor/Husk/build-support/build_java_runtime.sh` into a preflighted, staged runtime build. APEX inputs, ICU data, timezone data, JDK tools, D8, Conscrypt, legacy HTTP and framework resources are validated before the existing runtime output is touched.
+- Removed the destructive build-in-place behavior. Runtime files are generated in a temporary sibling directory, required outputs (`husk-framework.dex`, `husk-framework-core.dex`, `org.apache.http.legacy.jar`, and `framework-res.apk`) are checked, and only then is the staged directory promoted. If promotion fails, the previous complete runtime is restored.
+- Made the Android APEX root, JDK, D8, legacy HTTP jar, framework resource APK and system root configurable through environment variables while preserving the existing local defaults.
+- Kept Android ICU native libraries optional because their exact set varies by Android image, but made ICU data and timezone data mandatory and consistently staged.
+- Hardened `infinity_husk_prepare_java` so a Java runtime missing ICU data or timezone data is rejected before Java/Dalvik startup instead of entering a partially configured runtime.
+- Added source-contract coverage for the preflight, staged promotion, rollback and native runtime asset checks.
+
+### Integration status
+- Overall Husk source integration estimate remains **approximately 60%**; this infrastructure-hardening batch does not justify inflating the percentage.
+- Verified real-device APK execution remains **0% demonstrated**. No game or individual APK was targeted in this batch.
+- Strata host architecture and SideStore systems were not changed. Husk license and attribution files remain intact.
+
+### Verification and constraints
+- Tests were added but not run in this session. No workflow was manually dispatched, no Xcode/macOS build, IPA packaging, Codemagic build, signing/export or device launch was started.
+- Work remains on `main`. Next project-wide targets are a full native runtime dependency/ABI audit and closing the remaining Swift/C/Husk lifecycle and diagnostic propagation gaps.
