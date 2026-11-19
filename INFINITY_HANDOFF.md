@@ -486,3 +486,38 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - This batch is source-only. The new/updated source-contract tests were **not run**. No GitHub Actions job was dispatched or rerun; no Xcode build, IPA packaging, signing, export, Codemagic build, or device execution was performed.
 - The previous handoff's successful Linux test run is historical baseline evidence and does not validate these new commits.
 - Work remains on main; no SideStore files or systems were changed. Preserve Husk license and attribution notices.
+
+
+## 2026-11-19 — Extra-large DEX/JNI hardening batch and integration status
+
+### Implemented in this batch
+- JNI method descriptors now use a validating parser for primitive, object, and array types. It rejects malformed descriptors, invalid void usage, malformed object names, excessive array dimensions, trailing garbage, and more than 255 parameters.
+- JNI method metadata now stores up to 255 argument kinds and tracks whether the descriptor was validated. Invalid method invocation returns a Java exception instead of trusting malformed metadata.
+- Replaced fixed 40-value JNI varargs arrays with a small local fast path and dynamically allocated argument storage for larger signatures. Allocation failure raises OutOfMemoryError; dynamically allocated arrays are freed after use.
+- JNI object, string, primitive-array and object-array allocation paths now check allocation failures before dereferencing returned memory.
+- JNI invocation and constructor paths validate descriptor/argument-array consistency, while preserving legitimate zero-argument calls.
+- DEX invoke dispatch now validates prototype parameter widths against the encoded register count, checks wide (long/double) slot widths, rejects truncated prototypes and verifies every supplied register index is inside the caller's frame.
+- Added source-contract regression checks for JNI descriptor parsing/varargs and DEX invoke register validation.
+- Files changed: Vendor/Husk/translation-layer-next/husk-tl-jni.c, Vendor/Husk/translation-layer-next/husk-tl-jni-internal.h, Vendor/Husk/translation-layer-next/husk-tl-dvm.c, and tests/test_husk_runtime_bridge.py.
+
+### INFINITY + Husk integration status (engineering estimate, not a test result)
+- **Overall source integration estimate: 38%.** Conservative engineering estimate based on import/storage, Strata management/detail/launch surfaces, Swift-to-Husk bridge, and partial native/DEX/JNI/graphics/input implementations. This is not a measured compatibility score.
+- **Verified real APK execution on iPhone: 0% demonstrated in this handoff.** No current successful 2048 device launch evidence is recorded, so game compatibility percentages must remain unclaimed.
+- **Strata APK import and app-management surfaces:** implemented in source; device behavior/build not currently verified.
+- **Swift/Objective-C/C launch bridge:** source wiring exists; end-to-end invocation and lifecycle remain unverified.
+- **Husk ELF/native loader and Bionic compatibility:** partial source implementation; complete Android ABI coverage and app execution not demonstrated.
+- **JNI and DEX:** substantial interpreter/bridge code exists and this batch adds descriptor/frame validation; ART completeness, GC correctness, class initialization/dispatch edge cases and framework interop remain incomplete/unverified.
+- **Android framework:** partial framework DEX/API layer; the 2048-specific missing framework calls and resource behavior still need tracing against a fresh device log.
+- **Graphics, touch and gamepad:** EGL surface handling and input/controller bridges exist; real game rendering, audio, frame pacing and controller behavior on device are not verified.
+- **XAPK/APKS/APKM split packages:** import/extraction exists, but the current launch ABI still blocks split-required packages. Do not pass only the base APK.
+- **Diagnostics:** session logs and iOS memory/thermal warnings exist; real runtime metrics and FPS are not yet proven.
+
+### Next implementation priority
+1. Trace and repair the real 2048 path from package metadata through DEX class loading, R$layout static field resolution, framework resource calls, Activity lifecycle and rendering.
+2. Implement a proper multi-split package ABI/loader for XAPK/APKS/APKM without dropping configuration/resource/native-library splits.
+3. Close Swift/C/Husk lifecycle and error propagation gaps; only then broaden Android framework API coverage based on actual 2048 logs.
+
+### Validation and constraints
+- Source-contract tests were added but **not run** in this batch.
+- No GitHub Actions workflow was dispatched or rerun; no Xcode compilation, device execution, IPA build, Codemagic build, signing or export was performed.
+- This status update does not claim successful game execution or complete Husk/ART compatibility. Work remains on main; SideStore systems were not changed.
