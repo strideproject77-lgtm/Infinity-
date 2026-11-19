@@ -38,6 +38,7 @@ static uint32_t hash_str(const char *s) { uint32_t h = 2166136261u; while (*s) {
 static jobj *obj_alloc(uint8_t kind, tl_jclass *cls)
 {
     jobj *o = calloc(1, sizeof(*o));
+    if (!o) return NULL;
     o->refs = 1;
     o->kind = kind;
     o->cls = cls;
@@ -151,9 +152,10 @@ jobj *tl_jni_class_object(const char *name) { return tl_jni_class(name)->mirror;
 jobj *tl_jni_new_object(tl_jclass *cls)
 {
     jobj *o = obj_alloc(TL_K_OBJECT, cls);
+    if (!o) return NULL;
     if (tl_dvm && cls && cls->dvm) {
         uint32_t n = tl_dvm->instance_slots(cls);
-        if (n) { o->fields = calloc(n, sizeof(jvalue)); o->nfields = n; }
+        if (n) { o->fields = calloc(n, sizeof(jvalue)); if (!o->fields) { free(o); return NULL; } o->nfields = n; }
     }
     return o;
 }
@@ -161,7 +163,9 @@ jobj *tl_jni_new_object(tl_jclass *cls)
 jobj *tl_jni_new_string(const char *utf8)
 {
     jobj *o = obj_alloc(TL_K_STRING, tl_jni_class("java/lang/String"));
+    if (!o) return NULL;
     o->str.utf8 = strdup(utf8 ? utf8 : "");
+    if (!o->str.utf8) { free(o); return NULL; }
     return o;
 }
 
@@ -177,8 +181,10 @@ jobj *tl_jni_new_prim_array(char etype, uint32_t len)
     if (etype == 'Z' || etype == 'B' || etype == 'C' || etype == 'S' || etype == 'I' || etype == 'J' || etype == 'F' || etype == 'D') { /* ok */ }
     char cn[4] = { '[', etype, 0 };
     jobj *o = obj_alloc(TL_K_PRIM_ARRAY, tl_jni_class(cn));
+    if (!o) return NULL;
     o->arr.esz = esz_of(etype); o->arr.etype = etype; o->arr.len = len;
     o->arr.data = calloc(len ? len : 1, o->arr.esz);
+    if (!o->arr.data) { free(o); return NULL; }
     return o;
 }
 
@@ -187,33 +193,45 @@ jobj *tl_jni_new_obj_array(tl_jclass *elem, uint32_t len)
     char cn[1024];
     snprintf(cn, sizeof(cn), "[L%s;", elem ? elem->name : "java/lang/Object");
     jobj *o = obj_alloc(TL_K_OBJ_ARRAY, tl_jni_class(cn));
+    if (!o) return NULL;
     o->oarr.len = len;
     o->oarr.v = calloc(len ? len : 1, sizeof(jobj *));
+    if (!o->oarr.v) { free(o); return NULL; }
     return o;
 }
 
 /* ----------------------------------------------------------- signatures */
 
-static const char *skip_type(const char *p)
+static bool parse_descriptor_type(const char **cursor, bool allow_void, char *kind)
 {
-    while (*p == '[') p++;
-    if (*p == 'L') { while (*p && *p != ';') p++; }
-    return *p ? p + 1 : p;
-}
-
-static void parse_sig(tl_jmeth *m)
-{
-    const char *p = m->sig;
-    m->nargs = 0; m->retk = 'V';
-    if (*p != '(') return;
-    p++;
-    while (*p && *p != ')' && m->nargs < (int)sizeof(m->argk) - 1) {
+    const char *p = *cursor;
+    unsigned dimensions = 0;
+    while (*p == '[') { if (++dimensions > 255) return false; p++; }
+    if (*p == 'L') {
+        const char *begin = ++p;
+        while (*p && *p != ';') { if (*p == '.' || *p == '[' || *p == '(' || *p == ')') return false; p++; }
+        if (p == begin || *p != ';') return false;
+        p++; *kind = 'L';
+    } else {
         char k = *p;
-        m->argk[m->nargs++] = (k == '[') ? 'L' : k;
-        p = skip_type(p);
+        if (!k || (k == 'V' ? (!allow_void || dimensions) : !strchr("ZBCSIJFD", k))) return false;
+        p++; *kind = dimensions ? 'L' : k;
     }
-    if (*p == ')') { p++; m->retk = (*p == '[') ? 'L' : *p; }
-    m->argk[m->nargs] = 0;
+    *cursor = p; return true;
+}
+static bool parse_sig(tl_jmeth *m)
+{
+    const char *p = m->sig; m->nargs = 0; m->retk = 'V'; m->valid_sig = false;
+    if (!p || *p++ != '(') return false;
+    while (*p && *p != ')') {
+        char kind;
+        if (m->nargs >= 255 || !parse_descriptor_type(&p, false, &kind)) return false;
+        m->argk[m->nargs++] = kind;
+    }
+    if (*p++ != ')') return false;
+    char result;
+    if (!parse_descriptor_type(&p, true, &result) || *p) return false;
+    m->retk = result; m->valid_sig = true; return true;
 }
 
 /* ------------------------------------------------- the implemented classes */
@@ -473,6 +491,7 @@ static jvalue g_zero;
 
 static jvalue invoke(jobj *self, tl_jmeth *m, bool nonvirtual, const jvalue *args)
 {
+    if (!m || !m->valid_sig) { tl_jni_throw("java/lang/NoSuchMethodError", "invalid or unresolved JNI method descriptor"); return g_zero; }
     /* A host implementation wins over the APK's bytecode: Subway's AnalyticsBridge.SetupWorkerForAppClosed
      * is in the DEX and throws if WorkManager is missing. */
     tl_jcall c = { .self = self, .cls = m->cls, .args = args };
@@ -553,6 +572,28 @@ static void args_from_va(const tl_jmeth *m, tl_va_list *ap, jvalue *out)
     }
 }
 
+static jvalue *va_arguments(const tl_jmeth *m, tl_va_list *ap, jvalue local[16])
+{
+    if (!m->valid_sig || !ap) { tl_jni_throw("java/lang/NoSuchMethodError", "invalid JNI method descriptor or argument list"); return NULL; }
+    jvalue *args = m->nargs <= 16 ? local : calloc((size_t)m->nargs, sizeof(*args));
+    if (!args) { tl_jni_throw("java/lang/OutOfMemoryError", "JNI argument array"); return NULL; }
+    for (int i = 0; i < m->nargs; i++) {
+        args[i].j = 0;
+        switch (m->argk[i]) {
+        case 'Z': args[i].z = (uint8_t)tl_va_arg_u64(ap); break;
+        case 'B': args[i].b = (int8_t)tl_va_arg_u64(ap); break;
+        case 'C': args[i].c = (uint16_t)tl_va_arg_u64(ap); break;
+        case 'S': args[i].s = (int16_t)tl_va_arg_u64(ap); break;
+        case 'I': args[i].i = (int32_t)tl_va_arg_u64(ap); break;
+        case 'J': args[i].j = (int64_t)tl_va_arg_u64(ap); break;
+        case 'F': args[i].f = (float)tl_va_arg_f64(ap); break;
+        case 'D': args[i].d = tl_va_arg_f64(ap); break;
+        default: args[i].l = (void *)(uintptr_t)tl_va_arg_u64(ap); break;
+        }
+    }
+    return args;
+}
+
 static tl_jmeth *mid_ok(void *mid) { return (tl_jmeth *)mid; }
 
 /* The real work behind every Call*Method: kind 0 instance, 1 nonvirtual, 2 static. */
@@ -593,10 +634,13 @@ static jvalue call_va(int kind, jobj *self, void *mid, tl_va_list *ap)
     tl_jmeth *m = mid_ok(mid);
     if (!m) return g_zero;
     if (kind != 2 && !self) return null_receiver(m);
-    jvalue args[40];
-    args_from_va(m, ap, args);
-    if (kind != 2 && string_init_in_place(self, m, args)) return g_zero;
-    return invoke(kind == 2 ? NULL : self, m, kind == 1, args);
+    jvalue local[16];
+    jvalue *args = va_arguments(m, ap, local);
+    if (!args) return g_zero;
+    jvalue result = (kind != 2 && string_init_in_place(self, m, args))
+        ? g_zero : invoke(kind == 2 ? NULL : self, m, kind == 1, args);
+    if (args != local) free(args);
+    return result;
 }
 
 jvalue tl_jni_call(jobj *self_or_class, const char *name, const char *sig, const jvalue *args)
@@ -777,20 +821,22 @@ static jo new_object(jo cls, void *mid, int how, const jvalue *a, tl_va_list *ap
     if (!cls || cls->kind != TL_K_CLASS) { tl_jni_throw("java/lang/NullPointerException", "class is null"); return NULL; }
     if (!ensure_class_initialized(cls->klass.jc)) return NULL;
     jobj *o = tl_jni_new_object(cls->klass.jc);
+    if (!o) { tl_jni_throw("java/lang/OutOfMemoryError", "JNI object allocation"); return NULL; }
     tl_jmeth *m = mid_ok(mid);
     if (m) {
-        jvalue args[40];
-        if (how == 1) args_from_va(m, ap, args);
-        const jvalue *use = how == 1 ? args : a;
-        /* new String(...) through JNI: ART makes it with StringFactory, as bytecode does. */
+        jvalue local[16];
+        jvalue *args = how == 1 ? va_arguments(m, ap, local) : (jvalue *)a;
+        if (!args || !m->valid_sig) { tl_jni_unref(o); return NULL; }
         if (cls->klass.jc->dvm && !strcmp(cls->klass.jc->name, "java/lang/String") && !strcmp(m->name, "<init>")) {
             bool dvm_string_init(const char *sig, const jvalue *p, jvalue *ret);
             jvalue r = {0};
+            bool ok = dvm_string_init(m->sig, args, &r);
+            if (how == 1 && args != local) free(args);
             tl_jni_unref(o);
-            return dvm_string_init(m->sig, use, &r) ? r.l : NULL;
+            return ok ? r.l : NULL;
         }
-        jvalue r = invoke(o, m, true, use);
-        /* A constructor can stand in for the object it was given: String is not an ordinary object. */
+        jvalue r = invoke(o, m, true, args);
+        if (how == 1 && args != local) free(args);
         if (r.l && ((jobj *)r.l)->kind != TL_K_OBJECT) { tl_jni_unref(o); return r.l; }
         if (r.l && r.l != o) { tl_jni_unref(o); return r.l; }
     }
