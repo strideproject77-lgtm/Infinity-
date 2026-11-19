@@ -48,3 +48,14 @@
 - Added source contract coverage for archive extraction and the Runtime Manager import route.
 - Recent commits: `d68484b9`, `e7b7e29c`, `10301ebe`, `084d6f27`, `664e6769`, `9326a8c3`, `84ca4a11`, `ab894921`.
 - Verification is pending the GitHub Actions run triggered by these `main` pushes. No IPA build, signing, export, or workflow cancellation was performed. APK import/storage is not evidence that APK execution compatibility is verified.
+
+
+## Framework build toolchain alignment — 2026-11-19
+
+- Investigated framework workflow run `44433850998`. Package resolution succeeded; the framework compile failed inside the transitive `swift-srp` → `big-num` dependency with a missing generated `CBigNumBoringSSL.modulemap`, followed by `no such module 'BigNum'`.
+- Confirmed this failure was from the separate framework-only workflow running Xcode 27.2 on the `xcode-27` runner. The canonical IPA workflow and `scripts/build_ipa.sh` are pinned to Xcode 26.2.
+- Aligned the framework-only workflow to `macos-15` + Xcode 26.2, matching the canonical IPA builder. This is a toolchain-consistency correction; it does not claim the dependency issue is fixed until the new framework job completes successfully.
+- APK import source remains in place: the shared picker routes APK/XAPK/APKS/APKM to `INFINITYAPKStore.install(from:)`, while IPA/TIPA retains the original installer. The Runtime Manager importer also supports the four Android formats and reports success/errors.
+- The latest native test workflow on the prior commit passed all 3 jobs, including APK source-contract/archive tests. This is source-level evidence only, not device picker validation.
+- No APK importer code was changed in this toolchain-only correction. The user will perform the on-device import test after receiving a fresh IPA.
+- No IPA build, signing, or export was started. The canonical `build.yml` is manual-dispatch only, and the available GitHub connection cannot dispatch it. User must start that workflow manually after the framework validation; do not enable automatic macOS IPA builds or change the canonical trigger.
