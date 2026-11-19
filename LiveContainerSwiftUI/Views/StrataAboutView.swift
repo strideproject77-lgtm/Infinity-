@@ -2,7 +2,7 @@ import SwiftUI
 
 struct StrataAboutView: View {
     private let profile = URL(string: "https://github.com/huzaifahshahid71-ops")!
-    private let repository = URL(string: "https://github.com/huzaifahshahid71-ops/Strata")!
+    private let repository = URL(string: "https://github.com/strideproject77-lgtm/Infinity-")!
     var body: some View {
         List {
             Section {
@@ -10,16 +10,13 @@ struct StrataAboutView: View {
                     if let icon = UIImage(contentsOfFile: Bundle.main.bundleURL.appendingPathComponent("AppIcon60x60@2x.png").path) {
                         Image(uiImage: icon).resizable().frame(width: 80, height: 80).clipShape(RoundedRectangle(cornerRadius: 19))
                     }
-                    Text("Strata").font(.largeTitle.bold())
+                    Text("INFINITY").font(.largeTitle.bold())
                     Text("Version " + StrataVersion.display + (StrataVersion.channel.map { " · " + $0 } ?? "")).font(.subheadline).foregroundStyle(.secondary)
                     Text("Your apps. Your interface.").font(.subheadline).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity).padding(.vertical, 14)
             }
-            Section("Created by") {
-                Link(destination: profile) { Label("@huzaifahshahid71-ops", systemImage: "person.crop.circle") }.accessibilityIdentifier("strata.about.profile")
-            }
-            Section("Strata on GitHub") {
-                Link(destination: repository) { Label("Source code & project", systemImage: "chevron.left.forwardslash.chevron.right") }.accessibilityIdentifier("strata.about.repository")
+            Section("INFINITY project") {
+                Link(destination: repository) { Label("Source code & project", systemImage: "chevron.left.forwardslash.chevron.right") }.accessibilityIdentifier("infinity.about.repository")
                 Link(destination: repository.appendingPathComponent("releases")) { Label("Releases & updates", systemImage: "arrow.down.circle") }
                 Link(destination: repository.appendingPathComponent("issues")) { Label("Report an issue", systemImage: "ladybug") }
             }
@@ -31,16 +28,16 @@ struct StrataAboutView: View {
                 Link("StosSign", destination: URL(string: "https://github.com/stossy11/StosSign")!)
                 Link("Licenses & third-party notices", destination: repository.appendingPathComponent("blob/main/THIRD_PARTY_NOTICES.md"))
             }
-        }.navigationTitle("About Strata").navigationBarTitleDisplayMode(.inline)
+        }.navigationTitle("About INFINITY").navigationBarTitleDisplayMode(.inline)
     }
 }
 
 struct StrataCreditsButton: View {
-    var location = "strata.about.button"
+    var location = "infinity.about.button"
     @State private var showingAbout = false
     var body: some View {
         Button { showingAbout = true } label: {
-            Label("About Strata & GitHub", systemImage: "info.circle").frame(maxWidth: .infinity, alignment: .leading)
+            Label("About INFINITY", systemImage: "info.circle").frame(maxWidth: .infinity, alignment: .leading)
         }.accessibilityIdentifier(location)
         .sheet(isPresented: $showingAbout) {
             NavigationView {

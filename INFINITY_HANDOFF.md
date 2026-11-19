@@ -303,3 +303,13 @@ The native dispatcher is not a placeholder: it validates APK/data/ANGLE paths, r
 ### Verification boundary
 
 This audit inspected source and upstream call paths only. No GitHub Actions run, Xcode build, Codemagic build, IPA packaging, signing, export, or real-device APK test was started. 2048 and Hill Climb Racing compatibility remain **not verified**. No SideStore source, target, signing, installation, or refresh system was modified.
+
+
+## 2026-11-19 — INFINITY 1.0 product branding
+
+- Rebranded the installed app display name, bundle name, About screen, Settings header/version label, About navigation labels and repository-facing README to **INFINITY 1.0**.
+- Set the main app target's display name and marketing version to INFINITY / 1.0 in both Debug and Release build configurations. Updated the packaged short version/build version and the app's custom version metadata to 1.0.
+- Updated the About screen's project/release/issues links to the current `strideproject77-lgtm/Infinity-` repository.
+- Preserved upstream LiveContainer, SideStore, Husk and other third-party credits and all license/notice files. No upstream license or copyright attribution was removed.
+- Preserved the existing bundle identifier, executable/target names, app groups, notification names, persisted preference keys and `Strata3` on-device storage paths. These are compatibility identifiers/data locations, not visible product branding; renaming them in a branding-only change could break app updates, SideStore integration or existing user data.
+- No workflows, tests, Xcode builds, IPA builds, signing or exports were started. This commit is a source/configuration branding change only; compilation and packaged Info.plist output still require the next authorized build.

@@ -1,12 +1,12 @@
 import SwiftUI
 
 /// Marketing version plus build revision, e.g. "4.0 (r43)", read from the packaged Info.plist.
-enum StrataVersion {
-    static var marketing: String { Bundle.main.object(forInfoDictionaryKey: "StrataMarketingVersion") as? String ?? "4.0" }
-    static var revision: Int? { (Bundle.main.object(forInfoDictionaryKey: "StrataRevision") as? NSNumber)?.intValue }
-    static var channel: String? { Bundle.main.object(forInfoDictionaryKey: "StrataBuildChannel") as? String }
-    static var display: String { marketing + (revision.map { " (r\($0))" } ?? "") }
-    static var full: String { "Strata " + display + (channel.map { " · " + $0 } ?? "") }
+enum INFINITYVersion {
+    static var marketing: String { Bundle.main.object(forInfoDictionaryKey: "INFINITYMarketingVersion") as? String ?? "4.0" }
+    static var revision: Int? { (Bundle.main.object(forInfoDictionaryKey: "INFINITYRevision") as? NSNumber)?.intValue }
+    static var channel: String? { Bundle.main.object(forInfoDictionaryKey: "INFINITYBuildChannel") as? String }
+    static var display: String { marketing }
+    static var full: String { "INFINITY " + display }
 }
 
 extension Notification.Name {
@@ -58,7 +58,7 @@ struct StrataSettingsApp: View {
             Entry(id: "refresh", title: "Refresh", symbol: "arrow.triangle.2.circlepath", tint: .cyan, section: "System", keywords: "refresh sidestore expiry certificate vpn shortcut automation") { AnyView(StrataAutoRefreshSettings()) },
             Entry(id: "identity", title: "Signing Identity", symbol: "signature", tint: .mint, section: "System", keywords: "signing identity certificate localsigner keychain") { if #available(iOS 16.0, *) { return AnyView(StrataIdentitySettings()) } else { return AnyView(Text("Requires iOS 16 or later.")) } },
             Entry(id: "advanced", title: "Advanced (LiveContainer)", symbol: "gearshape.2", tint: .gray, section: "System", keywords: "advanced livecontainer settings multitask jit enabler data management") { AnyView(LCSettingsView()) },
-            Entry(id: "about", title: "About Strata", symbol: "info.circle", tint: .blue, section: "About", keywords: "about version credits github") { AnyView(StrataAboutView()) },
+            Entry(id: "about", title: "About INFINITY", symbol: "info.circle", tint: .blue, section: "About", keywords: "about version credits github") { AnyView(StrataAboutView()) },
         ]
     }
 
@@ -97,8 +97,8 @@ struct StrataSettingsApp: View {
                 HStack(spacing: 14) {
                     StrataSettingsIcon.image.resizable().frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Strata").font(.title2.weight(.semibold))
-                        Text(StrataVersion.display + (StrataVersion.channel.map { " · " + $0 } ?? "")).font(.subheadline).foregroundStyle(.secondary)
+                        Text("INFINITY").font(.title2.weight(.semibold))
+                        Text(INFINITYVersion.display + (INFINITYVersion.channel.map { " · " + $0 } ?? "")).font(.subheadline).foregroundStyle(.secondary)
                             .accessibilityIdentifier("settings.version")
                     }
                 }.padding(.vertical, 4)
@@ -135,7 +135,7 @@ struct StrataSettingsApp: View {
         }
         Section {
             Toggle(isOn: $seamlessSwitching) { row("Seamless app switching", symbol: "rectangle.stack.fill", tint: .indigo) }
-        } header: { Text("Multitasking") } footer: { Text("Each app runs in its own process, full screen. Switching returns to it where you left it instead of restarting it. Turn off for apps that misbehave; HostJIT, Classic Mode and Request Game Mode always run inside Strata.") }
+        } header: { Text("Multitasking") } footer: { Text("Each app runs in its own process, full screen. Switching returns to it where you left it instead of restarting it. Turn off for apps that misbehave; HostJIT, Classic Mode and Request Game Mode always run inside INFINITY.") }
         Section {
             Toggle(isOn: $keepGuestAlive) { row("Keep running app alive", symbol: "moon.zzz.fill", tint: .teal) }
             Toggle(isOn: $resumeAfterSystemClose) { row("Reopen app after iOS closes it", symbol: "arrow.uturn.backward.circle.fill", tint: .green) }
@@ -144,11 +144,11 @@ struct StrataSettingsApp: View {
             link("jit"); link("memory")
             Toggle(isOn: Binding(get: { memoryOverlay }, set: { memoryOverlay = $0; StrataMemoryOverlay.shared.apply() })) { row("Memory overlay", symbol: "gauge.with.needle", tint: .green) }
             link("framegen"); link("storage")
-        } header: { Text("Performance") } footer: { Text("The overlay shows memory used and the limit for Strata, each app and each helper (RAM donor) process, with peaks.") }
+        } header: { Text("Performance") } footer: { Text("The overlay shows memory used and the limit for INFINITY, each app and each helper (RAM donor) process, with peaks.") }
         Section("System") { link("runtime"); link("refresh"); link("identity"); link("advanced") }
         Section("About") {
             link("about")
-            valueRow("Version", StrataVersion.full)
+            valueRow("Version", INFINITYVersion.full)
             valueRow("Runtime", "LiveContainer nightly 9d6ea09")
         }
     }
@@ -243,7 +243,7 @@ final class StrataSettingsAppInfo: StrataPhoneAppInfo {
         let folder = LCPath.docPath.appendingPathComponent("Strata3/LauncherEntries/settings", isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-            let info: [String: Any] = ["CFBundleIdentifier": "com.strata.builtin.settings", "CFBundleDisplayName": "Settings", "CFBundleName": "Settings", "CFBundleShortVersionString": StrataVersion.marketing, "CFBundleExecutable": "Settings"]
+            let info: [String: Any] = ["CFBundleIdentifier": "com.strata.builtin.settings", "CFBundleDisplayName": "Settings", "CFBundleName": "Settings", "CFBundleShortVersionString": INFINITYVersion.marketing, "CFBundleExecutable": "Settings"]
             try PropertyListSerialization.data(fromPropertyList: info, format: .binary, options: 0).write(to: folder.appendingPathComponent("Info.plist"), options: .atomic)
             let entry = StrataPhoneAppEntry(id: entryID, name: "Settings", target: "", shortcut: false)
             return LCAppModel(appInfo: StrataSettingsAppInfo(entry: entry, path: folder.path))
