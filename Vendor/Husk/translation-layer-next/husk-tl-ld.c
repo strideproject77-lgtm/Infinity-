@@ -51,6 +51,7 @@ enum {
     R_NONE = 0, R_ABS64 = 257, R_GLOB_DAT = 1025, R_JUMP_SLOT = 1026, R_RELATIVE = 1027,
     R_TLS_DTPMOD = 1028, R_TLS_DTPREL = 1029, R_TLS_TPREL = 1030, R_TLSDESC = 1031, R_IRELATIVE = 1032,
     STB_WEAK_ = 2, STT_TLS_ = 6, STT_GNU_IFUNC_ = 10, SHN_UNDEF_ = 0,
+    STV_DEFAULT_ = 0, STV_INTERNAL_ = 1, STV_HIDDEN_ = 2, STV_PROTECTED_ = 3,
     PF_X_ = 1, PF_W_ = 2, PF_R_ = 4, EM_AARCH64_ = 183,
 };
 
@@ -403,6 +404,46 @@ static void *sym_value(const tl_lib *L, const elf_sym *s)
     return L->rx + off;
 }
 
+/* Hidden/internal definitions are usable by their owning image but must not leak into
+ * another image's dependency scope or a process-wide dlsym search. Protected symbols
+ * remain exported, while their own image still binds to its local definition. */
+static bool symbol_is_exported(const elf_sym *s)
+{
+    unsigned visibility = s->st_other & 3u;
+    return visibility != STV_HIDDEN_ && visibility != STV_INTERNAL_;
+}
+
+/* GNU IFUNC symbols name resolver functions, not the final callable/data address.
+ * Resolve once per image symbol and cache the result in the existing per-symbol
+ * relocation cache. A small in-progress marker prevents resolver recursion. */
+static void *resolved_symbol_value(tl_lib *L, const elf_sym *s, bool *failed)
+{
+    if (!s) return NULL;
+    if ((s->st_info & 0xf) != STT_GNU_IFUNC_) return sym_value(L, s);
+    if (s->st_shndx == SHN_UNDEF_ || !image_range_fits(L, s->st_value, 4) || !in_code(L, s->st_value)) {
+        tl_log_line("ld: %s: IFUNC resolver is not inside an executable image range", L->name);
+        if (failed) *failed = true;
+        return NULL;
+    }
+    size_t index = (size_t)(s - sym_at(L, 0));
+    if (L->symcache && index < L->ncache) {
+        uint64_t cached = __atomic_load_n(&L->symcache[index], __ATOMIC_ACQUIRE);
+        if (cached == 1) return NULL;
+        if (cached == 2) {
+            tl_log_line("ld: %s: recursive IFUNC resolution at symbol %zu", L->name, index);
+            if (failed) *failed = true;
+            return NULL;
+        }
+        if (cached) return (void *)(uintptr_t)cached;
+        __atomic_store_n(&L->symcache[index], 2, __ATOMIC_RELEASE);
+    }
+    void *resolver_address = L->rx + (s->st_value - L->base_vaddr);
+    void *value = ((void *(*)(void))(uintptr_t)resolver_address)();
+    if (L->symcache && index < L->ncache)
+        __atomic_store_n(&L->symcache[index], value ? (uint64_t)(uintptr_t)value : 1, __ATOMIC_RELEASE);
+    return value;
+}
+
 static const elf_sym *lib_find(const tl_lib *L, const char *name)
 {
     if (L->arm32) return NULL;
@@ -577,17 +618,17 @@ static void *lookup_for(tl_lib *L, const char *name, bool *weak_hit)
     for (int i = 0; i < g_ninterpose; i++) if (!strcmp(g_interpose[i].name, name)) return g_interpose[i].fn;
     build_scope(L);
     const elf_sym *s = lib_find(L, name);
-    if (s && (s->st_info & 0xf) != STT_GNU_IFUNC_) return sym_value(L, s);
+    if (s) return resolved_symbol_value(L, s, NULL);
     if (strcmp(L->soname, "libcocos2dcpp.so") != 0 && is_cxx_runtime_symbol(name)) {
         for (int i = 0; i < L->ndeps; i++) {
             if (strcmp(L->deps[i]->soname, "libc++_shared.so") != 0) continue;
             s = lib_find(L->deps[i], name);
-            if (s) return sym_value(L->deps[i], s);
+            if (s && symbol_is_exported(s)) return resolved_symbol_value(L->deps[i], s, NULL);
         }
     }
     for (int i = 0; i < L->ndeps; i++) {
         s = lib_find(L->deps[i], name);
-        if (s && (s->st_info & 0xf) != STT_GNU_IFUNC_) return sym_value(L->deps[i], s);
+        if (s && symbol_is_exported(s)) return resolved_symbol_value(L->deps[i], s, NULL);
     }
     return tl_bionic_find(name);
 }
@@ -597,7 +638,7 @@ void *tl_ld_sym(tl_lib *lib, const char *name)
     if (lib) {
         if (lib->arm32) return tl_a32_sym(lib, name);
         const elf_sym *s = lib_find(lib, name);
-        return s ? sym_value(lib, s) : NULL;
+        return s && symbol_is_exported(s) ? resolved_symbol_value(lib, s, NULL) : NULL;
     }
     for (int i = 0; i < nlibs_acq(); i++) {
         if (G.libs[i]->arm32) {
@@ -606,7 +647,7 @@ void *tl_ld_sym(tl_lib *lib, const char *name)
             continue;
         }
         const elf_sym *s = lib_find(G.libs[i], name);
-        if (s) return sym_value(G.libs[i], s);
+        if (s && symbol_is_exported(s)) return resolved_symbol_value(G.libs[i], s, NULL);
     }
     return NULL;
 }
@@ -622,11 +663,11 @@ void *tl_ld_sym_deep(tl_lib *lib, const char *name, tl_lib **found_in)
         return NULL;
     }
     const elf_sym *s = lib_find(lib, name);
-    if (s) { if (found_in) *found_in = lib; return sym_value(lib, s); }
+    if (s && symbol_is_exported(s)) { if (found_in) *found_in = lib; return resolved_symbol_value(lib, s, NULL); }
     build_scope(lib);
     for (int i = 0; i < lib->ndeps; i++) {
         s = lib_find(lib->deps[i], name);
-        if (s) { if (found_in) *found_in = lib->deps[i]; return sym_value(lib->deps[i], s); }
+        if (s && symbol_is_exported(s)) { if (found_in) *found_in = lib->deps[i]; return resolved_symbol_value(lib->deps[i], s, NULL); }
     }
     return NULL;
 }
@@ -1810,8 +1851,8 @@ static uint64_t bind_symbol(tl_lib *L, uint32_t symidx, bool *failed)
         /* Defined here. Search the scope anyway so an earlier library's definition
          * wins, as it does under ELF interposition... except that a library's own
          * definition is what Android's linker uses first for its own symbols. */
-        if ((s->st_info & 0xf) == STT_GNU_IFUNC_) { *failed = true; return 0; }
-        val = (uint64_t)(uintptr_t)sym_value(L, s);
+        val = (uint64_t)(uintptr_t)resolved_symbol_value(L, s, failed);
+        if (*failed) return 0;
     } else {
         void *a = lookup_for(L, name, NULL);
         if (a) {
