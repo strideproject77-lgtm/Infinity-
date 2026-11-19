@@ -273,6 +273,12 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("symbol_index >= L->ncache", loader)
         self.assertIn("d[i].d_val > UINT32_MAX", loader)
 
+    def test_bionic_dl_error_formatter_supports_versioned_symbol_diagnostics(self):
+        bionic = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic.c")
+        self.assertIn("static void dl_fail(const char *fmt, ...)", bionic)
+        self.assertIn("vsnprintf(t_dlerr, sizeof(t_dlerr), fmt, ap)", bionic)
+        self.assertIn('dl_fail("undefined symbol: %s@%s", name, version)', bionic)
+
     def test_elf_gnu_symbol_versioning_and_dlvsym_are_wired_end_to_end(self):
         loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.h")
