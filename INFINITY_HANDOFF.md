@@ -767,3 +767,13 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Dynamic-symbol boundary integration correction
 - Added VERSYM, VERDEF, and VERNEED addresses to the dynamic-symbol extent boundary calculation. This prevents GNU version tables located after .dynsym from being miscounted as extra ELF symbol entries when deriving the relocation-cache bound.
 - Extended regression contracts to pin this boundary behavior. Tests remain unrun.
+
+
+### GNU version provider binding
+- Relocation-time version resolution now also reads the dependency filename from the matching Vernaux record and restricts provider lookup to that declared DT_NEEDED library. This prevents a different dependency that happens to export the same symbol/version name from being selected accidentally.
+- Imports with an incomplete version-name/provider requirement now fail with an explicit loader diagnostic instead of silently using a different provider.
+- Added source-contract coverage for dependency-file constrained version binding. Tests remain unrun.
+
+### Integration status update
+- **Overall Husk source integration estimate: 75%** (from 68%; +7 percentage points across this batch). The increase reflects actual GNU versioned relocation binding, explicit version-specific symbol lookup, provider-file matching, Bionic dlvsym wiring, and correct default-version selection. This remains an engineering estimate, not a compatibility benchmark.
+- **Verified real-device execution remains 0% demonstrated.**
