@@ -142,3 +142,11 @@
 - Made the SwiftPM checkout location explicit with one runner-temporary `-clonedSourcePackagesDirPath` shared by dependency resolution and framework compilation. This preserves a consistent package cache without requiring a DerivedData path on the target build.
 - Added strict shell handling to dependency resolution and retained `pipefail` for the compiler log pipeline. Xcode 26.2 remains pinned; macOS framework validation remains manual-dispatch only; signing and IPA packaging remain disabled.
 - This is a workflow configuration correction, not proof of compilation. The next manual dispatch must validate the actual Swift/Objective-C target build and expose any source-level diagnostics. Linux push tests should run automatically after this commit. No Codemagic build, IPA export, signing, or device execution was started.
+
+
+## 2026-11-19 — Framework workflow regression tests passed
+
+- Added `tests/test_strata_framework_workflow.py` to guard the target-only Xcode invocation, shared SwiftPM checkout directory, pinned Xcode version, manual-only scheduling, and no-sign/no-IPA-package constraints.
+- Added the framework workflow and its contract test to the Linux push-test path filters so future workflow edits cannot bypass the source regression suite.
+- GitHub Actions run [44496687265](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44496687265) completed successfully on `main`: **56 Python tests passed**, including all four new framework workflow contract tests; runtime shell checks and audit-script syntax check also passed.
+- This is verified Linux/source validation only. It does not execute Xcode or prove iOS framework compilation. The macOS framework workflow is intentionally manual-dispatch only; no IPA build, signing, export, Codemagic build, or device execution was started.
