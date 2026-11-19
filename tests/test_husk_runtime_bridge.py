@@ -430,6 +430,29 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
 
+    def test_nativeactivity_delivers_owned_ndk_input_queue_lifecycle(self):
+        activity = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
+        ndk = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-ndk.c")
+        self.assertIn("tl_bionic_input_queue_create", activity)
+        self.assertIn("tl_bionic_input_queue_destroy", activity)
+        self.assertIn("N.callbacks.onInputQueueCreated(&N.na, input_queue)", activity)
+        self.assertIn("N.callbacks.onInputQueueDestroyed(&N.na, input_queue)", activity)
+        self.assertNotIn("callback withheld because no real queue is available", activity)
+        for marker in (
+            "void *tl_bionic_input_queue_create(void)",
+            "void tl_bionic_input_queue_destroy(void *queue)",
+            "return &IQ;",
+            "if (q != &IQ || !looper) return;",
+            "IQ.looper = looper;",
+            "if (q != &IQ || !ev) return -1;",
+            "if (queue != &IQ || !IQ.ready) return;",
+            "b_ALooper_removeFd(looper, IQ.rd)",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, ndk)
+        self.assertIn("tl_ievent *pending = IQ.head;", ndk)
+        self.assertIn("while (pending) { tl_ievent *next = pending->next; free(pending); pending = next; }", ndk)
+
     def test_native_activity_stop_handles_ui_thread_self_shutdown(self):
         source = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
         start = source.index("void tl_na_stop(void)")
