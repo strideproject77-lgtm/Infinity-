@@ -253,6 +253,19 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("infinity_husk_stop", swift)
         self.assertNotIn("Hello from Stride", swift)
 
+    def test_elf_linker_resolves_ifuncs_and_honors_symbol_visibility(self):
+        loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
+        for marker in (
+            "STV_HIDDEN_ = 2", "STV_INTERNAL_ = 1", "STV_PROTECTED_ = 3",
+            "symbol_is_exported", "resolved_symbol_value",
+            "STT_GNU_IFUNC_", "recursive IFUNC resolution",
+            "__atomic_load_n(&L->symcache[index]", "__atomic_store_n(&L->symcache[index]"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, loader)
+        self.assertIn("s && symbol_is_exported(s)", loader)
+        self.assertNotIn("STT_GNU_IFUNC_) { *failed = true; return 0; }", loader)
+
     def test_package_dependency_is_attached_to_strata_swiftui_not_sidestore(self):
         project = self.read("LiveContainer.xcodeproj/project.pbxproj")
         swiftui = re.search(
