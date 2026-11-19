@@ -282,6 +282,16 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("symbol_index >= L->ncache", loader)
         self.assertIn("d[i].d_val > UINT32_MAX", loader)
 
+    def test_bionic_pthread_custom_stack_is_honored_by_native_thread_creation(self):
+        pthread = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
+        self.assertIn("#define GATTR_USER_STACK 2u", pthread)
+        self.assertIn("static int b_attr_setstack(guest_attr *a, void *base, size_t n)", pthread)
+        self.assertIn("a->flags |= GATTR_USER_STACK", pthread)
+        self.assertIn("pthread_attr_setstack(&a, attr->stack_base, stack)", pthread)
+        self.assertIn("use that exact range", pthread)
+        self.assertIn('TL_WRAP("pthread_attr_setstack", b_attr_setstack)', pthread)
+        self.assertIn("if (stack_result) { pthread_attr_destroy(&a); return rc(stack_result); }", pthread)
+
     def test_bionic_pthread_identity_naming_and_cond_clock_apis_are_real(self):
         pthread = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
         for marker in (
