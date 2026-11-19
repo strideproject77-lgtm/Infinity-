@@ -270,6 +270,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
     def test_gnu_version_table_covers_import_symbols_beyond_hash_exports(self):
         loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
         self.assertIn("L->ncache * sizeof(uint16_t)", loader)
+        self.assertIn("L->versym, L->verdef, L->verneed", loader)
         self.assertIn("symbol_index >= L->ncache", loader)
         self.assertIn("d[i].d_val > UINT32_MAX", loader)
 
