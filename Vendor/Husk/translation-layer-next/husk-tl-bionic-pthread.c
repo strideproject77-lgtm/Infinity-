@@ -372,6 +372,7 @@ typedef struct { uint32_t flags; uint32_t pad; void *stack_base; size_t stack_si
 _Static_assert(sizeof(guest_attr) == 56, "bionic pthread_attr_t is 56 bytes on LP64");
 _Static_assert(sizeof(guest_obj) <= 16, "guest_obj must fit bionic's smallest object, sem_t");
 #define GATTR_DETACHED 1u
+#define GATTR_USER_STACK 2u
 #define DEFAULT_STACK (1024u * 1024u)
 
 static int b_attr_init(guest_attr *a)
@@ -397,6 +398,16 @@ static int b_attr_setstacksize(guest_attr *a, size_t n)
 {
     if (n < 16384) return 22;
     a->stack_size = n;
+    return 0;
+}
+static int b_attr_setstack(guest_attr *a, void *base, size_t n)
+{
+    if (!a || !base || n < 16384) return 22;
+    uintptr_t start = (uintptr_t)base;
+    if (start > UINTPTR_MAX - n) return 22;
+    a->stack_base = base;
+    a->stack_size = n;
+    a->flags |= GATTR_USER_STACK;
     return 0;
 }
 static int b_attr_getstacksize(const guest_attr *a, size_t *n) { *n = a->stack_size; return 0; }
@@ -461,11 +472,22 @@ static int b_create(pthread_t *out, const guest_attr *attr, void *(*fn)(void *),
     pthread_attr_t a;
     pthread_attr_init(&a);
     size_t stack = attr && attr->stack_size ? attr->stack_size : DEFAULT_STACK;
-    /* at least 16 MB (address space; pages are only used as touched): a native thread that calls into Java runs the interpreter,
-       whose calls take far more stack than ART's */
-    if (stack < (16u << 20)) stack = 16u << 20;
-    stack = (stack + 16383) & ~(size_t)16383;
-    pthread_attr_setstacksize(&a, stack);
+    int stack_result = 0;
+    if (attr && (attr->flags & GATTR_USER_STACK)) {
+        /* A caller-supplied pthread stack is part of the guest ABI: use that
+         * exact range, never silently replace it with a host-owned stack. */
+        stack_result = pthread_attr_setstack(&a, attr->stack_base, stack);
+    } else {
+        /* at least 16 MB (address space; pages are only used as touched): a native thread that calls into Java runs the interpreter,
+         * whose calls take far more stack than ART's */
+        if (stack < (16u << 20)) stack = 16u << 20;
+        if (stack > SIZE_MAX - 16383) stack_result = EINVAL;
+        else {
+            stack = (stack + 16383) & ~(size_t)16383;
+            stack_result = pthread_attr_setstacksize(&a, stack);
+        }
+    }
+    if (stack_result) { pthread_attr_destroy(&a); return rc(stack_result); }
     if (attr && (attr->flags & GATTR_DETACHED)) pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
     start_ctx *c = malloc(sizeof(*c));
     c->fn = fn; c->arg = arg;
@@ -558,7 +580,7 @@ const tl_bionic_entry tl_tab_pthread[] = {
     TL_WRAP("pthread_key_create", b_key_create), TL_WRAP("pthread_key_delete", b_key_delete),
     TL_WRAP("pthread_getspecific", b_getspecific), TL_WRAP("pthread_setspecific", b_setspecific),
     TL_WRAP("pthread_attr_init", b_attr_init), TL_WRAP("pthread_attr_destroy", b_attr_destroy),
-    TL_WRAP("pthread_attr_setdetachstate", b_attr_setdetachstate), TL_WRAP("pthread_attr_getdetachstate", b_attr_getdetachstate), TL_WRAP("pthread_attr_setstacksize", b_attr_setstacksize),
+    TL_WRAP("pthread_attr_setdetachstate", b_attr_setdetachstate), TL_WRAP("pthread_attr_getdetachstate", b_attr_getdetachstate), TL_WRAP("pthread_attr_setstacksize", b_attr_setstacksize), TL_WRAP("pthread_attr_setstack", b_attr_setstack),
     TL_WRAP("pthread_attr_getstacksize", b_attr_getstacksize), TL_WRAP("pthread_attr_getguardsize", b_attr_getguardsize), TL_WRAP("pthread_attr_setguardsize", b_attr_setguardsize), TL_WRAP("pthread_attr_setscope", b_attr_setscope), TL_WRAP("pthread_attr_getscope", b_attr_getscope), TL_WRAP("pthread_attr_getstack", b_attr_getstack),
     TL_WRAP("pthread_attr_getschedparam", b_attr_getschedparam),
     TL_WRAP("pthread_attr_getschedpolicy", b_attr_getschedpolicy), TL_WRAP("pthread_attr_setinheritsched", b_attr_setinheritsched), TL_WRAP("pthread_attr_getinheritsched", b_attr_getinheritsched), TL_WRAP("pthread_attr_setschedpolicy", b_attr_setschedpolicy),
