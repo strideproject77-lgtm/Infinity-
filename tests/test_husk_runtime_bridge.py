@@ -88,6 +88,8 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("m->nargs <= 16 ? local : calloc", jni)
         self.assertNotIn("jvalue args[40]", jni)
         self.assertIn("free(args);", jni)
+        self.assertIn("copying JNI UTF-16 String", jni)
+        self.assertIn("JNI call has a null argument array", jni)
 
     def test_dex_frames_validate_incoming_slots_and_native_stack_args_are_dynamic(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
