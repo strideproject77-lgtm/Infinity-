@@ -397,7 +397,13 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "jni_array_accesses_detach();",
             "return (CT *)jni_array_copy_out(a, K, sizeof(CT), copy);",
             "jni_array_release(a, e, mode, K);",
-            "array->arr.len != access->length"
+            "array->arr.len != access->length",
+            "typedef struct jni_critical_array_access",
+            "static __thread jni_critical_array_access *t_critical_array_accesses",
+            "tracking JNI critical array access",
+            "critical array pointer is not outstanding for this array",
+            "static void jni_critical_array_accesses_detach(void)",
+            "jni_critical_array_accesses_detach();"
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
