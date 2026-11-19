@@ -330,6 +330,11 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "encoding Modified UTF-8 string region",
             "current guest string storage is NUL-terminated",
             "RegisterNatives received an incomplete native method",
+            "allocating native registration transaction",
+            "Reserve every destination before publishing any registration.",
+            "reserving JNI native method table transaction",
+            "owner->natives[owner->nnatives].registered_on = given",
+            "__atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE)"
             "growing JNI native method table",
             "static int32_t jni_UnregisterNatives(void *env, jo cls)",
             "owner->natives[read].registered_on == registered",
