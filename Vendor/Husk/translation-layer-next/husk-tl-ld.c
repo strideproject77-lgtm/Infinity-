@@ -40,13 +40,17 @@ typedef struct { uint32_t p_type, p_flags; uint64_t p_offset, p_vaddr, p_paddr, 
 typedef struct { uint32_t st_name; uint8_t st_info, st_other; uint16_t st_shndx; uint64_t st_value, st_size; } elf_sym;
 typedef struct { uint64_t r_offset, r_info; int64_t r_addend; } elf_rela;
 typedef struct { int64_t d_tag; uint64_t d_val; } elf_dyn;
+typedef struct { uint16_t version, flags, index, count; uint32_t hash, aux, next; } elf_verdef;
+typedef struct { uint32_t name, next; } elf_verdaux;
+typedef struct { uint16_t version, count; uint32_t file, aux, next; } elf_verneed;
+typedef struct { uint32_t hash; uint16_t flags, other; uint32_t name, next; } elf_vernaux;
 
 enum {
     PT_LOAD_ = 1, PT_DYNAMIC_ = 2, PT_TLS_ = 7, PT_GNU_RELRO_ = 0x6474e552,
     DT_NULL_ = 0, DT_NEEDED_ = 1, DT_PLTRELSZ_ = 2, DT_HASH_ = 4, DT_STRTAB_ = 5, DT_SYMTAB_ = 6,
     DT_RELA_ = 7, DT_RELASZ_ = 8, DT_STRSZ_ = 10, DT_INIT_ = 12, DT_SONAME_ = 14, DT_JMPREL_ = 23,
     DT_INIT_ARRAY_ = 25, DT_INIT_ARRAYSZ_ = 27, DT_FLAGS_ = 30, DT_RELRSZ_ = 35, DT_RELR_ = 36,
-    DT_GNU_HASH_ = 0x6ffffef5, DT_ANDROID_RELA_ = 0x60000011, DT_ANDROID_RELASZ_ = 0x60000012,
+    DT_GNU_HASH_ = 0x6ffffef5, DT_VERSYM_ = 0x6ffffff0, DT_VERDEF_ = 0x6ffffffc, DT_VERDEFNUM_ = 0x6ffffffd, DT_VERNEED_ = 0x6ffffffe, DT_VERNEEDNUM_ = 0x6fffffff, DT_ANDROID_RELA_ = 0x60000011, DT_ANDROID_RELASZ_ = 0x60000012,
     DT_ANDROID_RELR_ = 0x6fffe000, DT_ANDROID_RELRSZ_ = 0x6fffe001,
     R_NONE = 0, R_ABS64 = 257, R_GLOB_DAT = 1025, R_JUMP_SLOT = 1026, R_RELATIVE = 1027,
     R_TLS_DTPMOD = 1028, R_TLS_DTPREL = 1029, R_TLS_TPREL = 1030, R_TLSDESC = 1031, R_IRELATIVE = 1032,
@@ -78,6 +82,8 @@ struct tl_lib {
 
     /* dynamic section, as vaddrs */
     uint64_t strtab, strsz, symtab, gnu_hash, sysv_hash;
+    uint64_t versym, verdef, verneed;
+    uint32_t verdefnum, verneednum;
     uint64_t rela, relasz, jmprel, pltrelsz, arela, arelasz, relr, relrsz;
     uint64_t init, init_array, init_arraysz;
     uint32_t nsyms;                /* the symbols the hash table covers */
@@ -468,7 +474,11 @@ static const elf_sym *lib_find(const tl_lib *L, const char *name)
             if ((h | 1) == (c | 1)) {
                 const elf_sym *s = sym_at(L, i);
                 const char *candidate = sym_name(L, s);
-                if (s->st_shndx != SHN_UNDEF_ && candidate && !strcmp(candidate, name)) return s;
+                if (s->st_shndx != SHN_UNDEF_ && candidate && !strcmp(candidate, name)) {
+                    uint16_t vi = L->versym ? (((const uint16_t *)at(L, L->versym))[i] & 0x7fffu) : 1;
+                    uint16_t raw = L->versym ? ((const uint16_t *)at(L, L->versym))[i] : 1;
+                    if (vi <= 1 || !(raw & 0x8000u)) return s;
+                }
             }
             if (c & 1) break;
         }
@@ -481,8 +491,26 @@ static const elf_sym *lib_find(const tl_lib *L, const char *name)
         for (uint32_t i = t[2 + sysv_hash(name) % nb]; i && i < nc; i = t[2 + nb + i]) {
             const elf_sym *s = sym_at(L, i);
             const char *candidate = sym_name(L, s);
-            if (s->st_shndx != SHN_UNDEF_ && candidate && !strcmp(candidate, name)) return s;
+            if (s->st_shndx != SHN_UNDEF_ && candidate && !strcmp(candidate, name)) {
+                uint16_t vi = L->versym ? (((const uint16_t *)at(L, L->versym))[i] & 0x7fffu) : 1;
+                uint16_t raw = L->versym ? ((const uint16_t *)at(L, L->versym))[i] : 1;
+                if (vi <= 1 || !(raw & 0x8000u)) return s;
+            }
         }
+    }
+    return NULL;
+}
+
+static const elf_sym *lib_find_version(const tl_lib *L, const char *name, const char *version)
+{
+    if (!L || L->arm32 || !name || !version || !version[0]) return NULL;
+    for (uint32_t i = 1; i < L->nsyms; i++) {
+        const elf_sym *s = sym_at(L, i);
+        if (s->st_shndx == SHN_UNDEF_ || !symbol_is_exported(s)) continue;
+        const char *candidate = sym_name(L, s);
+        if (!candidate || strcmp(candidate, name)) continue;
+        const char *actual = symbol_version_name(L, i, true);
+        if (actual && !strcmp(actual, version)) return s;
     }
     return NULL;
 }
@@ -612,6 +640,18 @@ static bool is_cxx_runtime_symbol(const char *name)
     return false;
 }
 
+static void *lookup_for_version(tl_lib *L, const char *name, const char *version)
+{
+    build_scope(L);
+    const elf_sym *s = lib_find_version(L, name, version);
+    if (s) return resolved_symbol_value((tl_lib *)L, s, NULL);
+    for (int i = 0; i < L->ndeps; i++) {
+        s = lib_find_version(L->deps[i], name, version);
+        if (s) return resolved_symbol_value(L->deps[i], s, NULL);
+    }
+    return NULL;
+}
+
 static void *lookup_for(tl_lib *L, const char *name, bool *weak_hit)
 {
     (void)weak_hit;
@@ -631,6 +671,33 @@ static void *lookup_for(tl_lib *L, const char *name, bool *weak_hit)
         if (s && symbol_is_exported(s)) return resolved_symbol_value(L->deps[i], s, NULL);
     }
     return tl_bionic_find(name);
+}
+
+void *tl_ld_sym_version(tl_lib *lib, const char *name, const char *version)
+{
+    if (!name || !version || !version[0]) return NULL;
+    if (lib) {
+        const elf_sym *s = lib_find_version(lib, name, version);
+        return s ? resolved_symbol_value(lib, s, NULL) : NULL;
+    }
+    for (int i = 0; i < nlibs_acq(); i++) {
+        const elf_sym *s = lib_find_version(G.libs[i], name, version);
+        if (s) return resolved_symbol_value(G.libs[i], s, NULL);
+    }
+    return NULL;
+}
+
+void *tl_ld_sym_deep_version(tl_lib *lib, const char *name, const char *version)
+{
+    if (!lib || !name || !version || !version[0]) return NULL;
+    const elf_sym *s = lib_find_version(lib, name, version);
+    if (s) return resolved_symbol_value(lib, s, NULL);
+    build_scope(lib);
+    for (int i = 0; i < lib->ndeps; i++) {
+        s = lib_find_version(lib->deps[i], name, version);
+        if (s) return resolved_symbol_value(lib->deps[i], s, NULL);
+    }
+    return NULL;
 }
 
 void *tl_ld_sym(tl_lib *lib, const char *name)
@@ -1862,7 +1929,14 @@ static uint64_t bind_symbol(tl_lib *L, uint32_t symidx, bool *failed)
         val = (uint64_t)(uintptr_t)resolved_symbol_value(L, s, failed);
         if (*failed) return 0;
     } else {
-        void *a = lookup_for(L, name, NULL);
+        const char *required_version = symbol_version_name(L, symidx, false);
+        uint16_t version_index = L->versym ? (((const uint16_t *)at(L, L->versym))[symidx] & 0x7fffu) : 1;
+        if (version_index > 1 && !required_version) {
+            tl_log_line("ld: %s: symbol %s has an unresolved GNU version requirement", L->name, name);
+            *failed = true;
+            return 0;
+        }
+        void *a = required_version ? lookup_for_version(L, name, required_version) : lookup_for(L, name, NULL);
         if (a) {
             val = (uint64_t)(uintptr_t)a;
         } else if ((s->st_info >> 4) == STB_WEAK_) {
@@ -2099,6 +2173,11 @@ static bool parse_dynamic(tl_lib *L, uint64_t dyn_vaddr, uint64_t dyn_size)
         case DT_STRTAB_: L->strtab = d[i].d_val; break;
         case DT_STRSZ_: L->strsz = d[i].d_val; break;
         case DT_SYMTAB_: L->symtab = d[i].d_val; break;
+        case DT_VERSYM_: L->versym = d[i].d_val; break;
+        case DT_VERDEF_: L->verdef = d[i].d_val; break;
+        case DT_VERDEFNUM_: L->verdefnum = (uint32_t)d[i].d_val; break;
+        case DT_VERNEED_: L->verneed = d[i].d_val; break;
+        case DT_VERNEEDNUM_: L->verneednum = (uint32_t)d[i].d_val; break;
         case DT_GNU_HASH_: L->gnu_hash = d[i].d_val; break;
         case DT_HASH_: L->sysv_hash = d[i].d_val; break;
         case DT_RELA_: L->rela = d[i].d_val; break;
@@ -2117,6 +2196,76 @@ static bool parse_dynamic(tl_lib *L, uint64_t dyn_vaddr, uint64_t dyn_size)
         }
     }
     return false; /* a bounded dynamic segment must contain DT_NULL */
+}
+
+/* GNU symbol-version chains are relative-offset linked lists inside the mapped image.
+ * Validate each hop before dereferencing it; malformed metadata makes the library unloadable. */
+static bool validate_version_tables(const tl_lib *L)
+{
+    if ((L->verdefnum && !L->verdef) || (L->verneednum && !L->verneed)
+        || ((L->verdef || L->verneed) && !L->versym)
+        || (L->verdef && !L->verdefnum) || (L->verneed && !L->verneednum))
+        return false;
+    if (L->versym && !image_range_fits(L, L->versym, (uint64_t)L->nsyms * sizeof(uint16_t)))
+        return false;
+    uint64_t off = L->verdef;
+    for (uint32_t i = 0; i < L->verdefnum; i++) {
+        if (!image_range_fits(L, off, sizeof(elf_verdef))) return false;
+        const elf_verdef *vd = (const elf_verdef *)at(L, off);
+        if (vd->version != 1 || !vd->count || !vd->aux) return false;
+        uint64_t auxoff = off + vd->aux;
+        if (auxoff < off || !image_range_fits(L, auxoff, sizeof(elf_verdaux))) return false;
+        const elf_verdaux *aux = (const elf_verdaux *)at(L, auxoff);
+        if (!dynamic_string(L, aux->name)) return false;
+        if (i + 1 < L->verdefnum) { if (!vd->next || off + vd->next < off) return false; off += vd->next; }
+    }
+    off = L->verneed;
+    for (uint32_t i = 0; i < L->verneednum; i++) {
+        if (!image_range_fits(L, off, sizeof(elf_verneed))) return false;
+        const elf_verneed *vn = (const elf_verneed *)at(L, off);
+        if (vn->version != 1 || !dynamic_string(L, vn->file) || (vn->count && !vn->aux)) return false;
+        uint64_t auxoff = off + vn->aux;
+        if (auxoff < off) return false;
+        for (uint16_t j = 0; j < vn->count; j++) {
+            if (!image_range_fits(L, auxoff, sizeof(elf_vernaux))) return false;
+            const elf_vernaux *aux = (const elf_vernaux *)at(L, auxoff);
+            if (!dynamic_string(L, aux->name)) return false;
+            if (j + 1 < vn->count) { if (!aux->next || auxoff + aux->next < auxoff) return false; auxoff += aux->next; }
+        }
+        if (i + 1 < L->verneednum) { if (!vn->next || off + vn->next < off) return false; off += vn->next; }
+    }
+    return true;
+}
+
+static const char *symbol_version_name(const tl_lib *L, uint32_t symbol_index, bool defined)
+{
+    if (!L->versym || symbol_index >= L->nsyms) return NULL;
+    uint16_t index = ((const uint16_t *)at(L, L->versym))[symbol_index] & 0x7fffu;
+    if (index <= 1) return NULL;
+    if (defined) {
+        uint64_t off = L->verdef;
+        for (uint32_t i = 0; i < L->verdefnum; i++) {
+            const elf_verdef *vd = (const elf_verdef *)at(L, off);
+            if ((vd->index & 0x7fffu) == index) {
+                const elf_verdaux *aux = (const elf_verdaux *)at(L, off + vd->aux);
+                return dynamic_string(L, aux->name);
+            }
+            off += vd->next;
+        }
+    } else {
+        uint64_t off = L->verneed;
+        for (uint32_t i = 0; i < L->verneednum; i++) {
+            const elf_verneed *vn = (const elf_verneed *)at(L, off);
+            uint64_t auxoff = off + vn->aux;
+            for (uint16_t j = 0; j < vn->count; j++) {
+                const elf_vernaux *aux = (const elf_vernaux *)at(L, auxoff);
+                if ((aux->other & 0x7fffu) == index) return dynamic_string(L, aux->name);
+                auxoff += aux->next;
+            }
+            off += vn->next;
+        }
+    }
+    return NULL;
 }
 
 /* Validate all pointer/size pairs before hash, symbol, relocation or dependency code dereferences them. */
@@ -2835,6 +2984,10 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
     L->ncache = dynsym_bound(L, L->nsyms);
     if (L->ncache && (!image_range_fits(L, L->symtab, (uint64_t)L->ncache * sizeof(elf_sym)))) {
         tl_log_line("ld: %s: dynamic symbol table exceeds the mapped image", name);
+        return NULL;
+    }
+    if (!validate_version_tables(L)) {
+        tl_log_line("ld: %s: malformed GNU symbol-version metadata", name);
         return NULL;
     }
     for (uint32_t i = 0; i < L->ncache; i++) {
