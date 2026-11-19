@@ -111,3 +111,10 @@
 - Updated workflow scheduling to keep push-triggered source tests on Linux and reserve macOS Swift checks / framework compilation for manual dispatch, avoiding repeated macOS runner use on each source commit.
 - Added the new native logger source to the manual framework build's path documentation and corrected source-contract assertions to match the separated UI layer.
 - Validation of these corrections is pending on the next GitHub push run. Older queued/in-progress runs are being left untouched. No IPA packaging, signing, Codemagic build, or device launch was started.
+
+
+### Validation update — 2026-11-19
+- GitHub Actions run [44445041169](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44445041169) passed the Linux source-contract and APK archive suite: **52 tests passed**; runtime build-script shell checks and audit-script syntax validation also completed successfully.
+- The automatic push workflow now correctly skips macOS-only bridge/parser checks; those remain available by manual dispatch.
+- A previously started macOS framework job from the earlier push is still resolving Xcode package dependencies. It has not yet compiled the updated SwiftUI framework, so full iOS compilation is still pending. It is being left running rather than cancelled.
+- This pass validates source contracts only. It does not prove the native logger compiles in the iOS target, does not prove APK execution, and is not an IPA build.
