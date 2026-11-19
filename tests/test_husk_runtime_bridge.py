@@ -338,7 +338,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "Reserve every destination before publishing any registration.",
             "reserving JNI native method table transaction",
             "owner->natives[owner->nnatives].registered_on = given",
-            "__atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE)"
+            "__atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE)",
             "growing JNI native method table",
             "static int32_t jni_UnregisterNatives(void *env, jo cls)",
             "owner->natives[read].registered_on == registered",
@@ -350,7 +350,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "memcpy(buf, out, out_len)",
             "current guest string store is NUL-terminated UTF-8",
             "registered_on = given",
-            "if (changed) __atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE)"
+            "if (changed) __atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE)",
             "tl_jni_throw(\"java/lang/OutOfMemoryError\"",
         ):
             with self.subTest(marker=marker):
@@ -381,6 +381,27 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
                 self.assertIn(marker, jni)
         self.assertNotIn("(uint32_t)(s + n) <= a->arr.len", jni)
         self.assertNotIn("(size_t)(start + len) <= n", jni)
+
+    def test_jni_primitive_array_elements_obey_copy_and_release_modes(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            "typedef struct jni_array_access",
+            "static __thread jni_array_access *t_array_accesses",
+            "static void *jni_array_copy_out(",
+            "if (is_copy) *is_copy = 1;",
+            "static void jni_array_release(",
+            "if (mode != 0 && mode != 1 && mode != 2)",
+            "if (mode != 2)",
+            "if (mode == 1) return; /* JNI_COMMIT copies back but retains the buffer. */",
+            "static void jni_array_accesses_detach(void)",
+            "jni_array_accesses_detach();",
+            "return (CT *)jni_array_copy_out(a, K, sizeof(CT), copy);",
+            "jni_array_release(a, e, mode, K);",
+            "array->arr.len != access->length"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+        self.assertNotIn("if (copy) *copy = 0; return a->arr.data;", jni)
 
     def test_jni_local_reference_frames_are_thread_scoped_and_released_on_detach(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
