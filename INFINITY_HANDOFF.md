@@ -697,3 +697,9 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Work remains on `main`; Strata host code and SideStore systems were not modified. Husk attribution and license notices remain preserved.
 - Keep the next work project-wide: audit ELF dependency-closure failure handling and loader lifecycle, broaden Bionic syscall/NDK coverage, then ART/JNI reference and garbage-collection lifecycle. Do not pivot to an individual APK.
 - Continue to defer IPA/device testing until the user authorizes the single consolidated test phase.
+
+
+### Compatibility refinement
+- Kept empty optional relocation/init-array tags compatible instead of rejecting a zero-sized optional table solely because its address tag is present.
+- Preserved the ELF `R_NONE` no-op relocation behavior before target-address validation, so no-op entries with a zero offset do not become false loader failures.
+- Added the corresponding regression source-contract assertion. Tests remain unrun by design.
