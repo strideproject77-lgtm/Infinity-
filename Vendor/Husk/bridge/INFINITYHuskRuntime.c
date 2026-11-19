@@ -6,6 +6,7 @@
 #include "husk-tl-aot.h"
 #include "husk-tl-codesign.h"
 #include "husk-tl-ld.h"
+#include "husk-tl-nativeactivity.h"
 
 #include <math.h>
 #include <stdatomic.h>
@@ -342,6 +343,8 @@ void infinity_husk_clear_split_packages(void)
 void infinity_husk_stop(void)
 {
     if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_NONE) return;
+    /* Stop and join the NativeActivity UI thread before unloading its code and callback table. */
+    tl_na_stop();
     husk_native_unload();
     atomic_store(&g_queued_split_packages, 0);
     atomic_store(&g_infinity_engine, INFINITY_ENGINE_NONE);
