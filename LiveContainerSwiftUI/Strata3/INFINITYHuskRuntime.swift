@@ -6,7 +6,7 @@ import UniformTypeIdentifiers
 import Darwin
 
 
-private extension Notification.Name {
+extension Notification.Name {
     static let infinityHuskKeyboardRequest = Notification.Name("INFINITYHuskKeyboardRequest")
     static let infinityHuskShareRequest = Notification.Name("INFINITYHuskShareRequest")
     static let infinityHuskOrientationRequest = Notification.Name("INFINITYHuskOrientationRequest")
@@ -68,7 +68,7 @@ func infinityHuskHostPickDocuments(_ mimeTypes: UnsafePointer<CChar>?, _ multipl
     }
 }
 
-private struct INFINITYHuskSharePayload: Identifiable {
+struct INFINITYHuskSharePayload: Identifiable {
     let id = UUID()
     let text: String
 }

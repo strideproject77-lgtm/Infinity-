@@ -251,6 +251,7 @@ struct INFINITYAPKLaunchView: View {
                     runtime.performJavaTextAction()
                     hostKeyboardText = ""
                     previousHostKeyboardText = ""
+                    hostKeyboardFocused = false
                 }
                 .onChange(of: hostKeyboardText) { value in
                     let old = Array(previousHostKeyboardText)
