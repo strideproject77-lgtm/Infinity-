@@ -796,3 +796,21 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Tests were added but NOT run. No workflow manually dispatched; no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device test.
 - Work remains on main; Strata and SideStore untouched; Husk notices preserved.
 - Next large batch: continue Bionic pthread lifecycle/robust mutex semantics and NDK NativeActivity/input/window integration, then ART/JNI lifecycle gaps. No fake API stubs should be counted as completed capability.
+
+
+## 2026-11-20 — Bionic caller-owned pthread stack support
+
+### Implemented on main
+- Added pthread_attr_setstack with null, minimum-size, and pointer-range overflow checks. The caller-supplied stack base and size are retained in the guest pthread_attr_t and marked explicitly.
+- Native thread creation now uses pthread_attr_setstack with the exact caller-owned range when that attribute is present. It no longer silently substitutes a different host-owned stack or applies the interpreter's 16 MiB default-stack expansion to a caller-owned range.
+- Native stack-configuration failures are returned to the guest after proper pthread_attr cleanup; they are not reported as successful thread creation.
+- Exported pthread_attr_setstack and added source-contract regression coverage.
+
+### Integration status
+- **Overall Husk source integration estimate: 80%** (previous: 77%; +3 percentage points). This batch closes a concrete thread-creation ABI gap alongside the preceding pthread identity and condition-clock additions. This remains an engineering estimate, not a measured compatibility score.
+- **Verified real-device APK execution remains 0% demonstrated.**
+
+### Verification and constraints
+- Tests were added but NOT run. No workflow manually dispatched; no IPA build, Xcode/macOS build, Codemagic build, signing/export, or device test.
+- Work remains on main; Strata and SideStore untouched; Husk license/attribution preserved.
+- Next large batch: continue NDK NativeActivity/window/input and ART/JNI lifecycle work, keeping unsupported APIs explicit rather than claiming fake compatibility.
