@@ -33,6 +33,7 @@ final class INFINITYHuskRuntime: ObservableObject {
         case vulkanRuntimeNotPrepared
         case invalidSurface
         case rejectedLaunch
+        case splitPackageNotSupported
 
         var errorDescription: String? {
             switch self {
@@ -48,6 +49,8 @@ final class INFINITYHuskRuntime: ObservableObject {
                 return "The Android surface has an invalid size."
             case .rejectedLaunch:
                 return "Husk rejected the launch request. Check the APK, data folder and runtime assets."
+            case .splitPackageNotSupported:
+                return "This app requires split APK loading. The current Husk adapter only accepts a single base APK, so execution is blocked safely."
             }
         }
     }
