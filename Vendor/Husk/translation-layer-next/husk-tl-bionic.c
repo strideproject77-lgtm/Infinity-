@@ -667,9 +667,12 @@ static int g_nsys;
 static __thread char t_dlerr[200];
 static __thread bool t_dlerr_set;
 
-static void dl_fail(const char *fmt, const char *arg)
+static void dl_fail(const char *fmt, ...)
 {
-    snprintf(t_dlerr, sizeof(t_dlerr), fmt, arg);
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(t_dlerr, sizeof(t_dlerr), fmt, ap);
+    va_end(ap);
     t_dlerr_set = true;
 }
 
