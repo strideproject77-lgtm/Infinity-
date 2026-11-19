@@ -432,3 +432,6 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - TextureView and Java compositor window-surface creation now validates non-zero dimensions before allocating an off-screen pbuffer.
 - Surface registration is explicit and reports capacity exhaustion. If the fixed tracking table is full, the newly created pbuffer is destroyed and EGL receives a failed surface rather than an untracked surface that would silently render to nowhere.
 - The existing destroy path continues to unregister tracked surfaces and clear the Java compositor frame when its last registered surface is destroyed.
+
+
+- Final API guards in this batch: controller state reads reject null output pointers, controller updates reject null state input, and executable/writable alias delta calculation now uses an explicit signed address difference.
