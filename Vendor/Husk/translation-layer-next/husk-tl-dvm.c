@@ -617,6 +617,33 @@ dvm_field *dvm_find_field(dvm_class *c, const char *name, bool want_static)
     return NULL;
 }
 
+/* DEX field_id_item resolution includes the declaring type, name and field
+ * descriptor. Name-only lookup can bind a hidden field with a different
+ * descriptor, which corrupts the register/slot interpretation for sget/iput.
+ */
+static dvm_field *dvm_find_field_exact(dvm_class *c, const char *name,
+                                       const char *type, bool want_static)
+{
+    for (dvm_class *k = c; k; k = k->super) {
+        dvm_field *fields = want_static ? k->sf : k->inf;
+        int count = want_static ? k->nsf : k->ninf;
+        for (int i = 0; i < count; i++) {
+            dvm_field *field = &fields[i];
+            if (!strcmp(field->name, name) && !strcmp(field->type, type))
+                return field;
+        }
+        if (want_static) {
+            for (int i = 0; i < k->nifaces; i++) {
+                dvm_class *iface = dvm_class_of(k->ifaces[i]);
+                dvm_field *field = iface
+                    ? dvm_find_field_exact(iface, name, type, true) : NULL;
+                if (field) return field;
+            }
+        }
+    }
+    return NULL;
+}
+
 /* ================================================================== objects */
 
 static tl_jclass *g_class_class;
@@ -1285,7 +1312,7 @@ static fref *resolve_fref(dvm_dex *d, uint32_t idx, bool is_static)
     const char *type = dex_type(d, rd16(fi + 2)), *name = dex_str(d, rd32(fi + 4));
     r->type = type[0] == '[' ? 'L' : type[0];
     dvm_class *c = dvm_class_of(cls);
-    if (c) r->df = dvm_find_field(c, name, is_static);
+    if (c) r->df = dvm_find_field_exact(c, name, type, is_static);
     r->missing = !c && class_missing(cls);
     if (!r->df && !r->missing) r->hf = tl_jni_field(cls, name, type, is_static);
     r->cls = r->df ? r->df->cls->jc : cls;
@@ -1867,7 +1894,17 @@ dispatch:;
             if (!dvm_ensure_init(f->df->cls)) goto exception;
             slot = &f->df->cls->jc->statics[f->df->slot];
         } else {
-            if (!f->hf) { dvm_throw("java/lang/NoSuchFieldError", "static field %u", FETCH(1)); goto exception; }
+            if (!f->hf) {
+                const char *owner = f->cls ? f->cls->name : "<unknown>";
+                const char *field_name = dex_str(dex, rd32(dex->b + dex->field_off + 8 * FETCH(1) + 4));
+                const char *field_type = dex_type(dex, rd16(dex->b + dex->field_off + 8 * FETCH(1) + 2));
+                if (g_dvm_trace >= 1)
+                    tl_log_line("dvm: unresolved static field %s->%s:%s in %s",
+                                owner, field_name, field_type, dex->name);
+                dvm_throw("java/lang/NoSuchFieldError", "%s->%s:%s [static] in %s",
+                          owner, field_name, field_type, dex->name);
+                goto exception;
+            }
             slot = tl_jni_field_slot(NULL, f->hf);
         }
         switch (f->type) {
