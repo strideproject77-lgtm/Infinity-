@@ -40,24 +40,45 @@ static void *b___tls_get_addr(const uint64_t *ti) { return tl_ld_tls_get_addr(ti
 
 typedef struct { uint32_t value; _Atomic uint32_t magic; void *host; } guest_obj;
 
-/* Get (making if needed) the Darwin object behind a guest object. `make` builds one
- * from the guest's flags word. */
+/* Lazy host-object creation must never publish a partially initialised
+ * pthread primitive. The per-thread error carries the host failure back to
+ * the Bionic wrapper that requested the object. */
+static __thread int t_obj_error;
+
 static void *obj_host(void *g, void *(*make)(uint32_t value))
 {
+    if (!g || !make) { t_obj_error = EINVAL; return NULL; }
     guest_obj *o = g;
     uint32_t m = atomic_load_explicit(&o->magic, memory_order_acquire);
     for (;;) {
-        if (m == MAGIC_READY) return o->host;
-        if (m == MAGIC_INIT) { sched_yield(); m = atomic_load_explicit(&o->magic, memory_order_acquire); continue; }
-        if (atomic_compare_exchange_weak_explicit(&o->magic, &m, MAGIC_INIT, memory_order_acq_rel, memory_order_acquire)) {
-            o->host = make(o->value);
+        if (m == MAGIC_READY) {
+            if (o->host) { t_obj_error = 0; return o->host; }
+            t_obj_error = ENOMEM;
+            return NULL;
+        }
+        if (m == MAGIC_INIT) {
+            sched_yield();
+            m = atomic_load_explicit(&o->magic, memory_order_acquire);
+            continue;
+        }
+        if (atomic_compare_exchange_weak_explicit(&o->magic, &m, MAGIC_INIT,
+                                                  memory_order_acq_rel, memory_order_acquire)) {
+            t_obj_error = 0;
+            void *host = make(o->value);
+            if (!host) {
+                if (!t_obj_error) t_obj_error = ENOMEM;
+                atomic_store_explicit(&o->magic, 0, memory_order_release);
+                return NULL;
+            }
+            o->host = host;
             atomic_store_explicit(&o->magic, MAGIC_READY, memory_order_release);
-            return o->host;
+            t_obj_error = 0;
+            return host;
         }
     }
 }
 
-static int rc(int darwin) { return darwin ? tl_errno_to_guest(darwin) : 0; }
+static int obj_error(void) { return rc(t_obj_error ? t_obj_error : ENOMEM); }
 
 /* ---------------------------------------------------------------- mutexes */
 
@@ -66,11 +87,15 @@ static void *make_mutex(uint32_t value)
 {
     unsigned type = (value >> 14) & 3;
     pthread_mutexattr_t a;
-    pthread_mutexattr_init(&a);
-    pthread_mutexattr_settype(&a, type == 1 ? PTHREAD_MUTEX_RECURSIVE : type == 2 ? PTHREAD_MUTEX_ERRORCHECK : PTHREAD_MUTEX_NORMAL);
+    int r = pthread_mutexattr_init(&a);
+    if (r) { t_obj_error = r; return NULL; }
+    r = pthread_mutexattr_settype(&a, type == 1 ? PTHREAD_MUTEX_RECURSIVE : type == 2 ? PTHREAD_MUTEX_ERRORCHECK : PTHREAD_MUTEX_NORMAL);
+    if (r) { pthread_mutexattr_destroy(&a); t_obj_error = r; return NULL; }
     pthread_mutex_t *m = malloc(sizeof(*m));
-    pthread_mutex_init(m, &a);
+    if (!m) { pthread_mutexattr_destroy(&a); t_obj_error = ENOMEM; return NULL; }
+    r = pthread_mutex_init(m, &a);
     pthread_mutexattr_destroy(&a);
+    if (r) { free(m); t_obj_error = r; return NULL; }
     return m;
 }
 
@@ -178,7 +203,9 @@ static void *make_cond(uint32_t value)
 {
     (void)value;
     pthread_cond_t *c = malloc(sizeof(*c));
-    pthread_cond_init(c, NULL);
+    if (!c) { t_obj_error = ENOMEM; return NULL; }
+    int r = pthread_cond_init(c, NULL);
+    if (r) { free(c); t_obj_error = r; return NULL; }
     return c;
 }
 
@@ -263,7 +290,9 @@ static void *make_rwlock(uint32_t value)
 {
     (void)value;
     pthread_rwlock_t *l = malloc(sizeof(*l));
-    pthread_rwlock_init(l, NULL);
+    if (!l) { t_obj_error = ENOMEM; return NULL; }
+    int r = pthread_rwlock_init(l, NULL);
+    if (r) { free(l); t_obj_error = r; return NULL; }
     return l;
 }
 static int b_rwlock_init(void *g, const void *attr) { (void)attr; memset(g, 0, 56); return 0; }
