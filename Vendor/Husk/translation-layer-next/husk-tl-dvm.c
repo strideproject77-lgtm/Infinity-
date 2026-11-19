@@ -45,6 +45,69 @@ static int32_t sleb(const uint8_t **pp)
     *pp = p; return r;
 }
 
+/* Read a DEX ULEB128 only while the cursor remains inside its mapped file. */
+static bool dex_uleb_bounded(const dvm_dex *d, const uint8_t **pp, uint32_t *value)
+{
+    if (!d || !pp || !*pp || *pp < d->b || (size_t)(*pp - d->b) > d->size) return false;
+    const uint8_t *p = *pp;
+    uint32_t result = 0;
+    for (unsigned shift = 0; shift <= 28; shift += 7) {
+        if ((size_t)(p - d->b) >= d->size) return false;
+        uint8_t byte = *p++;
+        if (shift == 28 && (byte & 0xf0)) return false;
+        result |= (uint32_t)(byte & 0x7f) << shift;
+        if (!(byte & 0x80)) { *pp = p; *value = result; return true; }
+    }
+    return false;
+}
+
+/* Validate the class_data_item before attach() allocates member tables or
+ * follows any member_idx/code_off. The second pass can then use the compact
+ * legacy decoder without trusting APK-controlled offsets. */
+static bool dex_class_data_valid(dvm_dex *d, uint32_t off)
+{
+    if (!off) return true;
+    if (off >= d->size) return false;
+    const uint8_t *p = d->b + off;
+    uint32_t nsf, nif, ndm, nvm;
+    if (!dex_uleb_bounded(d, &p, &nsf) || !dex_uleb_bounded(d, &p, &nif) ||
+        !dex_uleb_bounded(d, &p, &ndm) || !dex_uleb_bounded(d, &p, &nvm))
+        return false;
+    if (nsf > d->nfield || nif > d->nfield || ndm > d->nmeth || nvm > d->nmeth ||
+        nsf > d->size || nif > d->size || ndm > d->size || nvm > d->size)
+        return false;
+
+    uint32_t idx = 0, delta, flags;
+    for (uint32_t i = 0; i < nsf + nif; i++) {
+        if (!dex_uleb_bounded(d, &p, &delta) || delta > UINT32_MAX - idx) return false;
+        idx += delta;
+        if (idx >= d->nfield || !dex_uleb_bounded(d, &p, &flags)) return false;
+    }
+    for (uint32_t group = 0; group < 2; group++) {
+        uint32_t count = group ? nvm : ndm;
+        idx = 0;
+        for (uint32_t i = 0; i < count; i++) {
+            uint32_t code_off;
+            if (!dex_uleb_bounded(d, &p, &delta) || delta > UINT32_MAX - idx) return false;
+            idx += delta;
+            if (idx >= d->nmeth || !dex_uleb_bounded(d, &p, &flags) ||
+                !dex_uleb_bounded(d, &p, &code_off)) return false;
+            if (code_off) {
+                if (code_off > d->size || d->size - code_off < 16) return false;
+                const uint8_t *ci = d->b + code_off;
+                uint32_t insns = rd32(ci + 12);
+                uint16_t tries = rd16(ci + 6);
+                size_t remain = d->size - (size_t)code_off - 16;
+                if ((size_t)insns > remain / 2) return false;
+                size_t bytes = (size_t)insns * 2;
+                if (tries && (insns & 1)) { if (bytes > remain || remain - bytes < 2) return false; bytes += 2; }
+                if (tries && ((size_t)tries > (remain - bytes) / 8)) return false;
+            }
+        }
+    }
+    return true;
+}
+
 static const char *dex_str(const dvm_dex *d, uint32_t idx)
 {
     if (idx >= d->nstr) return "";
@@ -404,16 +467,7 @@ static tl_jclass *resolve_type(dvm_dex *d, uint32_t idx)
 /* Bounded ULEB128 used for untrusted encoded_value data. */
 static bool encoded_uleb(dvm_dex *d, const uint8_t **pp, uint32_t *value)
 {
-    const uint8_t *p = *pp;
-    uint32_t result = 0;
-    for (unsigned shift = 0; shift <= 28; shift += 7) {
-        if ((size_t)(p - d->b) >= d->size) return false;
-        uint8_t byte = *p++;
-        if (shift == 28 && (byte & 0xf0)) return false;
-        result |= (uint32_t)(byte & 0x7f) << shift;
-        if (!(byte & 0x80)) { *pp = p; *value = result; return true; }
-    }
-    return false;
+    return dex_uleb_bounded(d, pp, value);
 }
 
 /* Parse encoded values with strict bounds; APK metadata must never make the
@@ -555,15 +609,25 @@ static bool attach(tl_jclass *jc)
 
     uint32_t data_off = rd32(def + 24);
     if (data_off) {
+        if (!dex_class_data_valid(d, data_off)) {
+            tl_log_line("dvm: invalid or truncated class_data_item for %s", name);
+            return false;
+        }
         const uint8_t *p = d->b + data_off;
         uint32_t nsf = uleb(&p), nif = uleb(&p), ndm = uleb(&p), nvm = uleb(&p);
         /* As ART lays them out (LengthPrefixedArray: a count, then the members back to back): fields instance then static,
          * methods direct then virtual. Class.fields/methods point at these, and code that walks ART's tables through Unsafe
          * (HiddenApiBypass) finds dvm_field/dvm_method entries a fixed stride apart. */
-        uint8_t *fb = calloc(1, DVM_MEMBERS_HDR + (nif + nsf + 1) * sizeof(dvm_field));
+        if ((size_t)nif + nsf > (SIZE_MAX - DVM_MEMBERS_HDR) / sizeof(dvm_field) - 1 ||
+            (size_t)ndm + nvm > (SIZE_MAX - DVM_MEMBERS_HDR) / sizeof(dvm_method) - 1) {
+            tl_log_line("dvm: class member count overflow for %s", name);
+            return false;
+        }
+        uint8_t *fb = calloc(1, DVM_MEMBERS_HDR + ((size_t)nif + nsf + 1) * sizeof(dvm_field));
+        uint8_t *mb = calloc(1, DVM_MEMBERS_HDR + ((size_t)ndm + nvm + 1) * sizeof(dvm_method));
+        if (!fb || !mb) { free(fb); free(mb); tl_log_line("dvm: out of memory linking %s", name); return false; }
         *(uint32_t *)fb = nif + nsf;
         c->inf = (dvm_field *)(fb + DVM_MEMBERS_HDR); c->sf = c->inf + nif;
-        uint8_t *mb = calloc(1, DVM_MEMBERS_HDR + (ndm + nvm + 1) * sizeof(dvm_method));
         *(uint32_t *)mb = ndm + nvm;
         c->dm = (dvm_method *)(mb + DVM_MEMBERS_HDR); c->vm = c->dm + ndm;
         c->art_tables = true;
