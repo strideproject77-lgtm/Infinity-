@@ -102,13 +102,23 @@ private struct INFINITYHuskSurface: UIViewRepresentable {
 struct INFINITYAPKInstalledAppDetail: View {
     let app: INFINITYAPKInstalledApp
 
+    private var splitStatus: String {
+        guard app.splitAPKCount > 0 else {
+            return app.requiresSplits ? "Required · missing" : "Not required"
+        }
+        if app.detectedEngine == "sdl" {
+            return "\(app.splitAPKCount) stored · SDL loader wired"
+        }
+        return "\(app.splitAPKCount) stored · engine loader unavailable"
+    }
+
     var body: some View {
         List {
             Section("Android app") {
                 LabeledContent("Package", value: app.packageName)
                 LabeledContent("Version", value: app.versionName ?? "Unknown")
                 LabeledContent("Engine", value: app.detectedEngine ?? "Not identified")
-                LabeledContent("Split APKs", value: app.splitAPKCount > 0 ? "\(app.splitAPKCount) stored · runtime loading pending" : (app.requiresSplits ? "Required · missing" : "Not required"))
+                LabeledContent("Split APKs", value: splitStatus)
                 LabeledContent("APK size", value: ByteCountFormatter.string(fromByteCount: Int64(clamping: app.archiveBytes), countStyle: .file))
                 LabeledContent("Native libraries", value: "\(app.nativeLibraries.count)")
                 if let activity = app.launchActivity {
