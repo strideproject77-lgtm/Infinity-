@@ -1606,6 +1606,13 @@ static void jni_array_accesses_detach(void)
         if (n) memcpy((CT *)a->arr.data + s, buf, (size_t)n * sizeof(CT)); }
 PRIM_ARRAYS(GEN_ARRAYS)
 
+typedef struct jni_critical_array_access {
+    jobj *array;
+    void *address;
+    struct jni_critical_array_access *next;
+} jni_critical_array_access;
+static __thread jni_critical_array_access *t_critical_array_accesses;
+
 static void *jni_GetPrimitiveArrayCritical(void *env, jo a, uint8_t *copy)
 {
     (void)env;
@@ -1613,14 +1620,42 @@ static void *jni_GetPrimitiveArrayCritical(void *env, jo a, uint8_t *copy)
         tl_jni_throw("java/lang/IllegalArgumentException", "GetPrimitiveArrayCritical requires a primitive array");
         return NULL;
     }
+    jni_critical_array_access *access = malloc(sizeof(*access));
+    if (!access) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "tracking JNI critical array access");
+        return NULL;
+    }
+    access->array = a;
+    access->address = a->arr.data;
+    access->next = t_critical_array_accesses;
+    t_critical_array_accesses = access;
     if (copy) *copy = 0;
-    return a->arr.data;
+    return access->address;
 }
 static void jni_ReleasePrimitiveArrayCritical(void *env, jo a, void *p, int32_t mode)
 {
-    (void)env; (void)p; (void)mode;
-    if (!a || a->kind != TL_K_PRIM_ARRAY)
-        tl_jni_throw("java/lang/IllegalArgumentException", "ReleasePrimitiveArrayCritical requires a primitive array");
+    (void)env;
+    if (mode != 0 && mode != 1 && mode != 2) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "invalid JNI critical array release mode");
+        return;
+    }
+    jni_critical_array_access **slot = &t_critical_array_accesses;
+    while (*slot && ((*slot)->array != a || (*slot)->address != p)) slot = &(*slot)->next;
+    if (!*slot) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "critical array pointer is not outstanding for this array");
+        return;
+    }
+    jni_critical_array_access *access = *slot;
+    *slot = access->next;
+    free(access);
+}
+static void jni_critical_array_accesses_detach(void)
+{
+    while (t_critical_array_accesses) {
+        jni_critical_array_access *access = t_critical_array_accesses;
+        t_critical_array_accesses = access->next;
+        free(access);
+    }
 }
 static const uint16_t *jni_GetStringCritical(void *env, jo s, uint8_t *copy) { return jni_GetStringChars(env, s, copy); }
 static void jni_ReleaseStringCritical(void *env, jo s, const uint16_t *c) { jni_ReleaseStringChars(env, s, c); }
@@ -1844,6 +1879,7 @@ static int32_t vm_Detach(void *vm)
 {
     (void)vm;
     if (!t_vm_attached) return JNI_EDETACHED;
+    jni_critical_array_accesses_detach();
     jni_array_accesses_detach();
     local_frames_detach();
     t_pending = NULL;
