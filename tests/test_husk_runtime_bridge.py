@@ -144,6 +144,22 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("JNI %s field not found", hook)
         self.assertIn("dvm_ensure_init(f->cls)", hook)
 
+    def test_dex_class_data_and_code_offsets_are_bounded(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        self.assertIn("dex_class_data_valid", dvm)
+        self.assertIn("dex_uleb_bounded", dvm)
+        self.assertIn("code_off > d->size", dvm)
+        self.assertIn("d->nfield", dvm)
+        self.assertIn("d->nmeth", dvm)
+
+    def test_dex_method_prototypes_and_interface_lists_are_validated(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        self.assertIn("dex_proto_valid", dvm)
+        self.assertIn("rd16(mi + 2)", dvm)
+        self.assertIn("invalid interface list", dvm)
+        self.assertIn("truncated interface list", dvm)
+        self.assertIn("invalid interface type", dvm)
+
     def test_java_runtime_is_rejected_when_boot_assets_are_missing(self):
         adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
         for asset in (
