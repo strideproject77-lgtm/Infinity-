@@ -1293,22 +1293,96 @@ static const uint16_t *jni_GetStringChars(void *env, jo s, uint8_t *copy)
     return chars;
 }
 static void jni_ReleaseStringChars(void *env, jo s, const uint16_t *c) { (void)env; (void)s; free((void *)c); }
+/* JNI strings use Modified UTF-8: U+0000 is C0 80 and supplementary
+ * characters are encoded as two three-byte surrogate sequences. */
+static char *jni_mutf8_encode(const uint16_t *units, size_t count, size_t *out_len)
+{
+    if ((!units && count) || count > (SIZE_MAX - 1) / 3) return NULL;
+    size_t cap = count * 3 + 1, n = 0;
+    char *out = malloc(cap);
+    if (!out) return NULL;
+    for (size_t i = 0; i < count; i++) {
+        uint16_t c = units[i];
+        if (c == 0) { out[n++] = (char)0xc0; out[n++] = (char)0x80; }
+        else if (c <= 0x7f) out[n++] = (char)c;
+        else if (c <= 0x7ff) { out[n++] = (char)(0xc0 | (c >> 6)); out[n++] = (char)(0x80 | (c & 0x3f)); }
+        else { out[n++] = (char)(0xe0 | (c >> 12)); out[n++] = (char)(0x80 | ((c >> 6) & 0x3f)); out[n++] = (char)(0x80 | (c & 0x3f)); }
+    }
+    out[n] = 0;
+    if (out_len) *out_len = n;
+    return out;
+}
+static char *jni_mutf8_from_utf8(const char *value, size_t *out_len)
+{
+    size_t count = 0;
+    uint16_t *units = to_utf16(value, &count);
+    if (!units) return NULL;
+    char *out = jni_mutf8_encode(units, count, out_len);
+    free(units);
+    return out;
+}
+static char *jni_mutf8_to_utf8(const char *input)
+{
+    if (!input) return NULL;
+    size_t bytes = strlen(input);
+    if (bytes > SIZE_MAX / sizeof(uint16_t) - 1) return NULL;
+    uint16_t *units = malloc((bytes + 1) * sizeof(uint16_t));
+    if (!units) return NULL;
+    size_t i = 0, n = 0;
+    while (i < bytes) {
+        unsigned char a = (unsigned char)input[i++];
+        uint16_t c;
+        if (a >= 1 && a <= 0x7f) c = a;
+        else if ((a & 0xe0) == 0xc0) {
+            if (i >= bytes) { free(units); return NULL; }
+            unsigned char b = (unsigned char)input[i++];
+            if ((b & 0xc0) != 0x80) { free(units); return NULL; }
+            c = (uint16_t)(((a & 0x1f) << 6) | (b & 0x3f));
+            if (c != 0 && c < 0x80) { free(units); return NULL; }
+            if (c == 0 && (a != 0xc0 || b != 0x80)) { free(units); return NULL; }
+        } else if ((a & 0xf0) == 0xe0) {
+            if (i + 1 >= bytes) { free(units); return NULL; }
+            unsigned char b = (unsigned char)input[i++], c2 = (unsigned char)input[i++];
+            if ((b & 0xc0) != 0x80 || (c2 & 0xc0) != 0x80) { free(units); return NULL; }
+            c = (uint16_t)(((a & 0x0f) << 12) | ((b & 0x3f) << 6) | (c2 & 0x3f));
+            if (c < 0x800) { free(units); return NULL; }
+        } else { free(units); return NULL; }
+        units[n++] = c;
+    }
+    char *out = from_utf16(units, n);
+    free(units);
+    return out;
+}
 static jo jni_NewStringUTF(void *env, const char *utf)
 {
     (void)env;
     if (!utf) { tl_jni_throw("java/lang/NullPointerException", "NewStringUTF input is null"); return NULL; }
-    jo o = tl_jni_new_string(utf);
+    char *decoded = jni_mutf8_to_utf8(utf);
+    if (!decoded) { tl_jni_throw("java/lang/IllegalArgumentException", "NewStringUTF received malformed Modified UTF-8"); return NULL; }
+    jo o = tl_jni_new_string(decoded);
+    free(decoded);
     if (!o) tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI UTF string");
     return local_frame_adopt(o);
 }
-static int32_t jni_GetStringUTFLength(void *env, jo s) { (void)env; return (int32_t)strlen(tl_jni_string(s) ? tl_jni_string(s) : ""); }
+static int32_t jni_GetStringUTFLength(void *env, jo s)
+{
+    (void)env;
+    const char *value = tl_jni_string(s);
+    if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringUTFLength received a null or non-string reference"); return 0; }
+    size_t n = 0;
+    char *encoded = jni_mutf8_from_utf8(value, &n);
+    free(encoded);
+    if (!encoded) { tl_jni_throw("java/lang/OutOfMemoryError", "encoding JNI Modified UTF-8 length"); return 0; }
+    if (n > INT32_MAX) { tl_jni_throw("java/lang/OutOfMemoryError", "JNI Modified UTF-8 string exceeds jint length"); return 0; }
+    return (int32_t)n;
+}
 static const char *jni_GetStringUTFChars(void *env, jo s, uint8_t *copy)
 {
     (void)env;
     const char *value = tl_jni_string(s);
     if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringUTFChars received a null or non-string reference"); return NULL; }
-    char *chars = strdup(value);
-    if (!chars) tl_jni_throw("java/lang/OutOfMemoryError", "allocating UTF string characters");
+    char *chars = jni_mutf8_from_utf8(value, NULL);
+    if (!chars) tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI Modified UTF-8 characters");
     if (copy) *copy = 1;
     return chars;
 }
