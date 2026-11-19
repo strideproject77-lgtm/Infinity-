@@ -267,6 +267,14 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("s && symbol_is_exported(s)", loader)
         self.assertNotIn("STT_GNU_IFUNC_) { *failed = true; return 0; }", loader)
 
+    def test_gnu_version_requirement_is_bound_to_declared_dependency_file(self):
+        loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
+        self.assertIn("symbol_version_file", loader)
+        self.assertIn("lookup_for_version(tl_lib *L, const char *name, const char *version, const char *required_file)", loader)
+        self.assertIn("strcmp(dep->soname, required_file)", loader)
+        self.assertIn("const char *required_file = symbol_version_file(L, symidx)", loader)
+        self.assertIn("!required_version || !required_file", loader)
+
     def test_gnu_version_table_covers_import_symbols_beyond_hash_exports(self):
         loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
         self.assertIn("L->ncache * sizeof(uint16_t)", loader)
