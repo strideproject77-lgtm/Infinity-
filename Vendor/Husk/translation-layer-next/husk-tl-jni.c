@@ -259,7 +259,7 @@ static uint8_t esz_of(char t)
 
 jobj *tl_jni_new_prim_array(char etype, uint32_t len)
 {
-    if (!strchr("ZBCSIJFD", etype)) return NULL;
+    if (!etype || !strchr("ZBCSIJFD", etype)) return NULL;
     char cn[4] = { '[', etype, 0 };
     jobj *o = obj_alloc(TL_K_PRIM_ARRAY, tl_jni_class(cn));
     if (!o) return NULL;
@@ -1232,8 +1232,11 @@ static size_t utf16_len(const char *s)
 }
 static uint16_t *to_utf16(const char *s, size_t *outlen)
 {
+    if (!s) return NULL;
     size_t cap = utf16_len(s), k = 0;
-    uint16_t *u = malloc((cap + 1) * 2);
+    if (cap > SIZE_MAX / sizeof(uint16_t) - 1) return NULL;
+    uint16_t *u = malloc((cap + 1) * sizeof(uint16_t));
+    if (!u) return NULL;
     for (const unsigned char *p = (const unsigned char *)s; *p;) {
         uint32_t cp;
         if (*p < 0x80) { cp = *p; p += 1; }
@@ -1279,7 +1282,16 @@ static jo jni_NewString(void *env, const uint16_t *chars, int32_t len)
     return local_frame_adopt(o);
 }
 static int32_t jni_GetStringLength(void *env, jo s) { (void)env; return (int32_t)utf16_len(tl_jni_string(s) ? tl_jni_string(s) : ""); }
-static const uint16_t *jni_GetStringChars(void *env, jo s, uint8_t *copy) { (void)env; if (copy) *copy = 1; return to_utf16(tl_jni_string(s) ? tl_jni_string(s) : "", NULL); }
+static const uint16_t *jni_GetStringChars(void *env, jo s, uint8_t *copy)
+{
+    (void)env;
+    const char *value = tl_jni_string(s);
+    if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringChars received a null or non-string reference"); return NULL; }
+    uint16_t *chars = to_utf16(value, NULL);
+    if (!chars) tl_jni_throw("java/lang/OutOfMemoryError", "allocating UTF-16 string characters");
+    if (copy) *copy = 1;
+    return chars;
+}
 static void jni_ReleaseStringChars(void *env, jo s, const uint16_t *c) { (void)env; (void)s; free((void *)c); }
 static jo jni_NewStringUTF(void *env, const char *utf)
 {
@@ -1290,26 +1302,58 @@ static jo jni_NewStringUTF(void *env, const char *utf)
     return local_frame_adopt(o);
 }
 static int32_t jni_GetStringUTFLength(void *env, jo s) { (void)env; return (int32_t)strlen(tl_jni_string(s) ? tl_jni_string(s) : ""); }
-static const char *jni_GetStringUTFChars(void *env, jo s, uint8_t *copy) { (void)env; if (copy) *copy = 1; return strdup(tl_jni_string(s) ? tl_jni_string(s) : ""); }
+static const char *jni_GetStringUTFChars(void *env, jo s, uint8_t *copy)
+{
+    (void)env;
+    const char *value = tl_jni_string(s);
+    if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringUTFChars received a null or non-string reference"); return NULL; }
+    char *chars = strdup(value);
+    if (!chars) tl_jni_throw("java/lang/OutOfMemoryError", "allocating UTF string characters");
+    if (copy) *copy = 1;
+    return chars;
+}
 static void jni_ReleaseStringUTFChars(void *env, jo s, const char *c) { (void)env; (void)s; free((void *)c); }
 static void jni_GetStringRegion(void *env, jo s, int32_t start, int32_t len, uint16_t *buf)
 {
     (void)env;
-    size_t n; uint16_t *u = to_utf16(tl_jni_string(s) ? tl_jni_string(s) : "", &n);
-    if (start >= 0 && len >= 0 && (size_t)(start + len) <= n) memcpy(buf, u + start, (size_t)len * 2);
+    const char *value = tl_jni_string(s);
+    if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringRegion received a null or non-string reference"); return; }
+    if (start < 0 || len < 0 || (!buf && len)) { tl_jni_throw("java/lang/IllegalArgumentException", "GetStringRegion received invalid bounds or buffer"); return; }
+    size_t n = 0; uint16_t *u = to_utf16(value, &n);
+    if (!u) { tl_jni_throw("java/lang/OutOfMemoryError", "converting string region"); return; }
+    if ((size_t)start > n || (size_t)len > n - (size_t)start) tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "string region out of bounds");
+    else if (len) memcpy(buf, u + start, (size_t)len * sizeof(uint16_t));
     free(u);
 }
 static void jni_GetStringUTFRegion(void *env, jo s, int32_t start, int32_t len, char *buf)
 {
     (void)env;
-    size_t n; uint16_t *u = to_utf16(tl_jni_string(s) ? tl_jni_string(s) : "", &n);
-    if (start >= 0 && len >= 0 && (size_t)(start + len) <= n) { char *o = from_utf16(u + start, (size_t)len); strcpy(buf, o); free(o); }
+    const char *value = tl_jni_string(s);
+    if (!value) { tl_jni_throw("java/lang/NullPointerException", "GetStringUTFRegion received a null or non-string reference"); return; }
+    if (start < 0 || len < 0 || (!buf && len)) { tl_jni_throw("java/lang/IllegalArgumentException", "GetStringUTFRegion received invalid bounds or buffer"); return; }
+    size_t n = 0; uint16_t *u = to_utf16(value, &n);
+    if (!u) { tl_jni_throw("java/lang/OutOfMemoryError", "converting UTF string region"); return; }
+    if ((size_t)start > n || (size_t)len > n - (size_t)start) {
+        tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "UTF string region out of bounds");
+    } else {
+        char *out = from_utf16(u + start, (size_t)len);
+        if (!out) tl_jni_throw("java/lang/OutOfMemoryError", "encoding UTF string region");
+        else { if (len) strcpy(buf, out); free(out); }
+    }
     free(u);
 }
 
 /* --- arrays --- */
 
-static int32_t jni_GetArrayLength(void *env, jo a) { (void)env; return a ? (int32_t)(a->kind == TL_K_OBJ_ARRAY ? a->oarr.len : a->arr.len) : 0; }
+static int32_t jni_GetArrayLength(void *env, jo a)
+{
+    (void)env;
+    if (!a || (a->kind != TL_K_OBJ_ARRAY && a->kind != TL_K_PRIM_ARRAY)) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "GetArrayLength requires an array reference");
+        return 0;
+    }
+    return (int32_t)(a->kind == TL_K_OBJ_ARRAY ? a->oarr.len : a->arr.len);
+}
 static jo jni_NewObjectArray(void *env, int32_t len, jo cls, jo init)
 {
     (void)env;
@@ -1367,12 +1411,16 @@ static void jni_SetObjectArrayElement(void *env, jo a, int32_t i, jo v)
 
 #define GEN_ARRAYS(T, CT, K) \
     static jo jni_New##T##Array(void *env, int32_t len) { (void)env; if (len < 0) { tl_jni_throw("java/lang/IllegalArgumentException", "negative primitive array length"); return NULL; } jo a = tl_jni_new_prim_array(K, (uint32_t)len); if (!a) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating primitive array"); return NULL; } return local_frame_adopt(a); } \
-    static CT *jni_Get##T##ArrayElements(void *env, jo a, uint8_t *copy) { (void)env; if (copy) *copy = 0; return a ? a->arr.data : NULL; } \
+    static CT *jni_Get##T##ArrayElements(void *env, jo a, uint8_t *copy) { (void)env; if (!a || a->kind != TL_K_PRIM_ARRAY || a->arr.etype != K) { tl_jni_throw("java/lang/IllegalArgumentException", "primitive array type mismatch"); return NULL; } if (copy) *copy = 0; return a->arr.data; } \
     static void jni_Release##T##ArrayElements(void *env, jo a, CT *e, int32_t mode) { (void)env; (void)a; (void)e; (void)mode; } \
     static void jni_Get##T##ArrayRegion(void *env, jo a, int32_t s, int32_t n, CT *buf) { (void)env; \
-        if (a && s >= 0 && n >= 0 && (uint32_t)(s + n) <= a->arr.len) memcpy(buf, (CT *)a->arr.data + s, (size_t)n * sizeof(CT)); } \
+        if (!a || a->kind != TL_K_PRIM_ARRAY || a->arr.etype != K) { tl_jni_throw("java/lang/IllegalArgumentException", "primitive array type mismatch"); return; } \
+        if (s < 0 || n < 0 || (uint32_t)s > a->arr.len || (uint32_t)n > a->arr.len - (uint32_t)s || (!buf && n)) { tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "primitive array region out of bounds"); return; } \
+        if (n) memcpy(buf, (CT *)a->arr.data + s, (size_t)n * sizeof(CT)); } \
     static void jni_Set##T##ArrayRegion(void *env, jo a, int32_t s, int32_t n, const CT *buf) { (void)env; \
-        if (a && s >= 0 && n >= 0 && (uint32_t)(s + n) <= a->arr.len) memcpy((CT *)a->arr.data + s, buf, (size_t)n * sizeof(CT)); }
+        if (!a || a->kind != TL_K_PRIM_ARRAY || a->arr.etype != K) { tl_jni_throw("java/lang/IllegalArgumentException", "primitive array type mismatch"); return; } \
+        if (s < 0 || n < 0 || (uint32_t)s > a->arr.len || (uint32_t)n > a->arr.len - (uint32_t)s || (!buf && n)) { tl_jni_throw("java/lang/ArrayIndexOutOfBoundsException", "primitive array region out of bounds"); return; } \
+        if (n) memcpy((CT *)a->arr.data + s, buf, (size_t)n * sizeof(CT)); }
 PRIM_ARRAYS(GEN_ARRAYS)
 
 static void *jni_GetPrimitiveArrayCritical(void *env, jo a, uint8_t *copy) { (void)env; if (copy) *copy = 0; return a ? a->arr.data : NULL; }
