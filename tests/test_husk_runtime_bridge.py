@@ -292,6 +292,27 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn('TL_WRAP("pthread_attr_setstack", b_attr_setstack)', pthread)
         self.assertIn("if (stack_result) { pthread_attr_destroy(&a); return rc(stack_result); }", pthread)
 
+    def test_nativeactivity_has_joinable_teardown_and_never_fakes_input_queue(self):
+        native = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.h")
+        bridge = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
+        for marker in (
+            "atomic_bool stop_requested",
+            "atomic_store(&N.stop_requested, false)",
+            "while (!atomic_load(&N.stop_requested))",
+            "void tl_na_stop(void)",
+            "pthread_join(N.ui, NULL)",
+            "N.callbacks.onNativeWindowDestroyed",
+            "N.callbacks.onStop",
+            "N.callbacks.onDestroy",
+            "AInputQueue; callback withheld because no real queue is available"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, native)
+        self.assertIn("void tl_na_stop(void);", header)
+        self.assertIn("tl_na_stop();", bridge)
+        self.assertNotIn("onInputQueueCreated(&N.na, (void *)&N)", native)
+
     def test_bionic_mutex_timed_and_clock_locking_and_semaphore_bounds_are_explicit(self):
         pthread = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
         for marker in (
