@@ -160,3 +160,103 @@
 - Added a regression contract for the inline Android rows and refresh path. Linux CI must pass before treating the source change as validated; Xcode compilation and on-device UI remain unverified.
 - Execution blocker confirmed during this audit: XAPK/APKS/APKM split files are extracted and persisted, but `INFINITYAPKLaunchView` still rejects `requiresSplits` because the current INFINITY-to-Husk launch ABI accepts only one base-APK path. Passing only the base APK would silently omit required resources/native libraries, so that guard remains until multi-split loading is implemented in the Husk loader. The exact user-visible XAPK error still needs the current import/launch log to distinguish archive import failure from split-execution rejection.
 - No Codemagic build, IPA packaging, signing, export, or workflow dispatch was started.
+
+
+# Antigravity implementation handover — 2026-11-19
+
+## Mission
+Complete the real INFINITY + Strata + Husk integration. Treat "100% integrated" as the engineering target, not a status claim: report completion only for code paths that are actually implemented and evidenced. The goal is real execution of Android APKs on the iPhone through the integrated Husk runtime, not a mock screen, static-analysis-only result, Android VM, or fake compatibility layer.
+
+## Absolute operating constraints
+1. Work only in this repository and only on branch `main`. Fetch/pull the latest `main` before editing. Do not create/switch branches, force-push, reset, or discard existing user changes.
+2. **Never inspect for the purpose of changing, and never modify, SideStore systems.** Do not change SideStore source, targets, schemes, bundle identifiers, entitlements, signing, installation, refresh, provisioning, workflows, configuration, or files. Do not rename/remove SideStore-related app variants or artifacts. Preserve all SideStore functionality exactly.
+3. Preserve Strata and the existing LiveContainer hosting/IPA management architecture. INFINITY APKs must be integrated into Strata's existing app-management/launcher experience; do not replace Strata with a separate shell or create fake `LCAppModel` objects for APKs.
+4. **Implementation only. Do not run tests, test suites, builds, workflow jobs, workflow dispatches, workflow reruns, Codemagic, Xcode, IPA packaging, signing, or export.** Do not edit GitHub Actions/workflow files or build configuration merely to trigger validation. No test command should be invoked. Leave validation for the owner to authorize later.
+5. Do not cancel, restart, or rerun any existing workflow. Do not claim tests/builds passed. If a push naturally triggers repository automation, do not interact with that run.
+6. No IPA build, signing, packaging, export, or installation without the owner's separate explicit permission.
+7. Keep upstream Husk/Strata license obligations and notices intact. Preserve attribution and GPL-2.0-or-later notices for reused Husk code; do not strip license files or notices.
+8. Do not implement placeholder APIs, fake success states, fake FPS, simulated Android screens, or compatibility percentages unsupported by real device evidence. Never silently fall back to a built-in demo when APK launch fails.
+9. Make substantial, coherent implementation batches. After each batch, update this file with exact files changed, actual behavior implemented, unresolved blockers, and validation status (clearly state "not run" because this handover prohibits tests).
+
+## Verified repository baseline at handover
+- Repository: `strideproject77-lgtm/Infinity-`; branch: `main`.
+- Starting commit: `bbb4e08f14de65e4c68007226cb90c40ce85c232`.
+- The latest source-only Linux CI run for that commit is `44503237554` and completed successfully; this is historical baseline evidence only, not evidence for any Antigravity changes.
+- APK/XAPK/APKS/APKM import/storage exists in `LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift`.
+- The IPA picker and Runtime Manager already route APK-family formats through the Android import path.
+- Imported Android apps are now shown inline beneath IPA entries in Strata's Manage apps list, with shared search, refresh, and existing APK detail navigation. This does not yet make Android packages native iOS apps or add them to every LiveBoard card pipeline.
+- APK detail has an always-visible Launch action. Session event logging, native Husk stdout/stderr capture, log viewer, and export surfaces have been added. Their source exists, but current iOS compilation and on-device behavior are not verified.
+- The current launch ABI accepts one base APK path. `INFINITYAPKLaunchView` deliberately blocks `requiresSplits`; do not bypass this by launching only the base APK. Correct split APK loading is a key implementation task.
+- The previous 2048 log reported opcode `0x60` and unresolved static field `R$layout;->activity_main:I`. The checked-in DEX interpreter already appears to implement the `sget`/`sput` opcode family, so trace the exact runtime/interpreter path and field-resolution behavior before changing opcode tables or duplicating existing support.
+- Java runtime build assets include both `husk-framework.dex` and `husk-framework-core.dex`; verify actual asset generation/consumption paths rather than assuming either is missing.
+- A manual Strata framework workflow has had prior invocation/dependency failures. Do not spend this implementation-only task editing or dispatching workflows; source-level iOS compilation remains unverified.
+- Do not infer runtime readiness from the presence of source files. Trace the complete APK-to-Husk call chain and distinguish implemented, wired, and actually executed components.
+
+## Required implementation sequence
+
+### Phase 1 — End-to-end architecture and call-chain audit
+- Map the complete path: file picker/import → archive extraction and package metadata → persisted Android app record → Strata list/detail → launch coordinator → runtime asset preparation → Swift/Objective-C bridge → C bridge → Husk loader/interpreter → Android app lifecycle → graphics/input/audio → shutdown/logging.
+- Identify duplicate or dead implementations, ABI mismatches, missing symbols, mismatched paths, lifecycle ownership errors, memory ownership bugs, and target membership/resource-bundle omissions.
+- Reuse existing Husk and Stride code where it is correct; do not create a second parallel runtime.
+- Record a concise dependency graph and a per-component status matrix in this handoff.
+
+### Phase 2 — Native bridge and real launch path
+- Make the Swift/Objective-C++/C interfaces agree on exact types, ownership, threading, error propagation, callbacks, and lifecycle.
+- Ensure the Launch action reaches the real Husk APK execution entry point. Runtime preparation alone, APK parsing, metadata extraction, or a successful return from a stub is not execution.
+- Wire actual launch, pause/resume, stop, process cleanup, and error callbacks. Prevent stale sessions, duplicate launches, file-descriptor leaks, and unsafe cross-thread UI updates.
+- Verify all required C sources, headers, resources, and generated runtime assets are included in the correct iOS target/build phases without altering SideStore targets or signing.
+- Keep JIT optional and capability-detected. The no-JIT path must report its actual limitations; never claim JIT is active unless it is.
+
+### Phase 3 — APK formats and package loading
+- Preserve single APK support and implement correct multi-APK package loading for XAPK/APKS/APKM, including base APK, configuration splits, ABI splits, resource splits, package metadata, and native libraries.
+- Pass the complete package/split set through a well-defined Husk loader interface. Validate package identity/version consistency and reject malformed or incompatible sets with actionable errors.
+- Do not extract or execute arbitrary archive paths; defend against path traversal, duplicate entries, oversized expansion, and malformed manifests.
+- Keep app icons, names, package IDs, version metadata, and persisted install state stable across relaunches and app-list refreshes.
+
+### Phase 4 — Core Android execution compatibility
+Implement and wire real support in dependency order, auditing existing code before adding anything:
+1. ARM64 ELF loading first; ARM32 only where the iOS host/runtime architecture permits and the upstream runtime supports it. Include mapping, segments, relocations, symbol resolution, TLS/constructors as required, and clean failure diagnostics.
+2. Bionic compatibility: required libc/libm/libdl/pthread/syscall behavior, errno, file and memory APIs, dynamic linker interactions, and Android-specific ABI shims. Do not pretend iOS libc is identical to Bionic.
+3. JNI: VM lifecycle, JNIEnv/thread attachment, class/method/field lookup, references, arrays/strings, native registration, exception propagation, and native library loading.
+4. DEX/ART execution: parser/verifier requirements, class loading/linking/initialization, method dispatch, fields/static fields, exceptions, object model, GC/memory safety, and Android framework DEX integration. Trace the prior `0x60` and `R$layout` failures to their real source.
+5. Android framework/API compatibility: prioritize APIs exercised by 2048, then expand by observed missing API diagnostics. Implement Activity/Context, resources/assets, PackageManager, intents, views, storage, preferences, display/orientation, input, lifecycle, and threading as required by real app traces.
+6. Native graphics/audio/input: connect the actual rendering backend and surface lifecycle, touch/controller input, orientation, audio output, frame pacing, and background/foreground transitions. Keep optional backends modular; QEMU is optional and must not be introduced unless a demonstrated compatibility gap requires it.
+7. Memory/performance: correct allocation accounting, pressure handling, leak cleanup, bounded caches, safe shutdown, and meaningful frame-time/FPS metrics. Never fabricate performance numbers.
+
+### Phase 5 — Strata user experience
+- Keep Android apps alongside IPA entries in the existing Strata management experience, searchable and refreshable.
+- Make APK details, launch state, runtime readiness, errors, and logs understandable without hiding the Launch action.
+- Preserve original APK icon artwork/background; do not destructively strip icon backgrounds.
+- Maintain the existing dark visual direction and responsive controls, but prioritize launch correctness over cosmetic redesign.
+- Keep diagnostic session logs useful: package/build/device metadata, exact runtime stage, native errors, missing APIs/symbols, performance samples, stop/failure outcome, and export. Do not claim OS-kill logs are guaranteed.
+
+### Phase 6 — Compatibility-first integration
+- First target: the real 2048 APK. Trace each blocker and implement the missing behavior rather than special-casing the package or faking its screen.
+- Next target: Hill Climb Racing. Focus on graphics/resource correctness, native libraries, memory pressure, and sustained runtime stability.
+- Then evaluate other real APKs (for example Subway Surfers, Dr. Driving, and Beach Buggy) based on measured dependencies and diagnostics.
+- Keep a compatibility matrix with columns: APK/version/ABI, import result, package/split loading, runtime entry reached, first frame, input, audio, orientation, sustained run, crash/error, device/OS, evidence. Mark every untested cell "Not tested"; do not invent percentages.
+- Do not optimize only for one APK in a way that breaks general Android compatibility.
+
+## Completion definition
+Do not mark Husk "100% integrated" until all of the following are true:
+- Real APK import and persistence work for supported formats, including complete split-package loading.
+- Strata app list/detail routes to a real Husk execution entry point.
+- Swift/ObjC/C ABI is wired end-to-end and the actual runtime starts and stops cleanly.
+- Required runtime assets are generated, bundled, located, and loaded correctly.
+- ARM64 ELF, JNI, DEX/ART, Bionic, and the Android APIs needed by the tested apps are genuinely implemented and connected, not just present as source files.
+- Graphics, touch/input, audio, orientation, app lifecycle, memory handling, and diagnostics operate in a real app session.
+- 2048 is tested on a real device first; then Hill Climb Racing; then additional APKs. These tests are explicitly deferred until the owner authorizes them.
+- All license/attribution obligations are preserved and SideStore remains untouched.
+Until then, report exact completed components and blockers. Never convert "implementation written" into "build verified" or "game compatible."
+
+## Required final handoff report from Antigravity
+At the end of implementation, update this file and report:
+- Starting and ending commit hashes.
+- Files/modules changed and why.
+- Runtime call chain before/after.
+- Components genuinely implemented vs pre-existing vs newly wired vs still blocked.
+- Split APK/XAPK status.
+- Remaining known limitations and blockers.
+- Tests/builds/workflows: explicitly "not run, per instruction".
+- Device compatibility: explicitly "not verified; real-device tests deferred".
+- Confirmation that SideStore source/configuration/targets/signing/install/refresh systems were not modified.
