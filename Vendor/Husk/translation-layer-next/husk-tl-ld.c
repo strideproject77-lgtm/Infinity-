@@ -539,7 +539,7 @@ static uint32_t count_dynsyms(const tl_lib *L)
 static uint32_t dynsym_bound(const tl_lib *L, uint32_t hashed)
 {
     uint64_t next = ~0ull;
-    const uint64_t after[] = { L->strtab, L->gnu_hash, L->sysv_hash, L->rela, L->jmprel, L->arela, L->relr };
+    const uint64_t after[] = { L->strtab, L->gnu_hash, L->sysv_hash, L->versym, L->verdef, L->verneed, L->rela, L->jmprel, L->arela, L->relr };
     for (size_t i = 0; i < sizeof(after) / sizeof(after[0]); i++) if (after[i] > L->symtab && after[i] < next) next = after[i];
     uint32_t n = hashed;
     if (L->symtab && next != ~0ull) { uint64_t m = (next - L->symtab) / sizeof(elf_sym); if (m > n && m < (1u << 24)) n = (uint32_t)m; }
