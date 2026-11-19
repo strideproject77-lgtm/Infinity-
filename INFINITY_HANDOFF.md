@@ -407,3 +407,21 @@ Files changed for split integration: `Vendor/Husk/include/INFINITYHuskRuntime.h`
 - Improved unresolved static-field diagnostics to include declaring class, field name, descriptor and DEX file name, making failures such as generated `R$*` references actionable rather than reporting only a numeric field index.
 - This is a targeted interpreter correctness improvement, not proof that the earlier 2048 `R$layout` failure is fixed. That exact APK still requires a real launch and session-log confirmation.
 - No tests, workflows, Xcode builds, IPA builds, Codemagic jobs, signing/export or device runs were started in this implementation-only batch.
+
+
+## 2026-11-19 — Runtime input, graphics and memory hardening batch
+
+### Implemented in source
+
+- **JNI input event ownership:** MotionEvent touch records and copied MotionEvents now carry explicit ownership. Android `recycle()` releases only owned records; the fixed controller event rings remain reusable and are never freed by recycle. Event creation handles allocation failure and invalid pointer-array arguments without dereferencing null pointers. Pointer counts are clamped to the supported 0–10 range.
+- **Controller disconnect correctness:** a disconnected physical controller now emits key-up events for buttons/triggers that were still held, clears its last axes/button state, and avoids leaving Android games with stuck input. Controller-connected queries and InputDevice ID enumeration now read shared connection state under the controller mutex. Input event allocation failures no longer call engine sinks with null events.
+- **EGL graphics buffer safety:** frame readback and TextureView readback validate width/height multiplication before allocating RGBA buffers. Diagnostic BMP capture rejects dimensions that cannot fit the BMP 32-bit size fields, checks pixel/row allocations, and avoids reading into a null buffer. Normal rendering behavior and the existing EGL/Metal path are unchanged.
+- **Executable-memory allocator safety:** JIT allocation rejects zero/overflowing requests, verifies allocator usage before subtracting remaining capacity, and uses integer-address range checks instead of relational comparisons between unrelated pointers. Memory usage/size snapshots are now read under the allocator mutex.
+- **Session diagnostics:** every active APK session records iOS memory-warning notifications and thermal-state transitions (nominal/fair/serious/critical), then unregisters observers when the session ends. This makes memory pressure and thermal throttling visible in exported session logs without claiming to measure free RAM.
+
+### Verification / limitations
+
+- Changes were committed directly to `main` in focused source commits and the handoff was updated.
+- No tests, source-contract scripts, GitHub Actions, Xcode compile, device execution, IPA build, Codemagic build, signing or export were run in this implementation-only batch.
+- These changes improve input stability, resource ownership, rendering allocation safety and diagnostics. They do not establish that 2048, Hill Climb Racing or any other APK now launches successfully; game compatibility remains unverified until real device sessions.
+- Existing Husk/Strata architecture and gamepad bridge are retained. SideStore systems were not modified.
