@@ -1,8 +1,7 @@
 import SwiftUI
 
 struct StrataAboutView: View {
-    private let profile = URL(string: "https://github.com/huzaifahshahid71-ops")!
-    private let repository = URL(string: "https://github.com/strideproject77-lgtm/Infinity-")!
+        private let repository = URL(string: "https://github.com/strideproject77-lgtm/Infinity-")!
     var body: some View {
         List {
             Section {
@@ -11,7 +10,7 @@ struct StrataAboutView: View {
                         Image(uiImage: icon).resizable().frame(width: 80, height: 80).clipShape(RoundedRectangle(cornerRadius: 19))
                     }
                     Text("INFINITY").font(.largeTitle.bold())
-                    Text("Version " + StrataVersion.display + (StrataVersion.channel.map { " · " + $0 } ?? "")).font(.subheadline).foregroundStyle(.secondary)
+                    Text("Version " + INFINITYVersion.display).font(.subheadline).foregroundStyle(.secondary)
                     Text("Your apps. Your interface.").font(.subheadline).foregroundStyle(.secondary)
                 }.frame(maxWidth: .infinity).padding(.vertical, 14)
             }

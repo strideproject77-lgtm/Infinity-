@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Marketing version plus build revision, e.g. "4.0 (r43)", read from the packaged Info.plist.
 enum INFINITYVersion {
-    static var marketing: String { Bundle.main.object(forInfoDictionaryKey: "INFINITYMarketingVersion") as? String ?? "4.0" }
+    static var marketing: String { Bundle.main.object(forInfoDictionaryKey: "INFINITYMarketingVersion") as? String ?? "1.0" }
     static var revision: Int? { (Bundle.main.object(forInfoDictionaryKey: "INFINITYRevision") as? NSNumber)?.intValue }
     static var channel: String? { Bundle.main.object(forInfoDictionaryKey: "INFINITYBuildChannel") as? String }
     static var display: String { marketing }
@@ -98,7 +98,7 @@ struct StrataSettingsApp: View {
                     StrataSettingsIcon.image.resizable().frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                     VStack(alignment: .leading, spacing: 3) {
                         Text("INFINITY").font(.title2.weight(.semibold))
-                        Text(INFINITYVersion.display + (INFINITYVersion.channel.map { " · " + $0 } ?? "")).font(.subheadline).foregroundStyle(.secondary)
+                        Text(INFINITYVersion.display).font(.subheadline).foregroundStyle(.secondary)
                             .accessibilityIdentifier("settings.version")
                     }
                 }.padding(.vertical, 4)
