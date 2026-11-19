@@ -673,3 +673,27 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 
 ### Next large project-wide batch
 - Continue with actual runtime capability coverage rather than isolated APK patches: audit and complete dynamic relocation/symbol-resolution paths (including Android packed relocations and versioned symbol behavior), broaden Bionic NDK ABI coverage, and close native loader/JNI/ART lifecycle gaps. Only raise the overall percentage when completed capabilities—not just validation checks—justify it.
+
+
+## 2026-11-20 — Large project-wide ELF linker and Bionic integration batch
+
+### Implemented on main
+- **Dynamic segment parsing:** the loader now requires a fully bounded dynamic segment containing a terminating `DT_NULL`; dependency overflow is rejected instead of silently dropping entries.
+- **Dynamic string safety:** validates the complete string-table range and requires every `DT_NEEDED`, `DT_SONAME`, and dynamic-symbol name to be in-range and NUL-terminated before use.
+- **Hash-table validation:** validates SysV hash header/bucket/chain storage and GNU hash header, bloom/bucket ranges, bucket indexes, and bounded chain termination before symbol counting or lookup.
+- **Relocation metadata:** validates RELA, PLT RELA, Android APS2 packed RELA, RELR, and init-array pointer/size pairs, including entry-size alignment and mapped-image bounds. Empty optional tables remain accepted for compatibility.
+- **Symbol resolution:** validates the computed dynamic symbol-table extent, rejects out-of-range relocation symbol indexes, and prevents invalid symbol names from reaching string comparisons or unresolved-import logging.
+- **Relocation writes:** validates relocation target addresses before forming writable pointers; checks TLS symbol indexes, RELR target words, and IRELATIVE resolver addresses before reading or calling them.
+- **Bionic lookup:** null/empty symbol names now fail safely; lookup-table allocation failure is detected and reported, and lookups fail closed instead of dereferencing an absent hash table.
+- Added regression source-contract assertions for the new ELF metadata, symbol, relocation, and Bionic lookup checks.
+
+### Integration status
+- **Overall Husk source integration estimate: 65%** (previous baseline: 60%; +5 percentage points). The increase reflects a meaningful closure of the ELF dynamic-linking/symbol-resolution safety stage plus Bionic lookup hardening. It is an engineering estimate, not a measured compatibility score.
+- **Verified real-device APK execution: 0% demonstrated in this batch.** This batch did not prove that any APK/game launches.
+- No single APK was targeted; this was shared runtime/linker infrastructure work.
+
+### Verification and operating constraints
+- Regression tests were expanded but **not run in this batch**. No workflow was manually dispatched, no Xcode/macOS build, IPA packaging, Codemagic build, signing/export, or device launch was started.
+- Work remains on `main`; Strata host code and SideStore systems were not modified. Husk attribution and license notices remain preserved.
+- Keep the next work project-wide: audit ELF dependency-closure failure handling and loader lifecycle, broaden Bionic syscall/NDK coverage, then ART/JNI reference and garbage-collection lifecycle. Do not pivot to an individual APK.
+- Continue to defer IPA/device testing until the user authorizes the single consolidated test phase.
