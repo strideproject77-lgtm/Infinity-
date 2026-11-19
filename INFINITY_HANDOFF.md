@@ -1205,3 +1205,32 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Completion gate
 - **Do not label Husk integration 100% while the above runtime-facing contracts are absent.** Reaching 100% requires a complete handle representation conversion across all JNI boundaries and a genuine supported NativeActivity input-queue path (or a formally agreed scope exclusion), plus the remaining ART/JNI lifecycle work.
 - Continue source-only implementation; no tests, compilation, workflows, IPA build/export, signing, or device testing until the integration scope is genuinely complete.
+
+## 2026-11-20 — Bionic semaphore process-sharing and failure-path hardening
+
+### Implemented on main
+- `sem_init` no longer accepts `pshared=1` while backing it with a process-local mutex/condition-variable object. It now fails explicitly with guest `ENOTSUP` (95), preventing a false promise of inter-process synchronization.
+- Semaphore creation now checks allocation and pthread mutex/condition initialization failures before publishing the guest object; failed initialization reports guest `ENOMEM`.
+- Semaphore entry points validate null arguments and handle failed lazy backing-object creation rather than dereferencing a null semaphore.
+- `sem_timedwait` validates the absolute timespec nanosecond field and handles `clock_gettime(CLOCK_REALTIME)` failure before calculating the relative timeout.
+- Added source-contract assertions for process-sharing rejection, allocation/error handling, argument validation, timespec validation, and clock failure handling.
+
+### Commits
+- Bionic semaphore process-sharing and allocation failure handling: `1aa6399059b65e96dfac7370756c717a6bb787ea`
+- Semaphore source-contract coverage: `20d160d02f88700dabf337b48fbbb46c5bb4f9ac`
+- Timed-wait clock failure handling: `7e7489bbc23a232384c4bba5a8b325d0c8bc1be7`
+- Clock failure source-contract coverage: `fb3372cb16a8d15d190a79e16d51747c985c16b0`
+
+### Integration status and verification
+- **Overall Husk source integration estimate: 99%** (previous: 98%; +1 percentage point). This is a source-integration estimate, not a runtime compatibility score.
+- Static marker audit: all seven primary semaphore contract markers and both timed-wait clock-failure markers are present. Tests were not executed.
+- No compiler, test suite, GitHub workflow, IPA build/export, signing, or device test was run.
+- Remaining blocking integration gaps are still substantive: raw-pointer JNI handles do not represent local/global/weak-global reference identity; genuine NDK `AInputQueue` delivery is absent; full ART/JNI VM lifecycle, exception/class-loader behavior, and real VM/GC critical-region pinning are not implemented.
+- `pshared=1` is now explicitly unsupported rather than silently emulated incorrectly. Apps requiring process-shared POSIX semaphores remain unsupported.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next target: 100%
+- Map and convert every JNI guest-facing and internal object-pointer boundary before introducing typed JNI reference handles. Do not claim local/global/weak-global support until `New/DeleteGlobalRef`, weak-global operations, local frames, object-returning JNI calls, and `GetObjectRefType` all use the same handle model.
+- Implement a real NativeActivity input-queue contract end-to-end or record a formally agreed scope exclusion; do not pass a fake queue.
+- Close the remaining ART/JNI lifecycle contracts where the embedded runtime architecture supports them. Keep unsupported VM destruction/critical pin semantics explicit until actually implemented.
+- Preserve the agreed gate: no tests, compilation, workflows, IPA build/export, signing, or device testing until genuine source integration is complete.
