@@ -588,3 +588,12 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Regression source tests were added but not manually executed in this session. The repository's push-triggered Linux workflow status should be checked separately; no macOS/Xcode build, device run, IPA build, signing/export or Codemagic run was initiated.
 - Work remains on `main`; Strata is preserved, SideStore systems are untouched, and upstream Husk license/attribution notices remain intact.
 - Next priority: inspect the Linux workflow result, then obtain a fresh 2048 runtime trace when the owner authorizes the consolidated device test. Use the first actual missing field/API/resource from that trace to drive the next implementation batch.
+
+
+## 2026-11-19 — Updated operating rules and CI outcome
+
+- The automatic Ubuntu/Linux source-contract workflow completed successfully on commit `96e81843b0542837bfddb4205e688a52eb64f924`: **67 tests passed** and runtime build-script syntax checks passed.
+- The first CI attempts in this batch failed only because `tests/test_apk_store_contract.py` still expected the old single-base-APK rejection path. The test was updated to assert the current split-package validation and `additionalPackages` handoff; the next push passed all 67 tests.
+- Per the current workflow policy, macOS compilation/build workflows are now **manual-dispatch only**: Husk native source compile audit, Husk static runtime package build, ANGLE iOS build, and Android runtime-assets build. Ubuntu/Linux tests remain push-triggered. The canonical IPA workflow remains manual and is not run without explicit authorization.
+- Earlier queued macOS jobs created by the preceding push-triggered workflow definitions may still appear in Actions; no cancellation capability was used. No new manual macOS build was dispatched.
+- Latest source-level status remains **60% overall Husk integration**, **45% 2048-specific implementation readiness**, and **0% verified 2048 iPhone execution**. No compatibility claim is made.
