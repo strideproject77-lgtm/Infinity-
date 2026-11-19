@@ -75,6 +75,7 @@ static bool local_frame_reserve(jni_local_frame *f, size_t extra)
         if (cap > SIZE_MAX / 2) { cap = need; break; }
         cap *= 2;
     }
+    if (cap > SIZE_MAX / sizeof(*f->items)) return false;
     jobj **items = realloc(f->items, cap * sizeof(*items));
     if (!items) return false;
     f->items = items;
