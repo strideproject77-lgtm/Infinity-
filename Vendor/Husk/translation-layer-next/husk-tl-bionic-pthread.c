@@ -219,6 +219,12 @@ static int b_condattr_setclock(long *a, int clock)
     else return 22;
     return 0;
 }
+static int b_condattr_getclock(const long *a, int *clock)
+{
+    if (!a || !clock) return 22;
+    *clock = (*a & 2L) ? 1 : 0;
+    return 0;
+}
 
 /* -------------------------------------------------------- read-write locks */
 
@@ -481,8 +487,25 @@ static int b_kill(pthread_t t, int sig)
 
 static int b_setname_np(pthread_t t, const char *name)
 {
-    if (pthread_equal(t, pthread_self())) pthread_setname_np(name);
-    return 0;
+    if (!name) return 22;
+    /* Darwin only exposes a current-thread setter. Never report success for a
+     * remote-thread rename that the host did not perform. */
+    if (!pthread_equal(t, pthread_self())) return 95;
+    return rc(pthread_setname_np(name));
+}
+
+static int b_getname_np(pthread_t t, char *name, size_t length)
+{
+    if (!name || !length) return 22;
+    return rc(pthread_getname_np(t, name, length));
+}
+
+static int b_gettid_np(pthread_t t)
+{
+    uint64_t tid = 0;
+    int r = pthread_threadid_np(t, &tid);
+    if (r) { tl_set_guest_errno(tl_errno_to_guest(r)); return -1; }
+    return (int)tid;
 }
 
 static int b_join(pthread_t t, void **ret) { return rc(pthread_join(t, ret)); }
@@ -522,7 +545,7 @@ const tl_bionic_entry tl_tab_pthread[] = {
     TL_WRAP("pthread_cond_wait", b_cond_wait), TL_WRAP("pthread_cond_timedwait", b_cond_timedwait), TL_WRAP("pthread_cond_clockwait", b_cond_clockwait),
     TL_WRAP("pthread_cond_timedwait_monotonic_np", b_cond_timedwait_monotonic), TL_WRAP("pthread_cond_timedwait_monotonic", b_cond_timedwait_monotonic),
     TL_WRAP("pthread_condattr_init", b_condattr_init), TL_WRAP("pthread_condattr_destroy", b_condattr_destroy),
-    TL_WRAP("pthread_condattr_setclock", b_condattr_setclock), TL_WRAP("pthread_condattr_setpshared", b_condattr_setpshared), TL_WRAP("pthread_condattr_getpshared", b_condattr_getpshared),
+    TL_WRAP("pthread_condattr_setclock", b_condattr_setclock), TL_WRAP("pthread_condattr_getclock", b_condattr_getclock), TL_WRAP("pthread_condattr_setpshared", b_condattr_setpshared), TL_WRAP("pthread_condattr_getpshared", b_condattr_getpshared),
     TL_WRAP("pthread_rwlock_init", b_rwlock_init), TL_WRAP("pthread_rwlock_destroy", b_rwlock_destroy),
     TL_WRAP("pthread_rwlock_rdlock", b_rwlock_rdlock), TL_WRAP("pthread_rwlock_wrlock", b_rwlock_wrlock),
     TL_WRAP("pthread_rwlock_tryrdlock", b_rwlock_tryrdlock), TL_WRAP("pthread_rwlock_trywrlock", b_rwlock_trywrlock),
@@ -543,6 +566,7 @@ const tl_bionic_entry tl_tab_pthread[] = {
     TL_WRAP("pthread_create", b_create), TL_WRAP("pthread_join", b_join), TL_WRAP("pthread_detach", b_detach),
     TL_DIRECT(pthread_exit), TL_DIRECT(pthread_self), TL_DIRECT(pthread_equal),
     TL_WRAP("pthread_kill", b_kill), TL_WRAP("pthread_setname_np", b_setname_np),
+    TL_WRAP("pthread_getname_np", b_getname_np), TL_WRAP("pthread_gettid_np", b_gettid_np),
     TL_WRAP("pthread_sigmask", b_sigmask), TL_WRAP("pthread_sigmask64", b_sigmask),
     TL_END
 };
