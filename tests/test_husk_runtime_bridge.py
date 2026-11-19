@@ -439,6 +439,8 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "host_sem *s = make_sem(value);",
             "if (!s) { tl_set_guest_errno(12); return -1; }",
             "abs->tv_nsec < 0 || abs->tv_nsec >= 1000000000L",
+            "if (clock_gettime(CLOCK_REALTIME, &now) != 0)",
+            "tl_set_guest_errno(tl_errno_to_guest(errno));",
             "if (!g || !v) { tl_set_guest_errno(22); return -1; }",
         ):
             with self.subTest(marker=marker):
