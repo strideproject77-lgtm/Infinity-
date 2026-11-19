@@ -762,3 +762,8 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Bionic dlvsym diagnostic correctness
 - Upgraded the thread-local dlerror formatter to a real variadic formatter. Versioned lookup errors include both the symbol and requested version safely; the previous one-argument formatter could not represent a two-substitution dlvsym diagnostic correctly.
 - Added a source-contract assertion for the multi-argument diagnostic path.
+
+
+### Dynamic-symbol boundary integration correction
+- Added VERSYM, VERDEF, and VERNEED addresses to the dynamic-symbol extent boundary calculation. This prevents GNU version tables located after .dynsym from being miscounted as extra ELF symbol entries when deriving the relocation-cache bound.
+- Extended regression contracts to pin this boundary behavior. Tests remain unrun.
