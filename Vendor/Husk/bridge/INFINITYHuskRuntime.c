@@ -201,6 +201,7 @@ bool infinity_husk_launch_engine(int engine,
     if (!accepted && queued_splits > 0) {
         /* A failed pthread start leaves Husk's state FAILED, not IDLE.
            Reset that rejected, never-running session before another app is queued. */
+        tl_na_stop();
         if (husk_unity_state() != 0) husk_native_unload();
         else tl_ld_reset_session();
         atomic_store(&g_queued_split_packages, 0);
