@@ -100,3 +100,14 @@
 - Added source-contract tests for native stderr capture, crash-log wiring, persistent session events, performance/error logging, log export, and unique native diagnostic files.
 - Verification status: source changes are committed on `main`; GitHub Actions validation is pending. No macOS build, IPA packaging, signing, or on-device APK launch was started. The native capture and UI are not claimed as build- or device-verified until CI and a real device test pass.
 - Limitation to preserve in reports: a hard OS jetsam kill or power loss may prevent a clean session-end event; the previous-run native log rotation is intended to preserve the available crash evidence. Raw upstream diagnostics are captured through stdout/stderr, while structured INFINITY lifecycle/performance events are recorded separately.
+
+
+## 2026-11-19 — Session logging validation corrections
+
+- GitHub validation exposed two integration issues before any IPA build: the older JIT-less contract test still expected the previous fixed native log filename, and the bridge smoke test was compiling the runtime facade against the macOS SDK without UIKit.
+- Corrected the regression contract to require unique per-attempt diagnostic filenames and preserve prior logs.
+- Moved the SwiftUI Session Log viewer into the iOS launch UI file; kept the runtime facade Foundation/Combine/QuartzCore-only for the bridge smoke check, and replaced UIKit-only host metadata with ProcessInfo metadata.
+- Corrected the logger's newline string literals so the source is valid Swift.
+- Updated workflow scheduling to keep push-triggered source tests on Linux and reserve macOS Swift checks / framework compilation for manual dispatch, avoiding repeated macOS runner use on each source commit.
+- Added the new native logger source to the manual framework build's path documentation and corrected source-contract assertions to match the separated UI layer.
+- Validation of these corrections is pending on the next GitHub push run. Older queued/in-progress runs are being left untouched. No IPA packaging, signing, Codemagic build, or device launch was started.
