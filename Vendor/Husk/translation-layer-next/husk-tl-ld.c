@@ -380,9 +380,11 @@ static uint32_t sysv_hash(const char *s)
     return h;
 }
 
+static const char *dynamic_string(const tl_lib *L, uint64_t offset);
+
 static const char *sym_name(const tl_lib *L, const elf_sym *s)
 {
-    return (const char *)at(L, L->strtab) + s->st_name;
+    return s ? dynamic_string(L, s->st_name) : NULL;
 }
 
 static const elf_sym *sym_at(const tl_lib *L, uint32_t i)
@@ -423,7 +425,8 @@ static const elf_sym *lib_find(const tl_lib *L, const char *name)
             uint32_t c = chains[i - symoff];
             if ((h | 1) == (c | 1)) {
                 const elf_sym *s = sym_at(L, i);
-                if (s->st_shndx != SHN_UNDEF_ && !strcmp(sym_name(L, s), name)) return s;
+                const char *candidate = sym_name(L, s);
+                if (s->st_shndx != SHN_UNDEF_ && candidate && !strcmp(candidate, name)) return s;
             }
             if (c & 1) break;
         }
@@ -435,7 +438,8 @@ static const elf_sym *lib_find(const tl_lib *L, const char *name)
         if (!nb) return NULL;
         for (uint32_t i = t[2 + sysv_hash(name) % nb]; i && i < nc; i = t[2 + nb + i]) {
             const elf_sym *s = sym_at(L, i);
-            if (s->st_shndx != SHN_UNDEF_ && !strcmp(sym_name(L, s), name)) return s;
+            const char *candidate = sym_name(L, s);
+            if (s->st_shndx != SHN_UNDEF_ && candidate && !strcmp(candidate, name)) return s;
         }
     }
     return NULL;
@@ -1788,8 +1792,18 @@ static uint64_t bind_symbol(tl_lib *L, uint32_t symidx, bool *failed)
 {
     bool cached = L->symcache && symidx < L->ncache;
     if (cached && L->symcache[symidx]) return L->symcache[symidx];
+    if (symidx >= L->ncache) {
+        tl_log_line("ld: %s: relocation references symbol %u beyond the validated dynamic symbol table", L->name, symidx);
+        *failed = true;
+        return 0;
+    }
     const elf_sym *s = sym_at(L, symidx);
     const char *name = sym_name(L, s);
+    if (!name) {
+        tl_log_line("ld: %s: symbol %u has an invalid or unterminated name", L->name, symidx);
+        *failed = true;
+        return 0;
+    }
     uint64_t val = 0;
     if (s->st_shndx != SHN_UNDEF_ && (s->st_info >> 4) != STB_WEAK_) {
         /* Defined here. Search the scope anyway so an earlier library's definition
@@ -1867,7 +1881,11 @@ static bool reloc_one_into(tl_lib *L, uint64_t r_offset, uint32_t type, uint32_t
         uint64_t symoff = 0;
         if (symidx) {
             const elf_sym *ts = sym_at(L, symidx);
-            if (ts->st_shndx == SHN_UNDEF_) { tl_log_line("ld: %s: a thread-local variable of another library (%s) is not supported", L->name, sym_name(L, ts)); return false; }
+            if (ts->st_shndx == SHN_UNDEF_) {
+                const char *tls_name = sym_name(L, ts);
+                tl_log_line("ld: %s: a thread-local variable of another library (%s) is not supported", L->name, tls_name ? tls_name : "<invalid>");
+                return false;
+            }
             symoff = ts->st_value;
         }
         if (!L->tls_id) { tl_log_line("ld: %s: a TLS relocation but no TLS segment", L->name); return false; }
@@ -2758,6 +2776,17 @@ static tl_lib *map_library(const char *name, uint8_t *file, size_t flen)
     }
     L->nsyms = count_dynsyms(L);
     L->ncache = dynsym_bound(L, L->nsyms);
+    if (L->ncache && (!image_range_fits(L, L->symtab, (uint64_t)L->ncache * sizeof(elf_sym)))) {
+        tl_log_line("ld: %s: dynamic symbol table exceeds the mapped image", name);
+        return NULL;
+    }
+    for (uint32_t i = 0; i < L->ncache; i++) {
+        const elf_sym *sym = sym_at(L, i);
+        if (!dynamic_string(L, sym->st_name)) {
+            tl_log_line("ld: %s: dynamic symbol %u has an invalid name offset", name, i);
+            return NULL;
+        }
+    }
     if (L->ncache) L->symcache = calloc(L->ncache, sizeof(uint64_t));
     if (!g_aot.on) publish_lib(L);
     return L;
