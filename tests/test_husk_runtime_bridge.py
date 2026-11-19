@@ -430,6 +430,24 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
 
+    def test_native_activity_stop_handles_ui_thread_self_shutdown(self):
+        source = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
+        start = source.index("void tl_na_stop(void)")
+        end = source.index("\nunsigned long tl_vk_frames_presented", start)
+        stop = source[start:end]
+        for marker in (
+            "atomic_store(&N.stop_requested, true);",
+            "if (pthread_equal(pthread_self(), N.ui))",
+            "pthread_detach(N.ui)",
+            "N.ui_thread_created = false;",
+            "int joined = pthread_join(N.ui, NULL);",
+            "if (joined != 0)",
+            "return;",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, stop)
+        self.assertLess(stop.index("pthread_detach(N.ui)"), stop.index("pthread_join(N.ui, NULL)"))
+
     def test_bionic_semaphore_rejects_unsupported_process_sharing(self):
         source = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
         for marker in (
