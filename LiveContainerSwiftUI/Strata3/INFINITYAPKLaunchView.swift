@@ -260,7 +260,7 @@ struct INFINITYAPKLaunchView: View {
             }
             runtime.recordSessionEvent("PREFLIGHT", details: "split package check passed")
             guard let engine = selectedEngine else {
-                throw INFINITYHuskRuntime.RuntimeError.rejectedLaunch
+                throw INFINITYHuskRuntime.RuntimeError.unsupportedEngine
             }
             runtime.recordSessionEvent("ENGINE_SELECTED", details: String(describing: engine))
             guard FileManager.default.isReadableFile(atPath: apk.path) else {
