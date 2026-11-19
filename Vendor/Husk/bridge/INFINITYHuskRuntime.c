@@ -198,7 +198,7 @@ bool infinity_husk_launch_engine(int engine,
         /* A failed pthread start leaves Husk's state FAILED, not IDLE.
            Reset that rejected, never-running session before another app is queued. */
         if (husk_unity_state() != 0) husk_native_unload();
-        else husk_native_clear_packages();
+        else tl_ld_reset_session();
         atomic_store(&g_queued_split_packages, 0);
     } else if (accepted) {
         atomic_store(&g_queued_split_packages, 0);
@@ -323,7 +323,7 @@ bool infinity_husk_queue_split_package(const char *apk_path)
         atomic_load(&g_queued_split_packages) >= 15 ||
         !readable_file(apk_path))
         return false;
-    if (!husk_native_try_add_package(apk_path)) return false;
+    tl_ld_queue_split(apk_path);
     atomic_fetch_add(&g_queued_split_packages, 1);
     return true;
 }
@@ -331,7 +331,7 @@ bool infinity_husk_queue_split_package(const char *apk_path)
 void infinity_husk_clear_split_packages(void)
 {
     if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE) return;
-    husk_native_clear_packages();
+    tl_ld_reset_session();
     atomic_store(&g_queued_split_packages, 0);
 }
 

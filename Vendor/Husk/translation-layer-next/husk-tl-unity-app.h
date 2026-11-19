@@ -111,8 +111,6 @@ void husk_native_set_extra_fonts(const char *dir);
 void husk_native_set_system_files(const char *cacerts_dir, const char *fonts_root);
 /* Another APK of the app about to be launched (a split, an asset pack). Before the launch call; at most three. */
 void husk_native_add_package(const char *apk);
-bool husk_native_try_add_package(const char *apk);
-void husk_native_clear_packages(void);
 /* The folder games see as Android's shared storage (/sdcard outside their own Android/data), or NULL for each game's own. */
 void husk_native_set_shared_storage(const char *dir);
 /* The screen's safe-area insets in pixels, for a game that keeps its controls out of a notch (SDL games ask). Before the launch call, or any time. */
