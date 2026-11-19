@@ -1833,7 +1833,15 @@ static uint64_t image_addr(const tl_lib *L, uint64_t vaddr)
 static uint64_t bind_symbol(tl_lib *L, uint32_t symidx, bool *failed)
 {
     bool cached = L->symcache && symidx < L->ncache;
-    if (cached && L->symcache[symidx]) return L->symcache[symidx];
+    if (cached) {
+        uint64_t value = __atomic_load_n(&L->symcache[symidx], __ATOMIC_ACQUIRE);
+        if (value == 2) {
+            tl_log_line("ld: %s: recursive symbol resolution at index %u", L->name, symidx);
+            *failed = true;
+            return 0;
+        }
+        if (value) return value;
+    }
     if (symidx >= L->ncache) {
         tl_log_line("ld: %s: relocation references symbol %u beyond the validated dynamic symbol table", L->name, symidx);
         *failed = true;
@@ -1868,7 +1876,7 @@ static uint64_t bind_symbol(tl_lib *L, uint32_t symidx, bool *failed)
             if (G.verbosity >= 2 || L->n_unresolved <= 32) tl_log_line("ld: %s: unresolved import %s", L->name, name);
         }
     }
-    if (cached) L->symcache[symidx] = val ? val : 1;   /* 1 marks a resolved NULL */
+    if (cached) __atomic_store_n(&L->symcache[symidx], val ? val : 1, __ATOMIC_RELEASE);   /* 1 marks a resolved NULL */
     return val;
 }
 
