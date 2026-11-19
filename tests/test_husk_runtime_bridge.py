@@ -134,6 +134,27 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("invalid static field index", dvm)
         self.assertIn("IncompatibleClassChangeError", dvm)
 
+    def test_elf_dynamic_metadata_is_bounded_before_linker_dereferences(self):
+        loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
+        self.assertIn("static bool image_range_fits(", loader)
+        self.assertIn("static const char *dynamic_string(", loader)
+        self.assertIn("memchr(s, 0, (size_t)(L->strsz - offset))", loader)
+        self.assertIn("static bool parse_dynamic(", loader)
+        self.assertIn("a bounded dynamic segment must contain DT_NULL", loader)
+        self.assertIn("static bool validate_dynamic_metadata(", loader)
+        self.assertIn("malformed or incomplete ELF dynamic metadata", loader)
+        self.assertIn("invalid DT_SONAME string offset", loader)
+        self.assertIn("L->relasz % sizeof(elf_rela)", loader)
+        self.assertIn("L->relrsz % 8", loader)
+        self.assertIn("GNU hash", loader) if "GNU hash" in loader else self.assertIn("chain_words", loader)
+
+    def test_bionic_symbol_table_lookup_fails_closed_on_bad_input_or_oom(self):
+        bionic = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic.c")
+        self.assertIn("static bool g_table_ready;", bionic)
+        self.assertIn('if (!g_slots) { g_nslots = 0; tl_log_line("bionic: unable to allocate symbol lookup table"); return; }', bionic)
+        self.assertIn("if (!name || !name[0]) return NULL;", bionic)
+        self.assertIn("if (!g_table_ready || !g_slots || !g_nslots) return NULL;", bionic)
+
     def test_elf_loader_checks_file_ranges_before_reading_segments(self):
         loader = self.read("Vendor/Husk/translation-layer-next/husk-tl-ld.c")
         self.assertIn("static bool file_range_fits(size_t total, uint64_t offset, uint64_t length)", loader)
