@@ -1845,6 +1845,7 @@ static void reloc_both(tl_lib *L, uint64_t off, size_t bytes)
 
 static bool reloc_one_into(tl_lib *L, uint64_t r_offset, uint32_t type, uint32_t symidx, int64_t addend)
 {
+    if (type == R_NONE) return true;
     if (!image_range_fits(L, r_offset, 8)) return false;
     uint64_t off = r_offset - L->base_vaddr;
     /* An imported dylib maps a code page read-only (it is signed and executable). Nothing writes there: the JIT region's views are one
@@ -1918,6 +1919,7 @@ static bool reloc_one_into(tl_lib *L, uint64_t r_offset, uint32_t type, uint32_t
 
 static bool reloc_one(tl_lib *L, uint64_t r_offset, uint32_t type, uint32_t symidx, int64_t addend)
 {
+    if (type == R_NONE) return true;
     bool ok = reloc_one_into(L, r_offset, type, symidx, addend);
     if (ok) reloc_both(L, r_offset - L->base_vaddr, type == R_TLSDESC ? 16 : 8);
     return ok;
