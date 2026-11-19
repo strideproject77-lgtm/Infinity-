@@ -340,6 +340,27 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("tl_jclass *registered_on;", internal)
         self.assertNotIn("static int32_t jni_UnregisterNatives(void *env, jo cls) { (void)env; (void)cls; return 0; }", jni)
 
+    def test_jni_modified_utf8_and_native_registration_lifecycle(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        internal = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-internal.h")
+        for marker in (
+            "static char *jni_mutf8_encode(",
+            "static char *jni_mutf8_to_utf8(",
+            "out[n++] = (char)0xc0; out[n++] = (char)0x80;",
+            "static jo jni_NewStringUTF(",
+            "static int32_t jni_GetStringUTFLength(",
+            "static const char *jni_GetStringUTFChars(",
+            "memcpy(buf, out, out_len)",
+            "current guest string store is NUL-terminated UTF-8",
+            "registered_on = given",
+            "static int32_t jni_UnregisterNatives(void *env, jo cls)",
+            "owner->natives[read].registered_on == registered",
+            "if (changed) __atomic_add_fetch(&g_natives_generation, 1, __ATOMIC_RELEASE)"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+        self.assertIn("tl_jclass *registered_on;", internal)
+
     def test_jni_constructors_validate_lengths_types_and_allocation_failures(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
