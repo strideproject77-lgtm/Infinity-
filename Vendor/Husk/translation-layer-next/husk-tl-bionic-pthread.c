@@ -133,6 +133,7 @@ static void describe_site(char *out, size_t n, uint64_t addr)
 static int b_mutex_lock(void *g)
 {
     pthread_mutex_t *m = obj_host(g, make_mutex);
+    if (!m) return obj_error();
     if (!mutex_trace()) return rc(pthread_mutex_lock(m));
     void *lr = __builtin_return_address(0);
     for (long i = 0;; i++) {
@@ -151,12 +152,20 @@ static int b_mutex_lock(void *g)
         }
     }
 }
-static int b_mutex_trylock(void *g) { int r = pthread_mutex_trylock(obj_host(g, make_mutex)); if (r == 0 && mutex_trace()) note_owner(g, __builtin_return_address(0)); return rc(r); }
+static int b_mutex_trylock(void *g)
+{
+    pthread_mutex_t *m = obj_host(g, make_mutex);
+    if (!m) return obj_error();
+    int r = pthread_mutex_trylock(m);
+    if (r == 0 && mutex_trace()) note_owner(g, __builtin_return_address(0));
+    return rc(r);
+}
 static int mutex_timedlock_until(void *g, clockid_t clock_id, const struct timespec *deadline)
 {
     if (!deadline || deadline->tv_nsec < 0 || deadline->tv_nsec >= 1000000000L)
         return 22;
     pthread_mutex_t *m = obj_host(g, make_mutex);
+    if (!m) return obj_error();
     for (;;) {
         int r = pthread_mutex_trylock(m);
         if (r == 0) {
@@ -182,7 +191,13 @@ static int b_mutex_clocklock(void *g, int clock, const struct timespec *deadline
     if (clock != 0 && clock != 1) return 22;
     return mutex_timedlock_until(g, clock == 1 ? CLOCK_MONOTONIC : CLOCK_REALTIME, deadline);
 }
-static int b_mutex_unlock(void *g)  { if (mutex_trace()) ((uint64_t *)g)[2] = 0; return rc(pthread_mutex_unlock(obj_host(g, make_mutex))); }
+static int b_mutex_unlock(void *g)
+{
+    pthread_mutex_t *m = obj_host(g, make_mutex);
+    if (!m) return obj_error();
+    if (mutex_trace()) ((uint64_t *)g)[2] = 0;
+    return rc(pthread_mutex_unlock(m));
+}
 
 static int b_mutexattr_init(long *a)    { *a = 0; return 0; }
 static int b_mutexattr_destroy(long *a) { (void)a; return 0; }
@@ -223,39 +238,58 @@ static int b_cond_destroy(void *g)
     memset(g, 0, 48);
     return 0;
 }
-static int b_cond_signal(void *g)    { return rc(pthread_cond_signal(obj_host(g, make_cond))); }
-static int b_cond_broadcast(void *g) { return rc(pthread_cond_broadcast(obj_host(g, make_cond))); }
+static int b_cond_signal(void *g)
+{
+    pthread_cond_t *c = obj_host(g, make_cond);
+    return c ? rc(pthread_cond_signal(c)) : obj_error();
+}
+static int b_cond_broadcast(void *g)
+{
+    pthread_cond_t *c = obj_host(g, make_cond);
+    return c ? rc(pthread_cond_broadcast(c)) : obj_error();
+}
 static int b_cond_wait(void *g, void *m)
 {
-    return rc(pthread_cond_wait(obj_host(g, make_cond), obj_host(m, make_mutex)));
+    pthread_cond_t *c = obj_host(g, make_cond);
+    if (!c) return obj_error();
+    pthread_mutex_t *mutex = obj_host(m, make_mutex);
+    if (!mutex) return obj_error();
+    return rc(pthread_cond_wait(c, mutex));
 }
 
 static int b_cond_timedwait(void *g, void *m, const struct timespec *abs)
 {
+    if (!abs || abs->tv_nsec < 0 || abs->tv_nsec >= 1000000000L) return 22;
     guest_obj *o = g;
-    obj_host(g, make_cond);
+    pthread_cond_t *c = obj_host(g, make_cond);
+    if (!c) return obj_error();
+    pthread_mutex_t *mutex = obj_host(m, make_mutex);
+    if (!mutex) return obj_error();
     clockid_t clk = (o->value & 2) ? CLOCK_MONOTONIC : CLOCK_REALTIME;
     struct timespec now, rel;
-    clock_gettime(clk, &now);
+    if (clock_gettime(clk, &now) != 0) return rc(errno);
     rel.tv_sec = abs->tv_sec - now.tv_sec;
     rel.tv_nsec = abs->tv_nsec - now.tv_nsec;
     if (rel.tv_nsec < 0) { rel.tv_sec--; rel.tv_nsec += 1000000000L; }
     if (rel.tv_sec < 0) { rel.tv_sec = 0; rel.tv_nsec = 0; }
-    return rc(pthread_cond_timedwait_relative_np(o->host, obj_host(m, make_mutex), &rel));
+    return rc(pthread_cond_timedwait_relative_np(c, mutex, &rel));
 }
 
 /* Bionic's clock ids: 0 is CLOCK_REALTIME, 1 CLOCK_MONOTONIC. */
 static int cond_wait_until(void *g, void *m, clockid_t clk, const struct timespec *abs)
 {
-    guest_obj *o = g;
-    obj_host(g, make_cond);
+    if (!abs || abs->tv_nsec < 0 || abs->tv_nsec >= 1000000000L) return 22;
+    pthread_cond_t *c = obj_host(g, make_cond);
+    if (!c) return obj_error();
+    pthread_mutex_t *mutex = obj_host(m, make_mutex);
+    if (!mutex) return obj_error();
     struct timespec now, rel;
-    clock_gettime(clk, &now);
+    if (clock_gettime(clk, &now) != 0) return rc(errno);
     rel.tv_sec = abs->tv_sec - now.tv_sec;
     rel.tv_nsec = abs->tv_nsec - now.tv_nsec;
     if (rel.tv_nsec < 0) { rel.tv_sec--; rel.tv_nsec += 1000000000L; }
     if (rel.tv_sec < 0) { rel.tv_sec = 0; rel.tv_nsec = 0; }
-    return rc(pthread_cond_timedwait_relative_np(o->host, obj_host(m, make_mutex), &rel));
+    return rc(pthread_cond_timedwait_relative_np(c, mutex, &rel));
 }
 
 static int b_cond_clockwait(void *g, void *m, int clock, const struct timespec *abs)
@@ -303,11 +337,21 @@ static int b_rwlock_destroy(void *g)
     memset(g, 0, 56);
     return 0;
 }
-static int b_rwlock_rdlock(void *g)    { return rc(pthread_rwlock_rdlock(obj_host(g, make_rwlock))); }
-static int b_rwlock_wrlock(void *g)    { return rc(pthread_rwlock_wrlock(obj_host(g, make_rwlock))); }
-static int b_rwlock_tryrdlock(void *g) { return rc(pthread_rwlock_tryrdlock(obj_host(g, make_rwlock))); }
-static int b_rwlock_trywrlock(void *g) { return rc(pthread_rwlock_trywrlock(obj_host(g, make_rwlock))); }
-static int b_rwlock_unlock(void *g)    { return rc(pthread_rwlock_unlock(obj_host(g, make_rwlock))); }
+static int rwlock_call(void *g, int (*fn)(pthread_rwlock_t *))
+{
+    pthread_rwlock_t *l = obj_host(g, make_rwlock);
+    return l ? rc(fn(l)) : obj_error();
+}
+static int rw_rd(pthread_rwlock_t *l) { return pthread_rwlock_rdlock(l); }
+static int rw_wr(pthread_rwlock_t *l) { return pthread_rwlock_wrlock(l); }
+static int rw_tryrd(pthread_rwlock_t *l) { return pthread_rwlock_tryrdlock(l); }
+static int rw_trywr(pthread_rwlock_t *l) { return pthread_rwlock_trywrlock(l); }
+static int rw_unlock(pthread_rwlock_t *l) { return pthread_rwlock_unlock(l); }
+static int b_rwlock_rdlock(void *g)    { return rwlock_call(g, rw_rd); }
+static int b_rwlock_wrlock(void *g)    { return rwlock_call(g, rw_wr); }
+static int b_rwlock_tryrdlock(void *g) { return rwlock_call(g, rw_tryrd); }
+static int b_rwlock_trywrlock(void *g) { return rwlock_call(g, rw_trywr); }
+static int b_rwlock_unlock(void *g)    { return rwlock_call(g, rw_unlock); }
 
 /* ---------------------------------------------------------------- semaphores */
 
