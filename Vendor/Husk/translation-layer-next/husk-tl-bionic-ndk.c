@@ -73,7 +73,12 @@ static int b_ALooper_addFd(tl_looper *l, int fd, int ident, int events, void *ca
     pthread_mutex_lock(&l->mu);
     looper_fd *f = l->fds;
     while (f && f->fd != fd) f = f->next;
-    if (!f) { f = calloc(1, sizeof(*f)); f->next = l->fds; l->fds = f; }
+    if (!f) {
+        f = calloc(1, sizeof(*f));
+        if (!f) { pthread_mutex_unlock(&l->mu); return -1; }
+        f->next = l->fds;
+        l->fds = f;
+    }
     f->fd = fd; f->ident = ident; f->events = events; f->callback = callback; f->data = data;
     pthread_mutex_unlock(&l->mu);
     b_ALooper_wake(l);
@@ -729,19 +734,20 @@ void tl_inq_touch(int phase, int id, float x, float y)
     iq_init();
     if (!IQ.ready || !IQ.attached) return;
     pthread_mutex_lock(&IQ.mu);
+    tl_ievent *e = calloc(1, sizeof(*e));
+    if (!e) { pthread_mutex_unlock(&IQ.mu); return; }
     int idx = -1;
     for (int i = 0; i < IQ.nptr; i++) if (IQ.pid[i] == id) idx = i;
     int action;
     if (phase == 0) {
         if (idx < 0 && IQ.nptr < 10) { idx = IQ.nptr++; IQ.pid[idx] = id; }
-        if (idx < 0) { pthread_mutex_unlock(&IQ.mu); return; }
+        if (idx < 0) { free(e); pthread_mutex_unlock(&IQ.mu); return; }
         IQ.px[idx] = x; IQ.py[idx] = y;
         action = IQ.nptr == 1 ? 0 /* DOWN */ : (5 /* POINTER_DOWN */ | (idx << 8));
-    } else if (idx < 0) { pthread_mutex_unlock(&IQ.mu); return; }
+    } else if (idx < 0) { free(e); pthread_mutex_unlock(&IQ.mu); return; }
     else if (phase == 1) { IQ.px[idx] = x; IQ.py[idx] = y; action = 2; }
     else if (phase == 2) { IQ.px[idx] = x; IQ.py[idx] = y; action = IQ.nptr == 1 ? 1 /* UP */ : (6 /* POINTER_UP */ | (idx << 8)); }
     else action = 3;
-    tl_ievent *e = calloc(1, sizeof(*e));
     e->type = 2; e->source = 0x1002 /* touchscreen */; e->device = 1; e->action = action; e->nptr = IQ.nptr;
     for (int i = 0; i < IQ.nptr; i++) { e->pid[i] = IQ.pid[i]; e->px[i] = IQ.px[i]; e->py[i] = IQ.py[i]; }
     struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); e->time = (int64_t)ts.tv_sec * 1000000000ll + ts.tv_nsec;
@@ -759,6 +765,7 @@ void tl_inq_key(int device, int source, int action, int keycode)
     iq_init();
     if (!IQ.ready || !IQ.attached) return;
     tl_ievent *e = calloc(1, sizeof(*e));
+    if (!e) return;
     e->type = 1; e->source = source; e->device = device; e->action = action; e->keycode = keycode;
     struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); e->time = (int64_t)ts.tv_sec * 1000000000ll + ts.tv_nsec;
     iq_push(e);
@@ -767,7 +774,9 @@ void tl_inq_axes(int device, const float *axes48)
 {
     iq_init();
     if (!IQ.ready || !IQ.attached) return;
+    if (!axes48) return;
     tl_ievent *e = calloc(1, sizeof(*e));
+    if (!e) return;
     e->type = 2; e->source = 0x01000010 /* joystick */; e->device = device; e->action = 2 /* MOVE */; e->nptr = 1; e->has_axes = true;
     memcpy(e->axis, axes48, sizeof(e->axis));
     e->px[0] = e->axis[0]; e->py[0] = e->axis[1];
