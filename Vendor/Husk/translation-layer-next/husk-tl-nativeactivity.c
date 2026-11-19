@@ -77,6 +77,8 @@ static struct {
     void *window;
     pthread_t ui;
     bool started;
+    bool ui_thread_created;
+    atomic_bool stop_requested;
 } N;
 
 static void load_library(const char *name)
@@ -214,6 +216,9 @@ static void drop_empty_saves(const char *dir, int depth)
 
 bool tl_na_start(const tl_ga_config *cfg)
 {
+    atomic_store(&N.stop_requested, false);
+    N.ui_thread_created = false;
+    N.started = false;
     N.cfg = *cfg;
     snprintf(N.apk, sizeof(N.apk), "%s", cfg->apk_path);
     /* the data folder as its canonical path, as the Java driver has it: a game that changes into its files folder and checks getcwd()
@@ -334,7 +339,9 @@ static void *ui_main(void *arg)
     N.window = tl_nwindow_get();
     if (N.callbacks.onStart) N.callbacks.onStart(&N.na);
     if (N.callbacks.onResume) N.callbacks.onResume(&N.na);
-    if (N.callbacks.onInputQueueCreated) N.callbacks.onInputQueueCreated(&N.na, (void *)&N);          /* a queue nothing arrives through */
+    /* InputQueue is not implemented yet. Never hand the app a fake opaque queue. */
+    if (N.callbacks.onInputQueueCreated)
+        tl_log_line("na: app requested AInputQueue; callback withheld because no real queue is available");
     if (!N.generic) {
         typedef void (*win_fn)(void *env, void *self, uint8_t portrait, int depth);
         win_fn set_window_info = (win_fn)NATIVE("nativeSetWindowInfo", "(ZI)V");
@@ -353,9 +360,26 @@ static void *ui_main(void *arg)
     }
     tl_log_line("ue4: lifecycle delivered");
 
-    /* The activity's message loop: nothing to serve beyond keeping the thread (and its looper) alive. */
+    /* Keep the looper alive until the owner requests a real activity teardown. */
     int (*poll_once)(int, int *, int *, void **) = tl_bionic_find("ALooper_pollOnce");
-    for (;;) { poll_once(200, NULL, NULL, NULL); if (tl_jni_pending()) tl_jni_clear(); }
+    if (!poll_once) {
+        tl_log_line("na: ALooper_pollOnce is unavailable; activity loop cannot run");
+        return NULL;
+    }
+    while (!atomic_load(&N.stop_requested)) {
+        poll_once(200, NULL, NULL, NULL);
+        if (tl_jni_pending()) tl_jni_clear();
+    }
+
+    tl_log_line("na: delivering activity teardown");
+    if (N.callbacks.onPause) N.callbacks.onPause(&N.na);
+    if (N.callbacks.onWindowFocusChanged) N.callbacks.onWindowFocusChanged(&N.na, 0);
+    if (N.callbacks.onNativeWindowDestroyed && N.window)
+        N.callbacks.onNativeWindowDestroyed(&N.na, N.window);
+    if (N.callbacks.onStop) N.callbacks.onStop(&N.na);
+    if (N.callbacks.onDestroy) N.callbacks.onDestroy(&N.na);
+    N.window = NULL;
+    tl_log_line("na: activity teardown complete");
     return NULL;
 }
 
@@ -373,8 +397,27 @@ bool tl_na_run(void)
     pthread_attr_t a;
     pthread_attr_init(&a);
     pthread_attr_setstacksize(&a, 8u << 20);
-    if (pthread_create(&N.ui, &a, ui_main, NULL) != 0) return false;
+    int created = pthread_create(&N.ui, &a, ui_main, NULL);
+    pthread_attr_destroy(&a);
+    if (created != 0) {
+        tl_log_line("na: unable to create activity UI thread (%d)", created);
+        return false;
+    }
+    N.ui_thread_created = true;
     return true;
+}
+
+void tl_na_stop(void)
+{
+    if (!N.ui_thread_created) {
+        N.started = false;
+        return;
+    }
+    atomic_store(&N.stop_requested, true);
+    if (!pthread_equal(pthread_self(), N.ui))
+        pthread_join(N.ui, NULL);
+    N.ui_thread_created = false;
+    N.started = false;
 }
 
 unsigned long tl_vk_frames_presented(void);
