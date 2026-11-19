@@ -430,6 +430,18 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
 
+    def test_jni_array_length_checks_jint_boundary(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            "static int32_t jni_GetArrayLength(void *env, jo a)",
+            "size_t length = a->kind == TL_K_OBJ_ARRAY ? a->oarr.len : a->arr.len;",
+            "if (length > INT32_MAX)",
+            "JNI array length exceeds jint range",
+            "return (int32_t)length;",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+
     def test_jni_primitive_array_elements_obey_copy_and_release_modes(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
