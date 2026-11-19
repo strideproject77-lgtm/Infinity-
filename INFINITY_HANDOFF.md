@@ -1286,3 +1286,35 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Convert JNI object references coherently across every guest-facing JNI argument/return boundary before claiming local/global/weak-global reference identity.
 - Implement the actual NativeActivity input queue with valid NDK queue/event ownership and the existing translated touch/key sources; do not fabricate an opaque queue.
 - Continue source-only work and preserve the no-test/no-compile/no-workflow/no-IPA gate until the integration scope is genuinely complete.
+
+## 2026-11-20 — NativeActivity AInputQueue lifecycle integration
+
+### Implemented on main
+- Connected NativeActivity's `onInputQueueCreated` / `onInputQueueDestroyed` callbacks to the NDK input subsystem instead of withholding the callback.
+- Added an owned opaque `AInputQueue` handle backed by the existing real event-record queue and nonblocking wake pipe. The handle is returned only after pipe initialization succeeds.
+- Queue attachment now records the actual ALooper, registers the queue wake FD, and detaches from that recorded looper rather than relying on whichever thread happens to call detach.
+- Queue destruction detaches the FD, marks the queue unavailable, drains pending event records and wake bytes, and resets active pointer state.
+- Queue API entry points validate the opaque queue handle and event-output pointer. Producer insertion is synchronized with detach/teardown so late touch/key/controller events are discarded and freed instead of being appended after destruction.
+- Input queue initialization is serialized; looper FD registration and touch/key/axis event allocation failures are handled without dereferencing null allocations.
+- NativeActivity now delivers queue-destroyed before window/activity teardown. If `ALooper_pollOnce` is missing, the common teardown path still runs instead of returning early.
+- Added source-contract assertions for queue creation/destruction, callback delivery, looper attachment, synchronization, and allocation-failure guards.
+
+### Commits
+- Queue handle, event queue ownership and API validation: `55c24c03aa1e8a06f3fe36459a536f53207ac229`
+- NativeActivity input queue lifecycle callback wiring: `1cf22c8562df7cddaa67181960ee6375d9343fd5`
+- Queue allocation and looper registration failure guards: `3613eba839f8f3f45e01fbf8f4071bd05b5cd055`
+- Producer synchronization with queue detach/teardown: `ea88c13487d339c539b30daefe78cfcf3ca6fc64`
+- Input queue lifecycle source-contract coverage: `90888aac5158187c358f1d12d4111b43889a97ca`
+- Queue synchronization/allocation source-contract coverage: `f7df1a6c7d3e5c62ec2dc0f8215f0c2251565b77`
+
+### Integration status and verification
+- **Overall Husk source integration estimate remains 99%.** The NativeActivity queue callback gap is now addressed with an Infinity-hosted NDK-compatible queue and the existing translated touch/key/controller event stream. This does not complete JNI local/global/weak-global reference identity or all ART/JNI VM semantics.
+- Source-contract assertions were added but not executed. No compiler, unit test, GitHub workflow, IPA build/export, signing, or device test was run.
+- The queue is a host-backed NDK-compatible implementation, not Android OS's kernel input queue. It must be runtime-validated after the agreed 100% source-integration gate.
+- JNI references still use raw `jobj *` values, so `GetObjectRefType` cannot reliably distinguish local, global and weak-global handles; a complete opaque-handle conversion across all JNI ABI entry points remains outstanding.
+- ART/JNI exception and class-loader edge cases, actual VM/GC pinning semantics for critical arrays/strings, and broader lifecycle/API coverage remain outstanding.
+- SideStore and Strata host architecture remain untouched; Husk license/attribution notices remain intact.
+
+### Next implementation target
+- Design and implement the JNI reference handle table as one coherent change: typed local/global/weak-global handle records, identity semantics for `IsSameObject`, deletion and promotion rules, thread/frame ownership, weak collection behavior, and complete conversion at every JNI method argument/return boundary. Do not ship a partial wrapper around raw pointers.
+- Keep the no-test/no-compile/no-workflow/no-IPA gate until the source integration scope is genuinely complete.
