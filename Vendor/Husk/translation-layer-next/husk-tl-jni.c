@@ -1562,10 +1562,18 @@ static int32_t jni_RegisterNatives(void *env, jo cls, const native_method *m, in
     if (!staged) { tl_jni_throw("java/lang/OutOfMemoryError", "allocating native registration transaction"); return -1; }
     tl_jclass *given = cls->klass.jc;
     for (int32_t i = 0; i < n; i++) {
-        if (!m[i].name || !m[i].sig || !m[i].fn) {
+        if (!m[i].name || !m[i].name[0] || !m[i].sig || !m[i].fn) {
             for (int32_t j = 0; j < i; j++) { free(staged[j].name); free(staged[j].sig); }
             free(staged);
             tl_jni_throw("java/lang/IllegalArgumentException", "RegisterNatives received an incomplete native method");
+            return -1;
+        }
+        tl_jmeth signature = {0};
+        signature.sig = (char *)m[i].sig;
+        if (!parse_sig(&signature)) {
+            for (int32_t j = 0; j < i; j++) { free(staged[j].name); free(staged[j].sig); }
+            free(staged);
+            tl_jni_throw("java/lang/IllegalArgumentException", "RegisterNatives received an invalid JNI method descriptor");
             return -1;
         }
         staged[i].name = strdup(m[i].name);
