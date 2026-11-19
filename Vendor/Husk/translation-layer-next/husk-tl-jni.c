@@ -1623,7 +1623,7 @@ static void *jni_array_copy_out(jobj *array, char etype, size_t element_size, ui
         return NULL;
     }
     if (bytes) memcpy(copy, array->arr.data, bytes);
-    access->array = array;
+    access->array = tl_jni_ref(array);
     access->copy = copy;
     access->bytes = bytes;
     access->element_size = element_size;
@@ -1663,6 +1663,7 @@ static void jni_array_release(jobj *array, void *elements, int32_t mode, char et
     if (mode == 1) return; /* JNI_COMMIT copies back but retains the buffer. */
     *slot = access->next;
     free(access->copy);
+    tl_jni_unref(access->array);
     free(access);
 }
 
@@ -1676,6 +1677,7 @@ static void jni_array_accesses_detach(void)
             access->array->arr.len == access->length && access->bytes)
             memcpy(access->array->arr.data, access->copy, access->bytes);
         free(access->copy);
+        tl_jni_unref(access->array);
         free(access);
     }
 }
@@ -1736,7 +1738,7 @@ static void *jni_GetPrimitiveArrayCritical(void *env, jo a, uint8_t *copy)
         return NULL;
     }
     if (bytes) memcpy(address, a->arr.data, bytes);
-    access->array = a;
+    access->array = tl_jni_ref(a);
     access->address = address;
     access->bytes = bytes;
     access->element_size = element_size;
@@ -1780,6 +1782,7 @@ static void jni_ReleasePrimitiveArrayCritical(void *env, jo a, void *p, int32_t 
     if (mode == 1) return; /* JNI_COMMIT copies back but retains the buffer. */
     *slot = access->next;
     free(access->address);
+    tl_jni_unref(access->array);
     free(access);
 }
 
@@ -1790,6 +1793,7 @@ static void jni_critical_array_accesses_detach(void)
         t_critical_array_accesses = access->next;
         (void)jni_critical_array_copyback(access);
         free(access->address);
+        tl_jni_unref(access->array);
         free(access);
     }
 }
