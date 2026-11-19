@@ -405,6 +405,19 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
 
+    def test_jni_string_access_retains_owner_and_checks_utf16_length(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            "access->string = tl_jni_ref(string);",
+            "tl_jni_unref(access->string);",
+            "static int32_t jni_GetStringLength(void *env, jo s)",
+            "GetStringLength received a null or non-string reference",
+            "if (length > INT32_MAX)",
+            "JNI UTF-16 string exceeds jint length",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+
     def test_jni_primitive_array_elements_obey_copy_and_release_modes(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         for marker in (
