@@ -43,7 +43,7 @@ struct tl_jclass {
     tl_jmeth **meths; int nmeths, capm;
     tl_jfield **fields; int nfields, capf;
     jvalue *statics; int nstatics;
-    struct { char *name, *sig; void *fn; } *natives; int nnatives;
+    struct { char *name, *sig; void *fn; tl_jclass *registered_on; } *natives; int nnatives;
     tl_jclass *next;
     void *dvm;                         /* the interpreter's class (husk-tl-dvm.c), or NULL */
     _Atomic bool linking;              /* declared, its bytecode still being linked (by the thread holding the link lock) */
