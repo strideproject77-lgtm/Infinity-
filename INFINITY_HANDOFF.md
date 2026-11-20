@@ -2004,3 +2004,18 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - **Validation pending:** the workflow must complete and the artifact must be reviewed before recording APK manifest/DEX/dependency findings. No actual APK execution, class verification, AndroidX runtime execution, IPA build, or device test is claimed by this batch.
 - **Progress remains 59% Husk integration.** The APK-forensics harness is a 2048 evidence-gathering milestone, not runtime API completion. 2048 compatibility remains unverified.
 - SideStore was not modified. Hill Climb Racing and Subway Surfers remain deferred.
+
+
+## 2026-11-20 follow-up — Exact APK inspected; source audit corrected
+
+- CI run `44716776681` completed successfully and uploaded artifact `14619274277` (`2048-v1.3.3-apk-forensic-report`). The exact upstream APK download succeeded and AAPT manifest/resource dumps plus DEX disassembly completed.
+- Exact APK SHA-256: `caed84eb0556cb5745da3cfaab8587244fc0122b49fe3df80d0caea3908f1f39`.
+- Exact binary identity: package `com.tpcstld.twozerogame`, version `1.3.3`, version code `1007`; min SDK 14, target SDK 28, compile SDK 28; launcher `com.tpcstld.twozerogame.MainActivity`.
+- Binary structure: one `classes.dex` (DEX 035), 3,711 class definitions, 29,157 method IDs, 15,845 field IDs; 492 resources/assets including `assets/ClearSans-Bold.ttf`; zero native libraries.
+- Dependency correction: the APK contains legacy Android Support Library 26.1.0, with 1,452 Android Support descriptors and no AndroidX descriptors. It contains 2,106 Google Play Services descriptors. `MainActivity` extends `android.support.v7.app.AppCompatActivity`; `MainView` extends `android.view.View`; `InputListener` implements `View.OnTouchListener`. The current source-tree AndroidX metadata must not be treated as the dependency identity of this release APK.
+- Lifecycle evidence: `onCreate` creates the local `MainView`, restores local state through `SharedPreferences` when present, and calls `setContentView`. `onResume` calls local `load()` then `signInToGoogle()`. The latter invokes Google silent sign-in and may launch interactive sign-in after silent failure if preference `no_login_prompt` is false. The local UI/state setup precedes that sign-in callback; a real Husk run is still required to prove local gameplay works without Google authentication.
+- DEX header integrity: Adler-32 matches; SHA-1 signature does not. This mismatch is recorded as an unresolved binary-integrity observation. `dexdump` nevertheless emitted a full disassembly. Do not infer class-verifier acceptance from that.
+- Added parser coverage for SDK/launcher/support-library metadata and distinct Android Support / AndroidX / Google Play descriptor inventories. The workflow now runs the full Python test suite before downloading/inspecting the APK.
+- Several intermediate CI attempts failed while bringing up SDK tools, correcting test fixtures, and hardening the inspector. Those failures were diagnosed and fixed; use the latest workflow run on this branch as the validation source, not earlier red attempts.
+- **No Husk runtime implementation was changed in this batch.** No class verification, Android Support runtime path, Google sign-in fallback, rendering, swipe, animation, undo, restart, persistence, or lifecycle end-to-end behavior has been verified.
+- Overall Husk integration remains **59%**. 2048 compatibility remains **unverified**. No IPA was built. SideStore was not touched; other games remain deferred.
