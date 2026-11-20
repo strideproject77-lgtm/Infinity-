@@ -1348,6 +1348,14 @@ bool tl_dvm_safepoint_begin(void)
     return tl_dvm_safepoint_begin_timeout(5000);
 }
 
+bool tl_dvm_safepoint_is_owner(void)
+{
+    pthread_mutex_lock(&g_safepoint_lock);
+    bool owner = g_safepoint_requested && pthread_equal(g_safepoint_owner, pthread_self());
+    pthread_mutex_unlock(&g_safepoint_lock);
+    return owner;
+}
+
 void tl_dvm_safepoint_end(void)
 {
     pthread_mutex_lock(&g_safepoint_lock);
