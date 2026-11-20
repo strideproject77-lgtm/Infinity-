@@ -1755,3 +1755,8 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - JNI weak globals remain strongly retained. Do not enable weak processing or reclaim based on this mark result until all mutators and native/JNI roots are coordinated and finalization semantics are implemented.
 - Tests added but not executed. No compilation, workflow, IPA, or device test. SideStore untouched.
 - Integration estimate remains **99.94%**. Conservative graph marking is now implemented; safe sweeping/reclamation, native-thread safepoints, and weak-reference semantics remain outstanding.
+
+
+### Mark-phase portability and API correction
+- Corrected the mark implementation to treat the static-root visitor as its actual `void` API and propagate failure through the mark context, rather than assigning a nonexistent return status.
+- Made pointer hashing explicitly 64-bit before shifts/multiplication so 32-bit builds do not perform shifts wider than `uintptr_t`.
