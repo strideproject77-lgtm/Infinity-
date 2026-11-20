@@ -1,3 +1,11 @@
+## Husk JNI local-reference ownership hardening — 2026-11-20
+
+- Updated `jni_DeleteLocalRef` so it decrements an object's reference count only when that pointer is actually present in one of the current thread's tracked local frames.
+- Previously, an untracked pointer was unconditionally unreferenced. Under the current raw-pointer JNI ABI, that could accidentally decrement a global reference when passed to `DeleteLocalRef`, risking premature release.
+- The change is a narrow safety improvement within the existing local-frame model; it does not solve the raw-pointer handle identity limitation, does not implement distinct local/global/weak handle objects, and does not add tracing GC or true weak-reference semantics.
+- Source commit: `40bfc6ffb6f62ed1698af8a9f7fae5fa9982637f`.
+- No tests, compilation, GitHub Actions, IPA build, or device execution were run, per the integration-first plan.
+
 - The GitHub Actions repository secrets `CODEMAGIC_API_TOKEN` and `INFINITY_LOGS_GITHUB_TOKEN` are no longer required by the removed bootstrap workflow. The available GitHub connection cannot delete repository Actions secrets, so the repository owner must remove those two secret entries manually in Settings → Secrets and variables → Actions. Do not delete any unrelated secrets.
 - No Codemagic build or IPA packaging was started. The first real Codemagic run must verify that logs publish successfully to the `codemagic-logs` branch; this has not yet been tested.
 
