@@ -282,7 +282,7 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
                 return None
         return "L" + qualified.replace(".", "/") + ";"
 
-        def parent_descriptors(descriptor: str, source: str, package: str,
+    def parent_descriptors(descriptor: str, source: str, package: str,
                            imports: dict[str, str],
                            wildcard_imports: list[str]) -> list[str]:
         simple_name = descriptor[1:-1].split("/")[-1].split("$")[-1]
