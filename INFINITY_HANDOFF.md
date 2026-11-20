@@ -1,3 +1,16 @@
+## 2026-11-20 — CI regression audit and test repair
+
+- Audited failed GitHub Actions run `44655868527` on commit `d99cec2aa5c2dbd7cfe5b06a3fc6b6c54ff1ee72`.
+- The Ubuntu source-contract suite ran 117 tests and reported 5 failures plus 1 error. The failures were stale assertions against earlier implementation shapes, not compiler diagnostics: the JNI exception clear path is `pending_set(NULL)`; weak-global strong retention is held in the typed registry; root visiting now snapshots under one lock and calls visitors after unlock; DVM current-root composition uses `tl_dvm_visit_all_active_call_roots`; and reclamation checks `heap_unregister` as a one-shot gate. The all-thread root visitor is declared `bool`, not `void`.
+- Updated `tests/test_husk_runtime_bridge.py` to assert the current implementation and its safety properties rather than obsolete source spellings.
+- Test-fix commit: `3dba9320a219a497c28620ea51ed30bfaf5b2ee4`.
+- GitHub Actions run for that commit: [44656324562](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656324562), status was `in_progress` at handoff update time. Inspect this run before any further test changes; if it fails, inspect the exact failed assertions/logs and repair the underlying issue.
+- **Progress accounting correction:** prior `99.98%` whole-integration figure is withdrawn because it was not supported by an audited completion checklist. Do not repeat it or claim 100%. Current completion percentage remains unassigned until the remaining JNI ABI, native marshaling, collector sweep/root coverage, and weak-reference prerequisites are audited as complete.
+- Remaining core runtime blockers: guest-facing JNI references still cross the ABI as raw `jobj *`; native argument/return marshaling has not been migrated to opaque handles; DVM tracing has no collector-owned sweep/reclamation pass; weak-global clearing must remain disabled until those boundaries and full root coverage are safe.
+- No IPA build, APK/device runtime test, or SideStore change. GitHub source-contract test run only.
+
+---
+
 ## 2026-11-20 — Weak-reference transitions require collector safepoint ownership
 
 - Added the DVM safepoint header dependency to the typed JNI reference registry.
