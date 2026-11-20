@@ -1380,6 +1380,16 @@ bool tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *conte
         return false;
     }
     for (dvm_mutator_record *m = g_mutators; m; m = m->next) {
+        bool owner_thread = pthread_equal(m->thread, g_safepoint_owner);
+        /* A complete stop-the-world snapshot must account for every registered
+         * mutator. An attached host thread may have no DVM frame; it is not safe
+         * to silently skip it, even if the caller happens to own the safepoint. */
+        if ((!owner_thread && !m->parked) ||
+            ((m->depth != 0) != (m->frames != NULL))) {
+            pthread_mutex_unlock(&g_safepoint_lock);
+            free(frames);
+            return false;
+        }
         if (!m->frames) continue;
         if (count == capacity) {
             size_t next = capacity ? capacity * 2 : 8;
