@@ -14,6 +14,7 @@ on:
       - "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift"
       - "LiveContainerSwiftUI/Models/LCAppModel.swift"
       - "LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYVersion.swift"
       - "LiveContainerSwiftUI/Utilities/LCUtils.h"
       - "LiveContainerSwiftUI/Utilities/LCUtils.m"
       - "ShareExtension/StrataJITWorker.swift"
@@ -87,6 +88,53 @@ jobs:
 
 
   husk-bridge-header-check:
+    name: Swift to Husk bridge header check
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Type-check imported Husk C API declarations
+        run: |
+          cat > /tmp/INFINITYHuskBridgeSmoke.swift <<'SWIFT'
+          import Foundation
+          // The production LCPath lives in Shared.swift alongside app-wide UI models.
+          // This narrow smoke target only needs its document-root URL contract.
+          struct LCPath {
+              static let docPath = FileManager.default.temporaryDirectory
+          }
+          func infinityBridgeSmoke() {
+              _ = INFINITY_HUSK_IDLE
+              _ = INFINITY_HUSK_RUNNING
+              _ = infinity_husk_get_state()
+              _ = infinity_husk_frames()
+              _ = infinity_husk_launch_java(nil, nil, nil, 0, 0, nil, nil)
+              _ = infinity_husk_prepare_java(nil, 1.0, nil, nil, nil, nil, false)
+          }
+          SWIFT
+          cat > /tmp/INFINITYHuskBridgeSmoke.h <<HEADER
+          #include "${GITHUB_WORKSPACE}/LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"
+          #include "${GITHUB_WORKSPACE}/LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
+          HEADER
+          swiftc -typecheck \
+            -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
+            -target arm64-apple-ios15.0 \
+            -import-objc-header /tmp/INFINITYHuskBridgeSmoke.h \
+            LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYHuskNativeLog.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift \
+            /tmp/INFINITYHuskBridgeSmoke.swift
+          swiftc -typecheck \
+            -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
+            -target arm64-apple-ios15.0 \
+            -import-objc-header /tmp/INFINITYHuskBridgeSmoke.h \
+            LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift
+
+
+  husk-c-header-check:
     name: Husk C bridge header syntax check (Linux)
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -95,15 +143,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate exported C headers with Clang
         run: |
-          printf '%s\n' \
-            '#include "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"' \
-            '#include "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"' \
+          printf '%s\\n' \\
+            '#include "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"' \\
+            '#include "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"' \\
             | clang -x c -std=c11 -fsyntax-only -I . -I Vendor/Husk/include -
+
 
   swift-typecheck:
     name: Swift APK parser type-check (Linux)
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -113,6 +162,6 @@ jobs:
           swift-version: "6.0"
       - name: Type-check APK inspection and manifest parser
         run: |
-          swiftc -typecheck \
-            LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \
+          swiftc -typecheck \\
+            LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \\
             LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift
