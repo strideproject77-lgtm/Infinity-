@@ -375,7 +375,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "allocating DirectByteBuffer",
             "GetPrimitiveArrayCritical requires a primitive array",
             "ReleasePrimitiveArrayCritical requires a primitive array",
-            "t_pending = NULL;",
+            "pending_set(NULL);",
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
@@ -629,9 +629,11 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
 
     def test_jni_weak_global_slots_are_not_aliased_to_strong_global_slots(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
         self.assertIn("static jo jni_NewWeakGlobalRef", jni)
         self.assertIn("static void jni_DeleteWeakGlobalRef", jni)
-        self.assertIn("retain weak globals strongly", jni)
+        self.assertIn("weak_retained = true;", refs)
+        self.assertIn("registry deliberately retains", jni)
         self.assertIn("SLOT(226, jni_NewWeakGlobalRef)", jni)
         self.assertIn("SLOT(227, jni_DeleteWeakGlobalRef)", jni)
         self.assertNotIn("SLOT(226, jni_NewGlobalRef)", jni)
@@ -704,7 +706,8 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("if (!grown)", walker)
         self.assertIn("pthread_mutex_unlock(&g_refs_lock);", walker)
         self.assertIn("return true;", walker)
-        self.assertIn("return used == count;", walker)
+        self.assertIn("snapshot[count++] = h->object;", walker)
+        self.assertIn("for (size_t i = 0; i < count; i++) visitor(snapshot[i], context);", walker)
 
     def test_dvm_composes_available_current_thread_and_jni_roots(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
@@ -713,7 +716,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         end = dvm.index("\nvoid tl_dvm_visit_static_roots", start)
         composer = dvm[start:end]
         self.assertIn("tl_dvm_visit_static_roots(visitor, context);", composer)
-        self.assertIn("tl_dvm_visit_active_call_roots(visitor, context);", composer)
+        self.assertIn("tl_dvm_visit_all_active_call_roots(visitor, context)", composer)
         self.assertIn("tl_jni_refs_visit_strong_roots(visitor, context)", composer)
         self.assertIn("requires external all-mutator safepoint", header.lower())
 
@@ -721,7 +724,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         self.assertIn("static jobj *g_heap_objects;", jni)
         self.assertIn("heap_register(o);", jni)
-        self.assertIn("heap_unregister(o);", jni)
+        self.assertIn("if (!heap_unregister(o)) return false;", jni)
         self.assertIn("bool tl_jni_visit_heap_objects(", jni)
 
     def test_jni_object_graph_walker_uses_reference_descriptors_only(self):
@@ -786,7 +789,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
 
     def test_dvm_all_thread_roots_require_owned_safepoint(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
-        start = dvm.index("void tl_dvm_visit_all_active_call_roots(")
+        start = dvm.index("bool tl_dvm_visit_all_active_call_roots(")
         end = dvm.index("\nvoid tl_dvm_visit_active_call_roots", start)
         walker = dvm[start:end]
         self.assertIn("!g_safepoint_requested", walker)
