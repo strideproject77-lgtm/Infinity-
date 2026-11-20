@@ -322,7 +322,8 @@ final class LCStorageManagementModel: ObservableObject {
         }
 
         var totalSize: Int64 = 0
-        for case let fileURL as URL in enumerator {
+        while let nextObject = enumerator.nextObject() {
+            guard let fileURL = nextObject as? URL else { continue }
             try Task.checkCancellation()
 
             guard let resourceValues = try? fileURL.resourceValues(forKeys: resourceKeys) else { continue }
