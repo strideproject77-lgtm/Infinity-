@@ -94,6 +94,7 @@ workflows:
           bash scripts/package_codemagic_artifacts.sh
 
     artifacts:
+      - LiveContainer.ipa
       - INFINITY-LiveContainer-Only.zip
       - INFINITY-LiveContainer-SideStore.zip
       - INFINITY-Complete-Artifacts.zip
