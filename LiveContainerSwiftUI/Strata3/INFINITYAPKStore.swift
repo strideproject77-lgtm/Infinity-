@@ -272,7 +272,7 @@ enum INFINITYAPKStore {
                 guard let file = item["file"] as? String,
                       let identifier = item["id"] as? String,
                       !file.isEmpty, !file.hasPrefix("/"),
-                      !file.contains("\\\\"), !file.split(separator: "/").contains(".."),
+                      !file.contains("\\"), !file.split(separator: "/").contains(".."),
                       seen.insert(file).inserted,
                       let entry = apkEntries.first(where: { $0.path == file }) else {
                     throw StoreError.invalidSplitPackage
