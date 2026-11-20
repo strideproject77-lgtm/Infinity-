@@ -84,6 +84,12 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(symbol=symbol):
                 self.assertIn(symbol, jni)
 
+    def test_swift_runtime_stop_is_idempotent_while_teardown_is_in_flight(self):
+        runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
+        self.assertIn("guard !isStopping else { return }", runtime)
+        self.assertIn("isStopping = true", runtime)
+        self.assertIn("infinity_husk_stop()", runtime)
+
     def test_engine_launch_queue_and_teardown_share_a_lifecycle_lock(self):
         adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
         self.assertIn("#include <pthread.h>", adapter)

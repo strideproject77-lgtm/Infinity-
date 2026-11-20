@@ -654,6 +654,7 @@ final class INFINITYHuskRuntime: ObservableObject {
     }
 
     func stop() {
+        guard !isStopping else { return }
         pollingTask?.cancel()
         pollingTask = nil
         // The C launch can be accepted before the first state poll updates SwiftUI.

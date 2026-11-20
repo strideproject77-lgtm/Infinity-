@@ -525,7 +525,7 @@ enum INFINITYAPKStore {
             }
             try fileManager.createDirectory(at: runtimeRoot, withIntermediateDirectories: true)
             let extractionRoot = runtimeRoot.appendingPathComponent(
-                ".runtime-import-\\(UUID().uuidString)", isDirectory: true
+                ".runtime-import-\(UUID().uuidString)", isDirectory: true
             )
             try fileManager.createDirectory(at: extractionRoot, withIntermediateDirectories: true)
             do {
