@@ -1,3 +1,13 @@
+## Husk JNI stale-handle lifetime hardening — 2026-11-20
+
+- Changed the typed-reference registry so deleted local/global/weak handles and handles invalidated by local-frame pop or thread detach remain as dead registry tombstones instead of being freed and unlinked immediately.
+- This prevents allocator address reuse from making an old guest handle accidentally identify a newly allocated, unrelated reference. Lookup still validates registry membership and the live bit; dead handles cannot be acquired, compared as live objects, or reported as a reference kind.
+- Object ownership is released independently of handle storage. Local-frame pop and thread detach move owned objects to a temporary release chain, clear the live handle's object slot while holding the registry lock, then unref outside the lock. Explicit deletion similarly marks dead and releases outside the lock.
+- Trade-off: tombstone handle allocations remain for the process lifetime, so this closes stale-handle aliasing at the cost of registry metadata growth proportional to total handles created. A future compact generational-token design can reclaim storage once the guest ABI boundary is fully converted and stale-token behavior is preserved.
+- Source commit: `9b802f3863eb94479a7e7e9e6d6a416294bf3365`.
+- This is a real safety improvement to the typed registry, **not** completion of guest-facing JNI handle conversion. The active JNI function table still uses raw `jobj *` handles; native marshaling migration and DVM tracing GC/root integration remain outstanding. Weak globals still use the strong-retention fallback until a complete collector and safepoint protocol exist.
+- No tests, compilation, GitHub Actions/workflows, IPA build, or device execution were run. SideStore was not changed.
+
 ## Husk JNI reference-count overflow/underflow hardening — 2026-11-20
 
 - Replaced the unchecked atomic increment in `tl_jni_ref` with a compare/exchange loop. Reference counts now saturate at `UINT32_MAX` instead of wrapping to zero and making a live object appear destructible.
