@@ -1698,5 +1698,7 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - JNI instance field metadata coverage depends on fields having been registered in the class metadata. Unresolved/unregistered field slots are deliberately not guessed by scanning raw jvalue memory.
 - Weak globals remain strongly retained. No weak clearing, heap sweeping, or reclamation was enabled.
 - Tests added but not executed. No build/workflow/IPA/device test. SideStore untouched.
-- Integration estimate remains **99.90%**; this batch adds real heap inventory and graph traversal infrastructure but does not close the stop-the-world, verifier-map, or collector gaps.
+- Integration estimate remains **99.91%**; this batch adds real heap inventory and graph traversal infrastructure but does not close the stop-the-world, verifier-map, or collector gaps.
 - Next: complete all-mutator safepoint coordination and verified DEX register maps, then wire a mark phase and only later safe sweep/finalization.
+
+- Follow-up cleanup removed an unused visitor adapter: 921e78c0473e25c60907dd208a988236beac9a49
