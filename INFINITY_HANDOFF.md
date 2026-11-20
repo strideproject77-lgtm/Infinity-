@@ -1402,3 +1402,25 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - This closes JNI local-reference frame lifetime at the native-method boundary, but it does not implement opaque local/global/weak-global handles or correct weak-GC behavior. The strong-retained weak-reference fallback is still only a safe lifetime compromise.
 - Overall Husk source integration remains **99%** until the cross-boundary JNI handle architecture and remaining ART/GC semantics are completed and audited.
 - No tests or compiler/build/workflow/IPA/device validation were run. After source integration reaches 100%, perform one consolidated test/validation pass.
+## 2026-11-20 — JNI typed-handle registry foundation
+
+### Implemented on main
+- Added `husk-tl-jni-refs.h/.c` under `Vendor/Husk/translation-layer-next`. The existing SwiftPM target includes this directory's C sources, so the new registry is part of the runtime target's source set without changing SideStore or the host app.
+- Added distinct local, global and weak-global handle kinds, a registry-backed opaque token type, local-frame depth and thread ownership, validated lookup, deletion, object identity comparison, and temporary strong acquisition.
+- Added frame push/pop and thread-detach cleanup paths. Local/global handles retain their Java object; weak handles use a safe strong-retention fallback until a tracing collector is actually installed.
+- Added collector integration hooks to enumerate strong JNI roots, enable weak-GC semantics at a stop-the-world safepoint, and clear weak handles after marking. Weak-GC mode is deliberately not enabled by this batch.
+- Reworked handle deletion/frame cleanup to unlink and free live handle records, avoiding an unbounded tombstone allocation strategy.
+
+### Commits
+- Registry foundation: `2f9e8a1a8989dc2b0694dca28bd06c80fa9ad858`
+- Handle lifetime/frame cleanup: `bd06afc815ed212efeda0296ef4c47663eabe7c3`
+- Existing raw-pointer local-delete ownership hardening: `40bfc6ffb6f62ed1698af8a9f7fae5fa9982637f`
+- Handoff record for local-delete hardening: `dddc20f4a3950c6bd86bcbf190a857931e3ebd77`
+- Weak-GC transition and live-handle cleanup: `613b422ca52a98aae20de2bbbde2908d9b6c7ee2`
+
+### Remaining integration work / honest status
+- Overall Husk source integration remains **99%**. The new typed-handle registry is a source-level foundation, not yet connected to the JNI function table.
+- The current JNI ABI still passes raw `jobj *` pointers through object-bearing slots. Every JNI object argument/return, object array, field, exception, native-method entry/return, local-frame boundary and VM attach/detach path must be migrated coherently before the registry can be used by guest code.
+- The DVM still has no tracing collector. A full mark/sweep implementation must enumerate Java heap roots (including interpreter registers/frames, class statics, JNI strong handles, pending exceptions and runtime-owned roots), trace object fields/arrays, and process weak globals before reclaiming objects. The weak-GC activation hook must remain disabled until that complete root walk exists.
+- No tests, compiler, workflow, IPA build/export, signing or device validation were run. No IPA was built. SideStore and the existing host integration remain untouched.
+- Next batch: inventory and migrate the JNI function-table boundaries in coherent groups, then add the DVM heap/object registry and stop-the-world mark/sweep root walk. Do not claim 100% until the ABI migration and collector semantics are source-complete.
