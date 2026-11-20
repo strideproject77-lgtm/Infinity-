@@ -100,6 +100,8 @@ void  tl_jni_unref(jobj *o);
 typedef void (*tl_jni_object_visitor)(jobj *object, void *context);
 /* Enumerate heap allocations and descriptor-typed object edges at an external safepoint. */
 bool tl_jni_visit_heap_objects(tl_jni_object_visitor visitor, void *context);
+/* Exact-address membership probe for conservative interpreter register scanning. */
+bool tl_jni_heap_contains(const void *candidate);
 bool tl_jni_visit_object_references(jobj *object, tl_jni_object_visitor visitor, void *context);
 
 
