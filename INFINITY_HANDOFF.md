@@ -1552,3 +1552,18 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Source-contract coverage was added but not executed. No compilation, test run, GitHub workflow, IPA build/export, signing, or device test was performed. SideStore was not touched.
 - Overall Husk source integration remains **99.60%**; this batch improves JNI root coverage but does not close the full guest-handle ABI migration, DVM tracing-GC root walk, or true weak-global processing.
 - Next target: continue the JNI object-boundary migration inventory and implement the next coherent group without changing the raw-pointer ABI halfway through the 233-slot table.
+
+
+## 2026-11-20 — Pending JNI exception strong-root integration
+
+### Implemented on main
+- Added a per-thread typed strong-root handle for the currently pending JNI exception. The pending exception now participates in the typed reference registry rather than relying only on the legacy raw `t_pending` pointer.
+- Centralized pending-exception transitions in `pending_set()`: it acquires the replacement strong handle before publishing the new pending object, then invalidates the previous handle. If root allocation fails, it preserves the previous pending exception/root rather than dropping a live exception reference.
+- Routed runtime throws, interpreter pending-exception updates, JNI `Throw`, `ExceptionClear`, and VM thread detach through the same lifecycle helper.
+- Added a source-contract regression test for typed-root creation, replacement, and cleanup wiring.
+
+### Scope and validation
+- This closes pending-exception root registration, but does not implement guest-facing opaque JNI tokens or the DVM tracing collector. The root is intentionally a strong typed registry entry until a collector can safely trace it.
+- Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
+- Overall Husk source integration estimate advances to **99.70%** for this additional JNI root-lifecycle subtask. Remaining blockers still include complete guest-facing JNI handle conversion/native marshaling, complete DVM heap/root tracing and safe weak-global processing.
+- Next target: continue closing missing DVM root categories and audit the pending-exception lifecycle under nested native frames before the single consolidated test pass.
