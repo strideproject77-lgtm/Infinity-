@@ -1,6 +1,15 @@
 name: INFINITY Husk native source compile audit
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "Vendor/Husk/translation-layer/**"
+      - "Vendor/Husk/translation-layer-next/**"
+      - "Vendor/Husk/bridge/**"
+      - "Vendor/Husk/include/**"
+      - "scripts/check_husk_native_sources.sh"
+      - ".github/workflows/infinity-husk-native-compile.yml"
   workflow_dispatch:
 
 permissions:
