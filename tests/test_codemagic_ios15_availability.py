@@ -1,13 +1,21 @@
 from pathlib import Path
+import unittest
 
 
-def test_runtime_manager_link_is_guarded_for_ios16():
-    source = Path("LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift").read_text()
-    declaration = "    @available(iOS 16.0, *)\\n    private var strataRuntimeManagerLink: some View {"
-    assert declaration in source
-    assert "if #available(iOS 16.0, *) {\\n                        strataRuntimeManagerLink" in source
+ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_runtime_center_keeps_ios16_availability_contract():
-    source = Path("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift").read_text()
-    assert "@available(iOS 16.0, *)\\nstruct StrataRuntimeCenter: View" in source
+class CodemagicIOS15AvailabilityTests(unittest.TestCase):
+    def test_runtime_manager_link_is_guarded_for_ios16(self):
+        source = (ROOT / "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift").read_text()
+        declaration = "    @available(iOS 16.0, *)\\n    private var strataRuntimeManagerLink: some View {"
+        self.assertIn(declaration, source)
+        self.assertIn("if #available(iOS 16.0, *) {\\n                        strataRuntimeManagerLink", source)
+
+    def test_runtime_center_keeps_ios16_availability_contract(self):
+        source = (ROOT / "LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift").read_text()
+        self.assertIn("@available(iOS 16.0, *)\\nstruct StrataRuntimeCenter: View", source)
+
+
+if __name__ == "__main__":
+    unittest.main()
