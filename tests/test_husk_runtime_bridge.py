@@ -972,6 +972,19 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
         ))
 
+    def test_native_thread_destructor_lifecycle_is_explicit_and_collector_gated(self):
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.h")
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("typedef void (*tl_jni_native_destructor)(jobj *object, void *native_state);", header)
+        self.assertIn("bool tl_jni_set_native_destructor(jobj *o, tl_jni_native_destructor destructor);", header)
+        self.assertIn("bool tl_jni_destroy_unreachable_object(jobj *o);", header)
+        self.assertIn("if (!o || !destructor || o->native_destructor) return false;", jni)
+        self.assertIn("if (!heap_unregister(o)) return false;", jni)
+        self.assertIn("tl_jni_native_destructor destructor = o->native_destructor;", jni)
+        self.assertIn("if (destructor) destructor(o, native_state);", jni)
+        self.assertIn("if (tl_dvm) return;", jni)
+        self.assertIn("if (refs == 1) (void)tl_jni_destroy_unreachable_object(o);", jni)
+
     def test_external_jni_attached_threads_block_gc_safepoints_until_detach(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
