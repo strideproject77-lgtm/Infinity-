@@ -1965,3 +1965,15 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - The preceding failures were harness/source integration issues: isolated bridge omitted the APK archive C header, then omitted the app-wide `LCPath.docPath` provider. The smoke target now imports the same two C API headers as the app and supplies a narrow test-only `LCPath` URL contract. No production path behavior was changed.
 - **IPA status:** all currently identified source/preflight failures are cleared by source-level checks, but no Xcode archive/Codemagic IPA build has been run after these fixes. Do not claim the IPA build is verified until the user starts the next Codemagic run and its archive/sign/package stages complete.
 - No APK build, no device test, and SideStore untouched. Husk integration percentage is unchanged by these build-check harness fixes.
+
+
+## 2026-11-20 — Husk runtime mark/sweep batch resumed
+
+- Resumed from the audited 56% integration checkpoint. Current engineering estimate: **59% Husk integration coverage**; this is not an APK/game compatibility percentage and is not end-to-end validated.
+- Refactored the existing DVM root traversal so the same complete mark graph can be retained for collection instead of being discarded after a mark-only report.
+- Added `tl_dvm_collect_heap()`: it requests the cooperative stop-the-world safepoint, marks static roots, all active DVM call roots and typed JNI strong roots, traverses object references, then sweeps only unmarked non-class objects. Collection fails closed if the safepoint or complete root walk cannot be established.
+- Connected the Java `Runtime.gc()` native to the collector and added reclaimed/reachable counts to the runtime log. A stale-snapshot membership guard prevents a sweep callback from dereferencing an object already removed by an earlier destructor.
+- **Important remaining JNI limitation:** weak JNI globals are intentionally retained as strong roots. The standard JNI table and native arguments/returns still carry raw `jobj *` pointers, so clearing weak handles safely is not enabled. This batch adds real unreachable-object reclamation but does not complete JNI opaque-token ABI migration or weak-reference semantics.
+- Commits on `agent/husk-gc-sweep-20261120`: `48568708a4322020308b610a5c321f8371b067f7`, `0c682c5284c53d2c0f4ed71fa038ff51cc58288a`, `6d8c31329471b3fb0aacb16a440b5d2d6e95bdac`, plus the follow-up stale-snapshot guard commit recorded after this checkpoint.
+- No tests or compilation were run, per the single consolidated validation plan. No IPA/APK build or device/game test. SideStore untouched.
+- Next implementation targets: complete JNI object-token translation across the 233-slot `JNIEnv` table and native argument/return boundaries; then safely enable weak-global clearing; implement remaining DEX invoke-custom/MethodHandle support and replace Android API stubs; finish runtime asset and launch lifecycle integration.
