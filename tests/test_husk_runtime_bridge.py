@@ -754,6 +754,16 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("return tl_dvm_safepoint_begin_timeout(5000);", dvm)
         self.assertIn("bool tl_dvm_safepoint_begin_timeout(uint32_t timeout_ms);", header)
 
+    def test_dvm_root_snapshot_fails_closed_for_unparked_or_unframed_mutators(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        start = dvm.index("bool tl_dvm_visit_all_active_call_roots(")
+        end = dvm.index("\nvoid tl_dvm_visit_active_call_roots", start)
+        walker = dvm[start:end]
+        self.assertIn("bool owner_thread = pthread_equal(m->thread, g_safepoint_owner);", walker)
+        self.assertIn("(!owner_thread && !m->parked)", walker)
+        self.assertIn("((m->depth != 0) != (m->frames != NULL))", walker)
+        self.assertIn("free(frames);\n            return false;", walker)
+
     def test_dvm_cooperative_safepoint_parks_registered_mutators(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
