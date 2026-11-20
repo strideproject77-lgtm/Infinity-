@@ -46,6 +46,16 @@ class StrataBuiltInJITContractTests(unittest.TestCase):
         runtime = source("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
         self.assertIn('Color.secondary : Color.orange', runtime)
 
+    def test_strata_version_labels_use_the_shared_infinity_version_symbol(self):
+        runtime = source("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
+        home = source("LiveContainerSwiftUI/Views/LiveBoardHomeScreen.swift")
+        about = source("LiveContainerSwiftUI/Views/StrataAboutView.swift")
+        self.assertNotIn("StrataVersion", runtime)
+        self.assertNotIn("StrataVersion", home)
+        self.assertIn("INFINITYVersion.display", runtime)
+        self.assertIn("INFINITYVersion.display", home)
+        self.assertIn("INFINITYVersion.display", about)
+
 
 if __name__ == "__main__":
     unittest.main()
