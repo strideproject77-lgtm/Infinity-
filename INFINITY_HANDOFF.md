@@ -1946,3 +1946,11 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - The actual app bridging header imports both `INFINITYAPKArchive.h` and the INFINITY Husk runtime bridge. The isolated smoke check had only imported the Husk header. Updated the workflow to generate a temporary narrow combined header with those same two relevant C API headers, then use it for both smoke type-check invocations.
 - Added a regression assertion that both headers are present in the smoke bridge. This aligns the isolated check with the actual app C API boundary without importing unrelated app/SideStore headers.
 - Final validation is pending. No IPA/APK build, device test, or SideStore changes.
+
+
+## 2026-11-20 — Narrow Swift smoke target supplies unrelated shared path contract
+
+- The combined C-header check on commit `73ee7339a0243c8f8dbc492ea536e2e1bf062b3e` resolved the APK archive C symbols. The remaining Swift type-check diagnostic was `LCPath`, which is declared inside the app-wide `Shared.swift` file alongside unrelated UI model types not needed by the runtime smoke target.
+- Added a small smoke-only `LCPath.docPath` URL stub in the temporary Swift source. This keeps the isolated check focused on the APK store/runtime's path API without pulling the full app UI dependency graph into a narrow C bridge check. No production source or path behavior was changed.
+- Added a regression assertion for the stub contract. Linux source tests and the final Swift bridge/native tests are pending on the new commit.
+- No IPA/APK build, device test, or SideStore changes.

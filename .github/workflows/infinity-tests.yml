@@ -93,6 +93,11 @@ jobs:
         run: |
           cat > /tmp/INFINITYHuskBridgeSmoke.swift <<'SWIFT'
           import Foundation
+          // The production LCPath lives in Shared.swift alongside app-wide UI models.
+          // This narrow smoke target only needs its document-root URL contract.
+          struct LCPath {
+              static let docPath = FileManager.default.temporaryDirectory
+          }
           func infinityBridgeSmoke() {
               _ = INFINITY_HUSK_IDLE
               _ = INFINITY_HUSK_RUNNING
