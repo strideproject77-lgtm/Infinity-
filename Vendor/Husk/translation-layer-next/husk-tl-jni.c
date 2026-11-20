@@ -597,19 +597,35 @@ jvalue tl_jni_get_static(const char *cls, const char *name, const char *sig)
 /* ------------------------------------------------------------- exceptions */
 
 static __thread jobj *t_pending;
+static __thread tl_jni_ref_handle *t_pending_root;
+
+static void pending_set(jobj *exception)
+{
+    tl_jni_ref_handle *next = exception ? tl_jni_refs_new_global(exception) : NULL;
+    if (exception && !next) {
+        /* Keep the existing pending exception and its root if replacement fails. */
+        tl_log_line("jni: unable to record pending exception strong root");
+        return;
+    }
+    tl_jni_ref_handle *previous = t_pending_root;
+    t_pending_root = next;
+    t_pending = exception;
+    if (previous) tl_jni_refs_delete(previous, TL_JNI_REF_GLOBAL);
+}
+
 
 void tl_jni_throw(const char *cls, const char *msg)
 {
     jobj *e = tl_jni_new_object(tl_jni_class(cls));
     jvalue v; v.l = tl_jni_new_string(msg ? msg : "");
     tl_jni_set_field(e, "detailMessage", "Ljava/lang/String;", v);
-    t_pending = e;
+    pending_set(e);
     tl_log_line("jni: throwing %s: %s", cls, msg ? msg : "");
 }
 bool tl_jni_pending(void) { return t_pending != NULL; }
 jobj *tl_jni_pending_object(void) { return t_pending; }
-void tl_jni_set_pending(jobj *e) { t_pending = e; }
-void tl_jni_clear(void) { t_pending = NULL; }
+void tl_jni_set_pending(jobj *e) { pending_set(e); }
+void tl_jni_clear(void) { pending_set(NULL); }
 
 /* --------------------------------------------------------------- calling */
 
@@ -846,7 +862,7 @@ static uint8_t jni_IsInstanceOf(void *env, jo obj, jo cls)
     return assignable(oc, cls->klass.jc);
 }
 
-static int32_t jni_Throw(void *env, jo t) { (void)env; t_pending = t; return 0; }
+static int32_t jni_Throw(void *env, jo t) { (void)env; pending_set(t); return 0; }
 static int32_t jni_ThrowNew(void *env, jo cls, const char *msg) { (void)env; tl_jni_throw(cls && cls->kind == TL_K_CLASS ? cls->klass.jc->name : "java/lang/Error", msg); return 0; }
 static void jni_ExceptionDescribe(void *env);
 static jo jni_ExceptionOccurred(void *env)
@@ -862,7 +878,7 @@ static void jni_ExceptionDescribe(void *env)
     jvalue m = tl_jni_get_field(t_pending, "detailMessage", "Ljava/lang/String;");
     tl_log_line("jni: pending exception %s: %s", t_pending->cls->name, tl_jni_string(m.l) ? tl_jni_string(m.l) : "");
 }
-static void jni_ExceptionClear(void *env) { if (t_pending && g_trace >= 2) { tl_log_line("jni: ExceptionClear of:"); jni_ExceptionDescribe(env); } t_pending = NULL; }
+static void jni_ExceptionClear(void *env) { if (t_pending && g_trace >= 2) { tl_log_line("jni: ExceptionClear of:"); jni_ExceptionDescribe(env); } pending_set(NULL); }
 static void jni_FatalError(void *env, const char *msg) { (void)env; tl_log_line("jni: FatalError: %s", msg); abort(); }
 static int32_t jni_PushLocalFrame(void *env, int32_t cap)
 {
@@ -2218,7 +2234,7 @@ static int32_t vm_Detach(void *vm)
     jni_array_accesses_detach();
     jni_string_accesses_detach();
     local_frames_detach();
-    t_pending = NULL;
+    pending_set(NULL);
     t_vm_attached = false;
     return JNI_OK;
 }
