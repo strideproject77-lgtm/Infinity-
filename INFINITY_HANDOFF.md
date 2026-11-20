@@ -1485,3 +1485,27 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - No local test run, compiler/build, IPA build, or device test was performed.
 - These fixes address regression checks and one JNI validation gap; they do not complete the four locked JNI/GC integration blockers. Husk integration remains **99.50%** until those actual runtime boundaries and collector semantics are implemented.
 - SideStore remains untouched.
+
+
+## 2026-11-20 — JNI local-frame shadow-root integration batch
+
+### Implemented
+- Connected the active JNI local-reference lifecycle to the typed-reference registry while preserving the existing raw-`jobj *` guest ABI.
+- `local_frame_adopt()` now registers each JNI-created local as a typed local shadow root before accepting it into the legacy local-frame list. Allocation failure rolls back both ownership paths and raises `OutOfMemoryError`.
+- `PushLocalFrame` now advances the typed registry frame depth; `PopLocalFrame` releases the matching registry frame and re-registers a preserved result in its parent frame.
+- Thread detach now clears typed registry locals alongside the legacy JNI local frames.
+- `NewLocalRef` now goes through the same typed-root adoption path.
+- Added a source-contract regression test covering the registry include, local-root registration, push/pop, detach, and NewLocalRef path.
+
+### Commits
+- `1019bc63772502e299120493c70f60e1f338abe8` — local-frame lifecycle connected to typed registry.
+- `ed86ea37f379790cb74b050588b23d2dc395f9c8` — NewLocalRef routed through typed local-root tracking.
+- `0a1fa8703eed4452800ec589ba90c804a0652d92` — regression contract added.
+
+### Important limits / next work
+- This is a shadow-root bridge, **not yet the guest-facing opaque-handle ABI migration**. The 233-slot JNI function table still exposes raw `jobj *` values; global/weak-global reference operations are not yet backed by distinct guest-visible typed tokens.
+- `DeleteLocalRef` currently removes the legacy local ownership immediately, while its shadow-root token remains until the containing local frame is popped. This is safe against premature collection but can retain an otherwise-deleted object until frame exit; the next refinement should associate each legacy local slot with its registry token so deletion can release both promptly.
+- No tracing collector/root walk or real weak-global processing has been enabled. Weak globals must remain strongly retained until collector safepoints and full DVM/native root coverage are in place.
+- No test run, compiler run, IPA build, or device/APK test was performed for this batch. Do not claim validation until the planned consolidated GitHub test is run.
+- Husk integration remains **99.50%**; this batch is a real preparatory root-integration step but does not close any of the four remaining integration blockers.
+- SideStore remains untouched.
