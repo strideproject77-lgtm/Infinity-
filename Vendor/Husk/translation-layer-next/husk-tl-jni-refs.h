@@ -39,6 +39,12 @@ void tl_jni_refs_delete(tl_jni_ref_handle *handle, tl_jni_ref_kind expected_kind
 
 /* Acquire returns a temporary strong object reference; caller releases via tl_jni_unref. */
 jobj *tl_jni_refs_acquire(tl_jni_ref_handle *handle);
+/* Opaque ABI token adapters. Tokens must never be dereferenced as jobj pointers.
+ * acquire_token returns a temporary strong object reference; release it with
+ * tl_jni_unref(). A NULL token represents Java null. */
+void *tl_jni_refs_export_token(tl_jni_ref_handle *handle);
+jobj *tl_jni_refs_acquire_token(const void *token);
+tl_jni_ref_kind tl_jni_refs_token_kind(const void *token);
 tl_jni_ref_kind tl_jni_refs_get_kind(tl_jni_ref_handle *handle);
 bool tl_jni_refs_is_same(tl_jni_ref_handle *left, tl_jni_ref_handle *right);
 
