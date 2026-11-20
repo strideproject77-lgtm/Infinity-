@@ -866,6 +866,26 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("free(state.queue);", dvm)
         self.assertNotIn("tl_jni_unref(state.queue", dvm)
 
+    def test_dvm_mark_sweep_collection_is_fail_closed_and_weak_refs_stay_strong(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
+        refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
+        native = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm-natives.c")
+        start = dvm.index("bool tl_dvm_collect_heap(")
+        end = dvm.index("\\nbool tl_dvm_visit_current_thread_roots", start)
+        collector = dvm[start:end]
+        self.assertIn("if (!tl_dvm_safepoint_begin()) return false;", collector)
+        self.assertIn("tl_dvm_mark_heap_state_at_safepoint(&marks)", collector)
+        self.assertIn("if (complete && !tl_jni_visit_heap_objects", collector)
+        self.assertIn("tl_dvm_safepoint_end();", collector)
+        self.assertIn("bool tl_dvm_collect_heap(size_t *reclaimed_count, size_t *reachable_count);", header)
+        self.assertIn("bool strong = h->kind != TL_JNI_REF_WEAK_GLOBAL || h->weak_retained;", refs)
+        self.assertIn("h->weak_retained = true;", refs)
+        self.assertNotIn("tl_jni_refs_enable_weak_gc()", collector)
+        self.assertNotIn("tl_jni_refs_process_weak(", collector)
+        self.assertIn("tl_dvm_collect_heap(&reclaimed, &reachable)", native)
+        self.assertIn("Runtime.gc skipped", native)
+
     def test_dvm_active_registers_are_conservatively_checked_against_heap_registry(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
