@@ -49,6 +49,22 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("hasJavaRuntimeAssets(at: stage)", store)
         self.assertIn("ANGLE remains an app-bundled, code-signed dependency", store)
 
+    def test_runtime_asset_rollback_never_deletes_the_only_recovery_copy(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        self.assertIn("case runtimeAssetRollbackFailed(String)", store)
+        self.assertIn("var rollbackFailures: [String] = []", store)
+        self.assertIn("Never delete the only remaining copy", store)
+        self.assertIn("Recovery data was preserved at:", store)
+        self.assertIn("contentsOfDirectory(at: backup", store)
+
+    def test_apk_inspection_rejects_duplicate_paths_and_ambiguous_zip_names(self):
+        inspection = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift")
+        self.assertIn("case duplicateEntry", inspection)
+        self.assertIn("var seenPaths = Set<String>()", inspection)
+        self.assertIn("seenPaths.insert(path).inserted", inspection)
+        self.assertIn('pathComponents.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })', inspection)
+        self.assertIn("flags & 0x2041 == 0", inspection)
+
     def test_unsigned_runtime_folder_dylibs_are_not_accepted_as_graphics_engines(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
         runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")

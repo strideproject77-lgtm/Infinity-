@@ -88,6 +88,7 @@ enum INFINITYAPKStore {
         case missingSplitPackages
         case invalidSplitPackage
         case tooManySplitPackages
+        case runtimeAssetRollbackFailed(String)
 
         var errorDescription: String? {
             switch self {
@@ -102,6 +103,7 @@ enum INFINITYAPKStore {
             case .missingSplitPackages: return "This app requires split APKs, but its installed package is missing one or more split files. Re-import the complete XAPK/APKS/APKM package."
             case .invalidSplitPackage: return "A split APK does not match the base package name or version, or its manifest is invalid. The package was not launched."
             case .tooManySplitPackages: return "This package contains more split APKs than the Husk loader can accept (maximum 47 plus the base APK)."
+            case .runtimeAssetRollbackFailed(let recovery): return "The runtime update failed and the previous assets could not be fully restored. Recovery data was preserved at: \(recovery)"
             }
         }
     }
@@ -548,12 +550,28 @@ enum INFINITYAPKStore {
                     movedNew.append(name)
                 }
             } catch {
+                var rollbackFailures: [String] = []
                 for name in movedNew {
-                    try? fileManager.removeItem(at: runtimeRoot.appendingPathComponent(name))
+                    do {
+                        try fileManager.removeItem(at: runtimeRoot.appendingPathComponent(name))
+                    } catch {
+                        rollbackFailures.append("remove \(name): \(error.localizedDescription)")
+                    }
                 }
                 for name in movedOld {
-                    try? fileManager.moveItem(at: backup.appendingPathComponent(name),
-                                              to: runtimeRoot.appendingPathComponent(name))
+                    do {
+                        try fileManager.moveItem(at: backup.appendingPathComponent(name),
+                                                 to: runtimeRoot.appendingPathComponent(name))
+                    } catch {
+                        rollbackFailures.append("restore \(name): \(error.localizedDescription)")
+                    }
+                }
+                if rollbackFailures.isEmpty {
+                    try? fileManager.removeItem(at: backup)
+                } else {
+                    // Never delete the only remaining copy of a previous runtime component.
+                    let recovery = backup.path + " (" + rollbackFailures.joined(separator: "; ") + ")"
+                    throw StoreError.runtimeAssetRollbackFailed(recovery)
                 }
                 throw error
             }
@@ -561,7 +579,10 @@ enum INFINITYAPKStore {
             try? fileManager.removeItem(at: stage)
         } catch {
             try? fileManager.removeItem(at: stage)
-            try? fileManager.removeItem(at: backup)
+            // A non-empty backup may be the only surviving copy after a failed rollback.
+            if (try? fileManager.contentsOfDirectory(at: backup, includingPropertiesForKeys: nil).isEmpty) == true {
+                try? fileManager.removeItem(at: backup)
+            }
             throw error
         }
     }

@@ -20,6 +20,7 @@ struct INFINITYAPKInspection: Sendable {
         case encryptedEntry
         case unsafePath
         case tooManyEntries
+        case duplicateEntry
 
         var errorDescription: String? {
             switch self {
@@ -33,6 +34,7 @@ struct INFINITYAPKInspection: Sendable {
             case .encryptedEntry: return "Encrypted ZIP entries are not supported in APK packages."
             case .unsafePath: return "The APK contains an unsafe archive path and was rejected."
             case .tooManyEntries: return "The APK contains too many entries for safe inspection."
+            case .duplicateEntry: return "The APK contains duplicate ZIP entry paths and was rejected as ambiguous."
             }
         }
     }
@@ -144,6 +146,7 @@ struct INFINITYAPKInspection: Sendable {
         var deflated = 0
         var other = 0
         var totalUncompressed: UInt64 = 0
+        var seenPaths = Set<String>()
 
         for _ in 0..<Int(totalEntries) {
             guard cursor <= directoryEnd - 46,
@@ -173,12 +176,19 @@ struct INFINITYAPKInspection: Sendable {
                 throw InspectionError.invalidEntry
             }
             let components = path.split(separator: "/", omittingEmptySubsequences: false)
+            let pathComponents = path.hasSuffix("/") ? components.dropLast() : components[...]
             guard !path.hasPrefix("/"),
                   !path.contains("\\"),
-                  !components.contains(".."),
-                  !path.unicodeScalars.contains(where: { $0.value == 0 }) else {
+                  !pathComponents.isEmpty,
+                  pathComponents.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
+                  !path.unicodeScalars.contains(where: { $0.value == 0 || $0.value < 0x20 || $0.value == 0x7f }) else {
                 throw InspectionError.unsafePath
             }
+            guard seenPaths.insert(path).inserted else {
+                throw InspectionError.duplicateEntry
+            }
+            // ZIP general-purpose bits 0, 6 and 13 indicate encryption variants.
+            guard flags & 0x2041 == 0 else { throw InspectionError.encryptedEntry }
 
             if !path.hasSuffix("/") {
                 parsed.append(Entry(path: path, compressionMethod: method,
