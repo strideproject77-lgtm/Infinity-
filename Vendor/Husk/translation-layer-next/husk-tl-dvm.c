@@ -1312,16 +1312,16 @@ void tl_dvm_safepoint_end(void)
     pthread_mutex_unlock(&g_safepoint_lock);
 }
 
-void tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *context)
+bool tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *context)
 {
-    if (!visitor) return;
+    if (!visitor) return false;
     dvm_call_root_frame **frames = NULL;
     size_t count = 0, capacity = 0;
     pthread_mutex_lock(&g_safepoint_lock);
     if (!g_safepoint_requested ||
         !pthread_equal(g_safepoint_owner, pthread_self())) {
         pthread_mutex_unlock(&g_safepoint_lock);
-        return;
+        return false;
     }
     for (dvm_mutator_record *m = g_mutators; m; m = m->next) {
         if (!m->frames) continue;
@@ -1330,13 +1330,13 @@ void tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *conte
             if (next < capacity || next > SIZE_MAX / sizeof(*frames)) {
                 pthread_mutex_unlock(&g_safepoint_lock);
                 free(frames);
-                return;
+                return false;
             }
             dvm_call_root_frame **grown = realloc(frames, next * sizeof(*frames));
             if (!grown) {
                 pthread_mutex_unlock(&g_safepoint_lock);
                 free(frames);
-                return;
+                return false;
             }
             frames = grown;
             capacity = next;
@@ -1354,6 +1354,7 @@ void tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *conte
         }
     }
     free(frames);
+    return true;
 }
 
 
@@ -3106,7 +3107,7 @@ bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *contex
 {
     if (!visitor) return false;
     tl_dvm_visit_static_roots(visitor, context);
-    tl_dvm_visit_all_active_call_roots(visitor, context);
+    if (!tl_dvm_visit_all_active_call_roots(visitor, context)) return false;
     return tl_jni_refs_visit_strong_roots(visitor, context);
 }
 
