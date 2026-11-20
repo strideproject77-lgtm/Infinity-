@@ -4,6 +4,8 @@
 #include "husk-tl-dvm-internal.h"
 
 #include <math.h>
+#include <errno.h>
+#include <time.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1279,8 +1281,17 @@ static void dvm_safepoint_poll(void)
     pthread_mutex_unlock(&g_safepoint_lock);
 }
 
-bool tl_dvm_safepoint_begin(void)
+bool tl_dvm_safepoint_begin_timeout(uint32_t timeout_ms)
 {
+    struct timespec deadline;
+    if (clock_gettime(CLOCK_REALTIME, &deadline) != 0) return false;
+    deadline.tv_sec += (time_t)(timeout_ms / 1000u);
+    deadline.tv_nsec += (long)(timeout_ms % 1000u) * 1000000L;
+    if (deadline.tv_nsec >= 1000000000L) {
+        deadline.tv_sec++;
+        deadline.tv_nsec -= 1000000000L;
+    }
+
     pthread_mutex_lock(&g_safepoint_lock);
     if (g_safepoint_requested) {
         pthread_mutex_unlock(&g_safepoint_lock);
@@ -1289,17 +1300,30 @@ bool tl_dvm_safepoint_begin(void)
     g_safepoint_requested = true;
     g_safepoint_owner = pthread_self();
     pthread_cond_broadcast(&g_safepoint_cv);
+    bool complete = false;
     for (;;) {
         bool all_parked = true;
         for (dvm_mutator_record *m = g_mutators; m; m = m->next) {
             if (pthread_equal(m->thread, g_safepoint_owner)) continue;
             if (!m->parked) { all_parked = false; break; }
         }
-        if (all_parked) break;
-        pthread_cond_wait(&g_safepoint_cv, &g_safepoint_lock);
+        if (all_parked) { complete = true; break; }
+        int wait_status = pthread_cond_timedwait(&g_safepoint_cv, &g_safepoint_lock, &deadline);
+        if (wait_status == ETIMEDOUT) break;
+        if (wait_status != 0) break;
+    }
+    if (!complete) {
+        g_safepoint_requested = false;
+        memset(&g_safepoint_owner, 0, sizeof(g_safepoint_owner));
+        pthread_cond_broadcast(&g_safepoint_cv);
     }
     pthread_mutex_unlock(&g_safepoint_lock);
-    return true;
+    return complete;
+}
+
+bool tl_dvm_safepoint_begin(void)
+{
+    return tl_dvm_safepoint_begin_timeout(5000);
 }
 
 void tl_dvm_safepoint_end(void)
