@@ -89,20 +89,20 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
 
     def test_dex_disassembly_reports_main_activity_and_framework_calls(self):
         result = parse_dex_disassembly(
-            "Class #0\\n"
-            "  Class descriptor  : 'Lcom/tpcstld/twozerogame/MainActivity;'\\n"
-            "  Superclass        : 'Landroid/support/v7/app/AppCompatActivity;'\\n"
-            "  Landroid/view/View;.invalidate:()V\\n"
-            "  Landroid/content/SharedPreferences;.getInt:(Ljava/lang/String;I)I\\n"
-            "  Landroid/graphics/Bitmap$Config;->ARGB_8888:I\\n"
-            "Class #1\\n"
-            "  Class descriptor  : 'Landroid/support/v7/app/AppCompatActivity;'\\n"
-            "  Superclass        : 'Landroid/app/Activity;'\\n"
-            "  Landroid/app/Activity;.finish:()V\\n"
-            "Class #2\\n"
-            "  Class descriptor  : 'Landroid/support/v4/app/FragmentActivity;'\\n"
-            "  Superclass        : 'Landroid/support/v4/app/SupportActivity;'\\n"
-            "  Landroid/app/Activity;.onCreate:(Landroid/os/Bundle;)V\\n"
+            "Class #0\n"
+            "  Class descriptor  : 'Lcom/tpcstld/twozerogame/MainActivity;'\n"
+            "  Superclass        : 'Landroid/support/v7/app/AppCompatActivity;'\n"
+            "  Landroid/view/View;.invalidate:()V\n"
+            "  Landroid/content/SharedPreferences;.getInt:(Ljava/lang/String;I)I\n"
+            "  Landroid/graphics/Bitmap$Config;->ARGB_8888:I\n"
+            "Class #1\n"
+            "  Class descriptor  : 'Landroid/support/v7/app/AppCompatActivity;'\n"
+            "  Superclass        : 'Landroid/app/Activity;'\n"
+            "  Landroid/app/Activity;.finish:()V\n"
+            "Class #2\n"
+            "  Class descriptor  : 'Landroid/support/v4/app/FragmentActivity;'\n"
+            "  Superclass        : 'Landroid/support/v4/app/SupportActivity;'\n"
+            "  Landroid/app/Activity;.onCreate:(Landroid/os/Bundle;)V\n"
         )
         self.assertEqual(
             result["main_activity_superclass"],
