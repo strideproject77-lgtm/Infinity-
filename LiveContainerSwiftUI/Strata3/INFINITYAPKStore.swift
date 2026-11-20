@@ -250,12 +250,52 @@ enum INFINITYAPKStore {
         let apkEntries = container.entries.filter { $0.path.lowercased().hasSuffix(".apk") }
         guard !apkEntries.isEmpty else { throw StoreError.missingBaseAPK }
 
+        // APKPure XAPK v2 identifies the base and configuration APKs in
+        // manifest.json. Its base filename is commonly the package ID rather
+        // than "base.apk", so filename heuristics alone reject valid XAPKs.
+        var xapkPackageName: String?
+        var xapkVersionCode: UInt64?
+        var xapkOrderedEntries: [INFINITYAPKInspection.Entry]?
+        if container.entries.contains(where: { $0.path == "manifest.json" }) {
+            let archiveData = try Data(contentsOf: source, options: [.mappedIfSafe])
+            let manifestData = try INFINITYAPKArchive.extractEntry(from: archiveData, path: "manifest.json")
+            guard let metadata = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any],
+                  let packageName = metadata["package_name"] as? String,
+                  let splitAPKs = metadata["split_apks"] as? [[String: Any]],
+                  !packageName.isEmpty, !splitAPKs.isEmpty else {
+                throw StoreError.invalidSplitPackage
+            }
+            var mapped: [INFINITYAPKInspection.Entry] = []
+            var seen = Set<String>()
+            var baseMatches: [INFINITYAPKInspection.Entry] = []
+            for item in splitAPKs {
+                guard let file = item["file"] as? String,
+                      let identifier = item["id"] as? String,
+                      !file.isEmpty, !file.hasPrefix("/"),
+                      !file.contains("\\\\"), !file.split(separator: "/").contains(".."),
+                      seen.insert(file).inserted,
+                      let entry = apkEntries.first(where: { $0.path == file }) else {
+                    throw StoreError.invalidSplitPackage
+                }
+                mapped.append(entry)
+                if identifier == "base" { baseMatches.append(entry) }
+            }
+            guard mapped.count == apkEntries.count, baseMatches.count == 1 else {
+                throw StoreError.invalidSplitPackage
+            }
+            xapkPackageName = packageName
+            xapkVersionCode = (metadata["version_code"] as? String).flatMap(UInt64.init)
+            xapkOrderedEntries = [baseMatches[0]] + mapped.filter { $0.path != baseMatches[0].path }
+        }
+
         let preferred = apkEntries.filter {
             let name = URL(fileURLWithPath: $0.path).lastPathComponent.lowercased()
             return name == "base.apk" || name == "base-master.apk"
         }
         let baseEntry: INFINITYAPKInspection.Entry
-        if preferred.count == 1 {
+        if let xapkOrderedEntries, let first = xapkOrderedEntries.first {
+            baseEntry = first
+        } else if preferred.count == 1 {
             baseEntry = preferred[0]
         } else if preferred.count > 1 {
             throw StoreError.ambiguousBaseAPK
@@ -268,7 +308,8 @@ enum INFINITYAPKStore {
         try ensureRoot()
         let stage = root.appendingPathComponent(".staging-\(UUID().uuidString)", isDirectory: true)
         let baseURL = stage.appendingPathComponent("base.apk")
-        let splitEntries = apkEntries.filter { $0.path != baseEntry.path }
+        let splitEntries = xapkOrderedEntries?.filter { $0.path != baseEntry.path }
+            ?? apkEntries.filter { $0.path != baseEntry.path }
         guard splitEntries.count <= maximumSplitAPKCount else {
             throw StoreError.tooManySplitPackages
         }
@@ -301,6 +342,29 @@ enum INFINITYAPKStore {
             }
             guard let manifest = inspection.manifest else { throw StoreError.invalidManifest }
             guard Self.isValidPackageName(manifest.packageName) else { throw StoreError.invalidPackageName }
+            if let xapkPackageName, xapkPackageName != manifest.packageName {
+                throw StoreError.invalidSplitPackage
+            }
+            if let xapkVersionCode, let baseVersionCode = manifest.versionCode,
+               xapkVersionCode != baseVersionCode {
+                throw StoreError.invalidSplitPackage
+            }
+            // Validate every configuration APK before committing the package.
+            // This catches a truncated or mismatched split at import time rather
+            // than deferring the failure until the user taps Launch.
+            for entry in splitEntries {
+                let splitURL = splitDirectory.appendingPathComponent(
+                    String(format: "split-%03d.apk", (splitEntries.firstIndex(where: { $0.path == entry.path }) ?? 0) + 1)
+                )
+                let splitInspection = try INFINITYAPKInspection.inspect(url: splitURL)
+                guard splitInspection.hasManifest,
+                      let splitManifest = splitInspection.manifest,
+                      splitManifest.packageName == manifest.packageName,
+                      (splitManifest.versionCode == nil || manifest.versionCode == nil ||
+                       splitManifest.versionCode == manifest.versionCode) else {
+                    throw StoreError.invalidSplitPackage
+                }
+            }
             let engine = Self.detectEngine(inspection)
             let requiresSplits = !splitEntries.isEmpty ||
                 baseURL.path.withCString { infinity_husk_apk_requires_splits($0) }
