@@ -270,7 +270,7 @@ data = {
 }
 with open(output, "w", encoding="utf-8") as stream:
     json.dump(data, stream, indent=2)
-    stream.write("\\n")
+    stream.write("\n")
 PY
 
 echo "==> Packaging runtime data (no QEMU guest image, no IPA)"

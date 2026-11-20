@@ -78,6 +78,7 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("validateRuntimeArchiveManifest(at: root)", store)
         self.assertIn("SHA256()", store)
         self.assertIn("actualPaths == Set(expected.keys)", store)
+        self.assertIn('!path.contains("\\\\")', store)
         self.assertIn("infinity_apk_extract_entry_to_file", store)
         self.assertIn("allowedContentTypes: [.folder, .zip]", center)
         self.assertIn("infinity-android-runtime-assets.zip", center)

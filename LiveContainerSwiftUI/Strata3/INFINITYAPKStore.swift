@@ -710,7 +710,7 @@ enum INFINITYAPKStore {
             let components = path.split(separator: "/", omittingEmptySubsequences: false)
             guard path == "cacert.pem" ||
                     (allowedRoots.contains(where: { path.hasPrefix($0) }) &&
-                     !path.hasPrefix("/") && !path.contains("\\\\") &&
+                     !path.hasPrefix("/") && !path.contains("\\") &&
                      components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
                   item.sha256.range(of: "^[0-9a-fA-F]{64}$", options: .regularExpression) != nil,
                   expected[path] == nil else {
@@ -749,7 +749,8 @@ enum INFINITYAPKStore {
             let fileURL = root.appendingPathComponent(path)
             let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
             guard values.isRegularFile == true, values.isSymbolicLink != true,
-                  UInt64(values.fileSize ?? -1) == item.size else {
+                  let fileSize = values.fileSize, fileSize >= 0,
+                  UInt64(fileSize) == item.size else {
                 throw StoreError.invalidRuntimeArchive
             }
             let digest = try sha256Hex(of: fileURL)

@@ -36,6 +36,7 @@ class RuntimeAssetBuilderTests(unittest.TestCase):
         self.assertIn('"payload_files": payload_files', script)
         self.assertIn('"sha256": hasher.hexdigest()', script)
         self.assertIn("source.read(1024 * 1024)", script)
+        self.assertIn('stream.write("\\n")', script)
 
     def test_builder_never_packages_qemu_guest_or_ipa(self):
         script = self.read("scripts/build_infinity_runtime_assets.sh")
