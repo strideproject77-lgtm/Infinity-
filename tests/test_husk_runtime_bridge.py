@@ -752,6 +752,17 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("bool tl_dvm_safepoint_begin(void);", header)
         self.assertIn("void tl_dvm_safepoint_end(void);", header)
 
+    def test_dvm_heap_trace_marks_reachable_graph_without_sweeping(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
+        self.assertIn("static bool dvm_mark_add(", dvm)
+        self.assertIn("tl_jni_visit_object_references(object, dvm_mark_root, &state)", dvm)
+        self.assertIn("tl_dvm_safepoint_begin()", dvm)
+        self.assertIn("tl_dvm_safepoint_end()", dvm)
+        self.assertIn("bool tl_dvm_trace_heap(", header)
+        self.assertIn("free(state.queue);", dvm)
+        self.assertNotIn("tl_jni_unref(state.queue", dvm)
+
     def test_dvm_active_registers_are_conservatively_checked_against_heap_registry(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
