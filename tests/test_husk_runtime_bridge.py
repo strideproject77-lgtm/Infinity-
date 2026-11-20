@@ -637,6 +637,20 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("SLOT(226, jni_NewGlobalRef)", jni)
         self.assertNotIn("SLOT(227, jni_DeleteGlobalRef)", jni)
 
+    def test_jni_global_and_weak_refs_use_distinct_typed_registry_handles(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("typedef struct jni_nonlocal_ref", jni)
+        self.assertIn("tl_jni_refs_new_global(object)", jni)
+        self.assertIn("tl_jni_refs_new_weak_global(object)", jni)
+        self.assertIn("tl_jni_refs_delete(entry->handle, kind);", jni)
+        self.assertIn("jni_nonlocal_ref_add(o, TL_JNI_REF_GLOBAL)", jni)
+        self.assertIn("jni_nonlocal_ref_add(o, TL_JNI_REF_WEAK_GLOBAL)", jni)
+        self.assertIn("jni_nonlocal_ref_delete(o, TL_JNI_REF_GLOBAL)", jni)
+        self.assertIn("jni_nonlocal_ref_delete(o, TL_JNI_REF_WEAK_GLOBAL)", jni)
+        self.assertIn("if (kind == TL_JNI_REF_GLOBAL) return 2u;", jni)
+        self.assertIn("if (kind == TL_JNI_REF_WEAK_GLOBAL) return 3u;", jni)
+        self.assertIn("return 1u;", jni)
+
     def test_interpreted_native_calls_scope_jni_local_references(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
