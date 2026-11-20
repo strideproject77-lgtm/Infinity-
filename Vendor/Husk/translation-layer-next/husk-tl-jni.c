@@ -204,6 +204,7 @@ bool tl_jni_set_native_destructor(jobj *o, tl_jni_native_destructor destructor)
 bool tl_jni_destroy_unreachable_object(jobj *o)
 {
     if (!o || o->kind == TL_K_CLASS) return false;
+    if (tl_dvm && !tl_dvm_safepoint_is_owner()) return false;
 
     /* The caller must hold a complete stop-the-world safepoint and have
      * proved this object unreachable. Registry removal is the one-shot gate:
