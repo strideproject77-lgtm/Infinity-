@@ -282,7 +282,7 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
                 return None
         return "L" + qualified.replace(".", "/") + ";"
 
-    def parent_descriptors(descriptor: str, source: str, package: str,
+        def parent_descriptors(descriptor: str, source: str, package: str,
                            imports: dict[str, str],
                            wildcard_imports: list[str]) -> list[str]:
         simple_name = descriptor[1:-1].split("/")[-1].split("$")[-1]
@@ -295,8 +295,13 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
             return []
         header = declaration.group(1)
         parent_names = []
-        for clause in re.finditer(r"\b(?:extends|implements)\s+([^;{]+)", header):
+        for clause in re.finditer(
+            r"\b(?:extends|implements)\s+(.+?)(?=\b(?:extends|implements)\b|$)",
+            header,
+        ):
             parent_names.extend(item.strip() for item in clause.group(1).split(","))
+        if re.search(r"\benum\s+" + re.escape(simple_name) + r"\b", declaration.group(0)):
+            parent_names.append("java.lang.Enum")
         resolved = []
         for name in parent_names:
             parent = resolve_type(name, package, imports, wildcard_imports)
