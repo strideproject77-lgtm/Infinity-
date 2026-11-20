@@ -1336,3 +1336,21 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Overall source integration remains estimated at 99%. This fixes a concrete event-ordering race in the NDK queue; it does not complete JNI reference identity or the remaining ART/JNI semantic gaps.
 - Source was inspected statically only. Tests, compilation, workflows, IPA packaging and device execution remain intentionally unrun.
 - Game/app compatibility estimates must remain provisional until the single consolidated post-integration validation phase. Do not present source integration percentage as a runtime compatibility percentage.
+
+## 2026-11-20 — NDK input accessor boundary hardening
+
+### Implemented on main
+- Hardened NDK key and motion event accessors against null event pointers; getters return neutral values rather than dereferencing null.
+- Motion pointer count is clamped to the implementation's ten-pointer storage limit, and pointer ID/X/Y accessors validate both the event pointer and the index against the stored pointer count and fixed array bound.
+- Motion axis lookup rejects null events and negative axis numbers before accessing the 48-entry axis array.
+- Event time, action, source, device, keycode, flags, meta-state and button-state accessors now guard null input.
+- Added source-contract assertions for pointer-count/index/axis bounds and null-safe accessors.
+
+### Commits
+- NDK event accessor null and bounds hardening: `9bd210864939c55d55d8ce2a2de9fa4a9e5768fa`
+- Source-contract coverage: `4dc727fe663286d15467e0a2a888b2774626c798`
+
+### Integration status
+- Overall source integration remains **99%**. This closes additional NDK input boundary safety gaps but does not solve the JNI reference handle architecture or all ART/JNI semantics.
+- JNI still exposes raw `jobj *` values as guest handles. Local/global/weak-global handle identity and safe conversion across every JNI object argument/return boundary remain outstanding. Do not claim 100% until this is coherently implemented and source audited.
+- No tests, compiler, workflow, IPA build/export, signing or device testing was performed. Only source inspection and marker checks are permitted before the agreed 100% gate.
