@@ -972,6 +972,15 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
         ))
 
+    def test_dvm_object_reclamation_requires_active_safepoint_owner(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("bool tl_dvm_safepoint_is_owner(void)", dvm)
+        self.assertIn("bool tl_dvm_safepoint_is_owner(void);", header)
+        self.assertIn("g_safepoint_requested && pthread_equal(g_safepoint_owner, pthread_self())", dvm)
+        self.assertIn("if (tl_dvm && !tl_dvm_safepoint_is_owner()) return false;", jni)
+
     def test_native_thread_destructor_lifecycle_is_explicit_and_collector_gated(self):
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.h")
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
