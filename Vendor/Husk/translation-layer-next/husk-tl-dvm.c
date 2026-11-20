@@ -3128,11 +3128,11 @@ typedef struct dvm_mark_state {
 
 static size_t dvm_mark_hash(const jobj *object)
 {
-    uintptr_t x = (uintptr_t)object;
+    uint64_t x = (uint64_t)(uintptr_t)object;
     x ^= x >> 33;
-    x *= (uintptr_t)0xff51afd7ed558ccdULL;
+    x *= UINT64_C(0xff51afd7ed558ccd);
     x ^= x >> 33;
-    x *= (uintptr_t)0xc4ceb9fe1a85ec53ULL;
+    x *= UINT64_C(0xc4ceb9fe1a85ec53);
     x ^= x >> 33;
     return (size_t)x;
 }
@@ -3194,8 +3194,9 @@ static bool tl_dvm_trace_heap_at_safepoint(tl_dvm_root_visitor on_mark,
                                             size_t *marked_count)
 {
     dvm_mark_state state = { .on_mark = on_mark, .user_context = user_context };
-    bool ok = tl_dvm_visit_static_roots(dvm_mark_root, &state), roots_ok = true;
-    if (ok && !state.failed) {
+    bool roots_ok = true;
+    tl_dvm_visit_static_roots(dvm_mark_root, &state);
+    if (!state.failed) {
         if (!tl_dvm_visit_all_active_call_roots(dvm_mark_root, &state)) roots_ok = false;
         if (roots_ok && !state.failed &&
             !tl_jni_refs_visit_strong_roots(dvm_mark_root, &state)) roots_ok = false;
