@@ -2959,12 +2959,6 @@ static void visit_dex_runtime_roots(dvm_static_root_walk *walk)
  * Caller must externally stop every mutator and keep class/DEX metadata stable.
  * Active interpreter call roots are currently per-thread; this function sees
  * the calling thread's chain only, so it is not a process-wide safepoint. */
-static void visit_heap_root(jobj *object, void *context)
-{
-    tl_dvm_root_visitor visitor = (tl_dvm_root_visitor)context;
-    if (visitor && object) visitor(object, NULL);
-}
-
 bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *context)
 {
     if (!visitor) return false;
