@@ -64,8 +64,11 @@ static tl_jni_ref_handle *create_handle(jobj *object, tl_jni_ref_kind kind)
         }
     }
     if (g_next_token_id == 0) {
+        bool release_object = h->object &&
+            (h->kind != TL_JNI_REF_WEAK_GLOBAL || h->weak_retained);
+        jobj *object = release_object ? h->object : NULL;
         pthread_mutex_unlock(&g_refs_lock);
-        if (h->object) tl_jni_unref(h->object);
+        if (object) tl_jni_unref(object);
         free(h);
         return NULL;
     }
