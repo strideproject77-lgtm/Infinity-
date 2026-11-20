@@ -167,7 +167,11 @@ tl_jni_ref_kind tl_jni_refs_get_kind(tl_jni_ref_handle *handle)
 
 bool tl_jni_refs_is_same(tl_jni_ref_handle *left, tl_jni_ref_handle *right)
 {
-    if (left == right) return true;
+    /* JNI defines two null references as the same. Do not use token equality
+     * for non-null handles: a deleted/tombstoned token is not a live object
+     * reference, even when both arguments contain that same stale token. */
+    if (!left || !right) return left == right;
+
     jobj *a = tl_jni_refs_acquire(left);
     jobj *b = tl_jni_refs_acquire(right);
     bool same = a && b && a == b;
