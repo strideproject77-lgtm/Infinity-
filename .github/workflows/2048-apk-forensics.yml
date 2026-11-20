@@ -53,7 +53,7 @@ jobs:
       - name: Print forensic report summary
         run: |
           cat "$RUNNER_TEMP/2048-report/REPORT.md"
-          python -c 'import json,pathlib; r=json.loads(pathlib.Path("$RUNNER_TEMP/2048-report/report.json").read_text()); print("DEX inventory:", {k: {x:v[x] for x in ("class_defs_size","method_ids_size","field_ids_size")} for k,v in r["dex_headers"].items()}); print("AndroidX/Google Play descriptors:", *r["androidx_and_google_play_class_descriptors"], sep="\\n")'
+          python -c 'import json,os,pathlib; r=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"2048-report/report.json").read_text()); print("Manifest facts:", {k:r[k] for k in ("min_sdk","target_sdk","compile_sdk","launch_activity","android_support_version")}); print("DEX inventory:", {k: {x:v[x] for x in ("class_defs_size","method_ids_size","field_ids_size")} for k,v in r["dex_headers"].items()}); print("Dependency class descriptors:", r["dependency_class_descriptor_counts"]); print("Android Support:", *r["dependency_class_descriptors"]["android_support"], sep="\\n"); print("AndroidX:", *r["dependency_class_descriptors"]["androidx"], sep="\\n"); print("Google Play:", *r["dependency_class_descriptors"]["google_play_services"], sep="\\n")'
       - name: Publish forensic report
         uses: actions/upload-artifact@v4
         with:

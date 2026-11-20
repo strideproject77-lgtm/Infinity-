@@ -132,7 +132,7 @@ def parse_manifest_facts(badging: str, manifest_xmltree: str) -> dict[str, str |
         "compile_sdk": capture(r"compileSdkVersion='([^']+)'", badging),
         "launch_activity": capture(r"^launchable-activity: name='([^']+)'", badging),
         "android_support_version": capture(
-            r'android\\.support\\.VERSION.*?\\n\\s+A: android:value.*?="([^"]+)"',
+            r'android\.support\.VERSION.*?\n\s+A: android:value.*?="([^"]+)"',
             manifest_xmltree,
         ),
     }
@@ -195,10 +195,6 @@ def main() -> int:
         extracted.write_bytes(payload)
         run_tool([args.dexdump, "-d", str(extracted)],
                  output / f"{safe_name}.disassembly.txt")
-        for match in re.findall(
-            rb"L(?:androidx|com/google/android/gms)/[A-Za-z0-9_/$]+;", payload
-        ):
-            dependency_refs.add(match.decode("ascii", errors="replace"))
 
     apk_digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     report = {
