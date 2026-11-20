@@ -9,7 +9,9 @@ from scripts.inspect_2048_apk import (
     EXPECTED_PACKAGE,
     APK_RELEASE_URL,
     archive_inventory,
+    dependency_class_descriptors,
     parse_dex_header,
+    parse_manifest_facts,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -84,6 +86,31 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
             self.assertEqual(result["native_libraries"], ["lib/arm64-v8a/libexample.so"])
             self.assertEqual(result["dex_headers"]["classes2.dex"]["version"], "035")
 
+    def test_manifest_facts_identify_legacy_support_target_and_launcher(self):
+        facts = parse_manifest_facts(
+            "package: name='com.tpcstld.twozerogame' versionCode='1007' versionName='1.3.3'\\n"
+            "sdkVersion:'14'\\ntargetSdkVersion:'28' compileSdkVersion='28'\\n"
+            "launchable-activity: name='com.tpcstld.twozerogame.MainActivity'\\n",
+            'A: android:name="android.support.VERSION"\\n'
+            'A: android:value="26.1.0"',
+        )
+        self.assertEqual(facts["min_sdk"], "14")
+        self.assertEqual(facts["target_sdk"], "28")
+        self.assertEqual(facts["compile_sdk"], "28")
+        self.assertEqual(facts["launch_activity"], "com.tpcstld.twozerogame.MainActivity")
+        self.assertEqual(facts["android_support_version"], "26.1.0")
+
+    def test_dependency_descriptor_inventory_separates_support_androidx_and_gms(self):
+        payload = (
+            b"Landroid/support/v7/app/AppCompatActivity; "
+            b"Landroidx/core/content/ContextCompat; "
+            b"Lcom/google/android/gms/games/Games;"
+        )
+        result = dependency_class_descriptors({"classes.dex": payload})
+        self.assertEqual(len(result["android_support"]), 1)
+        self.assertEqual(len(result["androidx"]), 1)
+        self.assertEqual(len(result["google_play_services"]), 1)
+
     def test_workflow_pins_the_real_upstream_release_and_runs_aapt_and_dexdump(self):
         workflow = (ROOT / ".github/workflows/2048-apk-forensics.yml").read_text()
         script = (ROOT / "scripts/inspect_2048_apk.py").read_text()
@@ -95,6 +122,8 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
         self.assertIn('"dump", "xmltree"', script)
         self.assertIn('"dump", "resources"', script)
         self.assertIn('"-d"', script)
+        self.assertIn("Landroid/support/", script)
+        self.assertIn("android_support_version", script)
         self.assertNotIn("package_name_whitelist", script)
         self.assertNotIn("fake_execution", script)
 
