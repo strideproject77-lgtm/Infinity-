@@ -162,7 +162,7 @@ jobs:
           swift-version: "6.0"
       - name: Type-check APK inspection and manifest parser
         run: |
-          swiftc -typecheck \
+          swiftc -swift-version 5 -typecheck \
             tests/fixtures/INFINITYAPKArchiveLinuxShim.swift \
             LiveContainerSwiftUI/Strata3/INFINITYVersion.swift \
             LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \
