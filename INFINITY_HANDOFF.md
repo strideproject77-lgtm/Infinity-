@@ -1977,3 +1977,17 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Commits on `agent/husk-gc-sweep-20261120`: `48568708a4322020308b610a5c321f8371b067f7`, `0c682c5284c53d2c0f4ed71fa038ff51cc58288a`, `6d8c31329471b3fb0aacb16a440b5d2d6e95bdac`, follow-up stale-snapshot guard commit: `92bb61f6a0c51d3cdcaaac3bb21dc7b08fe3d912`.
 - No tests or compilation were run, per the single consolidated validation plan. No IPA/APK build or device/game test. SideStore untouched.
 - Next implementation targets: complete JNI object-token translation across the 233-slot `JNIEnv` table and native argument/return boundaries; then safely enable weak-global clearing; implement remaining DEX invoke-custom/MethodHandle support and replace Android API stubs; finish runtime asset and launch lifecycle integration.
+
+
+## 2026-11-20 — JNI ABI audit and token-resolution foundation
+
+- Resumed from the committed **59%** checkpoint; audited the actual JNI reference table, typed-handle registry, DVM collector, safepoint ownership, and existing source-contract tests.
+- Confirmed the 233-slot `JNIEnv` table still passes raw `jobj *` values. The monotonic opaque-token registry is present but is not yet the guest-facing ABI. Do not claim JNI ABI migration complete or enable weak-global clearing.
+- Verified the current collector's root walk covers object-valued DEX/class statics, every registered mutator's active DVM call frames, and typed JNI strong roots. Safepoint acquisition is bounded to 5 seconds and collection fails closed when mutators cannot park or a complete root walk cannot be produced.
+- Verified weak globals remain strongly retained while `g_weak_gc_enabled` is false. This is intentional until every JNI object argument/return path resolves opaque tokens safely.
+- Added `tl_jni_refs_resolve_token()` as a checked ABI primitive: it distinguishes Java null (valid, resolves to NULL), invalid/stale tokens (false), and live tokens (returns a temporarily retained object); a cleared weak token is represented as valid Java null. This helper is groundwork only and is not wired into the 233 JNI slots yet.
+- Added source-contract regression coverage for collector fail-closed behavior, weak-root retention, Runtime.gc wiring, and checked token resolution.
+- Commits on `agent/husk-jni-abi-audit-20261120`: `3ece7ba462714e9de2ddc524d9b1442f50f31dfd`, `422bb53c2fe763c7756195287393dcc9b6f4aedb`, `1e40f4365978fe0952323db1eaa20d88b628a9e7`.
+- **Progress remains 59%**: the helper and tests do not justify a percentage increase because JNI table/native argument-return migration is still incomplete.
+- No tests have been run yet. Next planned test checkpoint is the existing `infinity-tests.yml` source/parser + iPhoneOS native syntax + Swift bridge checks after this batch is merged. No IPA/APK build or device/game test. SideStore untouched.
+- Next implementation: build a typed JNI ABI adapter in stages, starting with object-reference creation/deletion/equality and then object-bearing method/field/array/string entry points. Do not expose token values to guest code until all reachable object-bearing slots and native argument/return paths are adapted.
