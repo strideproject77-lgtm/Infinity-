@@ -1839,3 +1839,13 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 
 ### Next
 - Audit every native thread creation and JNI attach/detach path, then introduce an explicit native-to-managed transition protocol before adding any reclamation path. Keep sweeping and weak-GC activation disabled until that protocol can prove all object holders are quiescent.
+
+## 2026-11-20 — Testing readiness checkpoint
+
+- Latest CI configuration commit: `9ac54e99db9d46dfc5464353c2670b9e72e8a60a` (records passing regression suite and expanded CI compile gates).
+- On run [44656527518](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656527518), the Ubuntu source-contract/APK archive job completed successfully; all **117 Python regression tests passed**, including script syntax validation. The overall workflow remained queued because macOS jobs had not started.
+- Swift-to-Husk bridge type-check run [44656480951](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656480951) and iPhoneOS native-source compile audit [44656476247](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656476247) remained queued at last inspection. Do not mark them passed until completed.
+- The previous full run [44656407965](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656407965) is completed/success, but it predates the newest expanded macOS checks.
+- **Testing status:** source-contract suite passed; Swift bridge and native compile gates pending. No IPA/APK build, no device runtime test, and no SideStore changes.
+- **Husk integration status:** do not claim 100%. Guest JNI ABI still exposes raw `jobj *`; native argument/return marshaling remains to be migrated; DVM mark traversal is not connected to a safe sweep/reclamation path; weak-global clearing remains gated off until those prerequisites are met. Percentage remains unassigned pending a real scope audit.
+- **Next chat handoff:** first inspect the three run IDs above. If a macOS job fails, read the exact job log, fix the underlying source/workflow issue in one coordinated batch, then rerun the affected CI. Once all CI gates pass, continue the remaining JNI handle ABI and collector work. Preserve the rule: SideStore untouched; no IPA/APK/device testing until Husk integration is actually complete.
