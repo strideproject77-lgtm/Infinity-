@@ -32,6 +32,10 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: "build-tools;35.0.0"
+      - name: Run focused APK forensic regression tests
+        run: |
+          python -m py_compile scripts/inspect_2048_apk.py
+          python -m unittest discover -s tests -p "test_2048_apk_forensics.py" -v
       - name: Download the pinned upstream distributable
         run: |
           mkdir -p "$RUNNER_TEMP/2048-apk" "$RUNNER_TEMP/2048-report"
