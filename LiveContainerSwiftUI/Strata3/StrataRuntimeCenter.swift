@@ -96,7 +96,7 @@ struct StrataRuntimeCenter: View {
                 if let error = apkInspectionError {
                     Text(error).font(.caption).foregroundStyle(.red)
                 }
-                Text("Supports .apk, .xapk, .apks and .apkm. Split files are preserved; split-package launch remains gated until Husk's split loading path is connected. Importing does not mean execution compatibility is verified.")
+                Text("Supports .apk, .xapk, .apks and .apkm. Split files are preserved and passed to Husk's multi-APK loader. Actual game execution compatibility remains unverified.")
                     .font(.caption).foregroundStyle(.secondary)
                 if let apkStoreError {
                     Text(apkStoreError).font(.caption).foregroundStyle(.red)
