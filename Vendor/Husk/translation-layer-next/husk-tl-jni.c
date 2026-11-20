@@ -912,7 +912,6 @@ static jo jni_AllocObject(void *env, jo cls)
     return local_frame_adopt(tl_jni_new_object(cls->klass.jc));
 }
 static jo jni_GetObjectClass(void *env, jo o)
-static jo jni_GetObjectClass(void *env, jo o)
 {
     (void)env;
     if (!o) return NULL;
