@@ -223,6 +223,10 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
     )
     source_cache: dict[str, tuple[str, str, dict[str, str]] | None] = {}
 
+    def source_exists(qualified_name: str) -> bool:
+        relative = qualified_name.replace(".", "/") + ".java"
+        return any((root / relative).is_file() for root in source_roots)
+
     def load_source(descriptor: str):
         if descriptor in source_cache:
             return source_cache[descriptor]
@@ -233,14 +237,19 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
                 source = path.read_text(encoding="utf-8", errors="replace")
                 package_match = re.search(r"^\s*package\s+([\w.]+)\s*;", source, re.MULTILINE)
                 package = package_match.group(1) if package_match else ""
+                import_names = re.findall(
+                    r"^\\s*import\\s+(?:static\\s+)?([\\w.$]+)\\s*;",
+                    source,
+                    re.MULTILINE,
+                )
                 imports = {
                     name.split(".")[-1]: name
-                    for name in re.findall(
-                        r"\bimport\s+(?:static\s+)?([\w.$]+)\s*;",
-                        source,
-                    )
+                    for name in import_names if not name.endswith(".*")
                 }
-                result = (source, package, imports)
+                wildcard_imports = [
+                    name[:-2] for name in import_names if name.endswith(".*")
+                ]
+                result = (source, package, imports, wildcard_imports)
                 source_cache[descriptor] = result
                 return result
         source_cache[descriptor] = None
@@ -263,10 +272,14 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
             qualified = parent
         elif "." in parent:
             qualified = parent
-        elif package:
-            qualified = package + "." + parent
         else:
-            return None
+            candidates = ([package + "." + parent] if package else []) + [
+                prefix + "." + parent for prefix in wildcard_imports
+            ]
+            qualified = next((candidate for candidate in candidates
+                              if source_exists(candidate)), None)
+            if qualified is None:
+                return None
         return "L" + qualified.replace(".", "/") + ";"
 
     missing_methods = []
