@@ -15,6 +15,7 @@ on:
       - "LiveContainerSwiftUI/Models/LCAppModel.swift"
       - "LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYVersion.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYVersion.swift"
       - "LiveContainerSwiftUI/Utilities/LCUtils.h"
       - "LiveContainerSwiftUI/Utilities/LCUtils.m"
       - "ShareExtension/StrataJITWorker.swift"
@@ -133,7 +134,6 @@ jobs:
             -import-objc-header /tmp/INFINITYHuskBridgeSmoke.h \
             LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift
 
-
   husk-c-header-check:
     name: Husk C bridge header syntax check (Linux)
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
@@ -143,12 +143,10 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate exported C headers with Clang
         run: |
-          printf '%s\\n' \\
-            '#include "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"' \\
-            '#include "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"' \\
+          printf '%s\n' \
+            '#include "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"' \
+            '#include "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"' \
             | clang -x c -std=c11 -fsyntax-only -I . -I Vendor/Husk/include -
-
-
   swift-typecheck:
     name: Swift APK parser type-check (Linux)
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
@@ -162,6 +160,6 @@ jobs:
           swift-version: "6.0"
       - name: Type-check APK inspection and manifest parser
         run: |
-          swiftc -typecheck \\
-            LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \\
+          swiftc -typecheck \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \
             LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift
