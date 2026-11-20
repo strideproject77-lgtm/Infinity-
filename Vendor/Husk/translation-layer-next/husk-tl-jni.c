@@ -859,6 +859,16 @@ static jo jni_PopLocalFrame(void *env, jo r)
     }
     return preserved;
 }
+bool tl_jni_native_frame_enter(void)
+{
+    return jni_PushLocalFrame(NULL, 16) == 0;
+}
+
+jobj *tl_jni_native_frame_leave(jobj *result)
+{
+    return jni_PopLocalFrame(NULL, result);
+}
+
 static jo jni_NewGlobalRef(void *env, jo o) { (void)env; return tl_jni_ref(o); }
 static void jni_DeleteGlobalRef(void *env, jo o) { (void)env; tl_jni_unref(o); }
 static void jni_DeleteLocalRef(void *env, jo o)
