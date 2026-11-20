@@ -848,7 +848,18 @@ NAT(Throwable_getStack)
 
 NAT(Runtime_freeMemory) { UNUSED; *ret = J(256ll << 20); return true; }
 NAT(Runtime_maxMemory) { UNUSED; *ret = J(512ll << 20); return true; }
-NAT(Runtime_gc) { UNUSED; return true; }
+NAT(Runtime_gc)
+{
+    UNUSED;
+    size_t reclaimed = 0, reachable = 0;
+    if (!tl_dvm_collect_heap(&reclaimed, &reachable)) {
+        tl_log_line("dvm: Runtime.gc skipped; a complete stop-the-world collection was not possible");
+        return true;
+    }
+    tl_log_line("dvm: Runtime.gc reclaimed %zu unreachable objects; %zu remain reachable",
+                reclaimed, reachable);
+    return true;
+}
 NAT(Runtime_exit) { (void)self; (void)ret; tl_log_line("dvm: Runtime.exit(%d)", a[0].i); _exit(a[0].i); }
 NAT(Runtime_nativeLoad)
 {
