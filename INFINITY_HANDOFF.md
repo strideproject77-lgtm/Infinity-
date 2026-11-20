@@ -1,3 +1,12 @@
+## Husk JNI reference identity correctness — 2026-11-20
+
+- Fixed `tl_jni_refs_is_same()`: two null handles compare as the same reference, but non-null handles are now resolved through the registry before comparing their underlying Java objects.
+- Previously, pointer equality returned true before checking liveness. Since stale handles are deliberately retained as tombstones to prevent allocator-address reuse, passing the same deleted handle twice could incorrectly report that it still represented a valid identical object.
+- The new path rejects deleted/tombstoned handles and still treats two distinct live handles to the same object as identical.
+- Source commit: `ccb3cbe6eabb96d9cb799cf483ae697968f3b78e`.
+- This is a targeted correctness fix in the typed-reference registry. It does not convert the active JNI ABI: `husk-tl-jni.c` still exposes raw `jobj *` values through its 233-entry function table. Native argument/return migration and a complete DVM tracing collector/root walk remain unimplemented; weak globals remain strongly retained until the collector can safely activate weak processing.
+- No tests, compilation, workflows, IPA build, or device testing were run. SideStore remains untouched.
+
 ## Husk JNI stale-handle lifetime hardening — 2026-11-20
 
 - Changed the typed-reference registry so deleted local/global/weak handles and handles invalidated by local-frame pop or thread detach remain as dead registry tombstones instead of being freed and unlinked immediately.
