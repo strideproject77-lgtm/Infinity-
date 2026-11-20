@@ -1544,6 +1544,7 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - - JNI native-frame root API: d2cb8f4042c8e6dbfcbdd97e179cedb686c01f8b
 - JNI frame root registration implementation: a14c197f86c24a3e3c4996f964d8d17bf925e017
 - DVM receiver/object-argument rooting in both native call paths: 88292952a4fbaad8d3572d9d2e9f35a1db3ef8c4
+- Missing native argument-vector guard: 019b43fc8d9d0ef41027ee41209ec44c0cd48d6b
 - Source-contract coverage: 7f2542555780b9c9542c81ba6fd1fb4e403fb4ea
 
 ### Scope and validation
