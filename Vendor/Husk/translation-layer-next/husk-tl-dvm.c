@@ -1209,6 +1209,28 @@ static bool watch_hit(const char *w, const dvm_method *m)
     return false;
 }
 
+typedef struct dvm_call_root_frame {
+    struct dvm_call_root_frame *previous;
+    dvm_method *method;
+    jobj *receiver;
+    const jvalue *params;
+} dvm_call_root_frame;
+
+static _Thread_local dvm_call_root_frame *t_call_root_frames;
+
+void tl_dvm_visit_active_call_roots(tl_dvm_root_visitor visitor, void *context)
+{
+    if (!visitor) return;
+    for (dvm_call_root_frame *frame = t_call_root_frames; frame; frame = frame->previous) {
+        if (frame->receiver) visitor(frame->receiver, context);
+        if (!frame->params || !frame->method || !frame->method->shorty) continue;
+        for (int i = 0; i < frame->method->nparams; i++) {
+            if (frame->method->shorty[i + 1] == 'L' && frame->params[i].l)
+                visitor(frame->params[i].l, context);
+        }
+    }
+}
+
 bool dvm_call(dvm_method *m, jobj *self, const jvalue *params, jvalue *ret)
 {
     if (t_depth < 8192) { t_frames[t_depth] = m; t_pcs[t_depth] = 0; }
@@ -1257,7 +1279,15 @@ bool dvm_call(dvm_method *m, jobj *self, const jvalue *params, jvalue *ret)
             tl_jni_clear(); if (saved) tl_jni_set_pending(saved);
         }
     }
+    dvm_call_root_frame root_frame = {
+        .previous = t_call_root_frames,
+        .method = m,
+        .receiver = (m->flags & 8) ? NULL : self,
+        .params = params
+    };
+    t_call_root_frames = &root_frame;
     bool ok = dvm_call_inner(m, self, params, ret);
+    t_call_root_frames = root_frame.previous;
     t_depth--;
     return ok;
 }
