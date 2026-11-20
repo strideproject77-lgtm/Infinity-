@@ -720,21 +720,28 @@ void tl_bionic_input_queue_destroy(void *queue)
     while (pending) { tl_ievent *next = pending->next; free(pending); pending = next; }
     char drain[128]; while (read(IQ.rd, drain, sizeof(drain)) > 0) {}
 }
+/* Caller holds IQ.mu: append and capture the wake FD in the same critical
+ * section as producer state updates, preserving event order across threads. */
+static int iq_enqueue_locked(tl_ievent *e)
+{
+    if (!e || !IQ.attached || !IQ.ready) return -1;
+    if (IQ.tail) IQ.tail->next = e; else IQ.head = e;
+    IQ.tail = e;
+    return IQ.wr;
+}
+static void iq_wake(int fd)
+{
+    char c = 1;
+    if (fd >= 0) (void)!write(fd, &c, 1);
+}
 static void iq_push(tl_ievent *e)
 {
     if (!e) return;
     pthread_mutex_lock(&IQ.mu);
-    if (!IQ.attached || !IQ.ready) {
-        pthread_mutex_unlock(&IQ.mu);
-        free(e);
-        return;
-    }
-    if (IQ.tail) IQ.tail->next = e; else IQ.head = e;
-    IQ.tail = e;
-    int wake_fd = IQ.wr;
+    int wake_fd = iq_enqueue_locked(e);
     pthread_mutex_unlock(&IQ.mu);
-    char c = 1;
-    if (wake_fd >= 0) (void)!write(wake_fd, &c, 1);
+    if (wake_fd < 0) free(e);
+    else iq_wake(wake_fd);
 }
 /* A touch in surface pixels: phase 0 down, 1 move, 2 up, 3 cancel -- the same words the other engines are given. Safe from any thread. */
 void tl_inq_touch(int phase, int id, float x, float y)
@@ -764,8 +771,10 @@ void tl_inq_touch(int phase, int id, float x, float y)
         if (phase == 3) IQ.nptr = 0;
         else { for (int i = idx; i + 1 < IQ.nptr; i++) { IQ.pid[i] = IQ.pid[i + 1]; IQ.px[i] = IQ.px[i + 1]; IQ.py[i] = IQ.py[i + 1]; } IQ.nptr--; }
     }
+    int wake_fd = iq_enqueue_locked(e);
     pthread_mutex_unlock(&IQ.mu);
-    iq_push(e);
+    if (wake_fd < 0) free(e);
+    else iq_wake(wake_fd);
 }
 
 /* A controller button (action 0 down, 1 up, an Android key code) and the state of its sticks, triggers and hat (axes by Android axis number), from any thread. */
@@ -777,7 +786,11 @@ void tl_inq_key(int device, int source, int action, int keycode)
     if (!e) return;
     e->type = 1; e->source = source; e->device = device; e->action = action; e->keycode = keycode;
     struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); e->time = (int64_t)ts.tv_sec * 1000000000ll + ts.tv_nsec;
-    iq_push(e);
+    pthread_mutex_lock(&IQ.mu);
+    int wake_fd = iq_enqueue_locked(e);
+    pthread_mutex_unlock(&IQ.mu);
+    if (wake_fd < 0) free(e);
+    else iq_wake(wake_fd);
 }
 void tl_inq_axes(int device, const float *axes48)
 {
@@ -790,7 +803,11 @@ void tl_inq_axes(int device, const float *axes48)
     memcpy(e->axis, axes48, sizeof(e->axis));
     e->px[0] = e->axis[0]; e->py[0] = e->axis[1];
     struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); e->time = (int64_t)ts.tv_sec * 1000000000ll + ts.tv_nsec;
-    iq_push(e);
+    pthread_mutex_lock(&IQ.mu);
+    int wake_fd = iq_enqueue_locked(e);
+    pthread_mutex_unlock(&IQ.mu);
+    if (wake_fd < 0) free(e);
+    else iq_wake(wake_fd);
 }
 
 static void b_AInputQueue_attachLooper(void *q, void *looper, int ident, void *cb, void *data)
