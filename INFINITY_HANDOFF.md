@@ -1562,6 +1562,10 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Routed runtime throws, interpreter pending-exception updates, JNI `Throw`, `ExceptionClear`, and VM thread detach through the same lifecycle helper.
 - Added a source-contract regression test for typed-root creation, replacement, and cleanup wiring.
 
+### Commits
+- JNI pending exception typed-root lifecycle: `4a11b2f12c65d5d3d15184bdc3f7b19fdae5e5c1`
+- Source-contract regression coverage: `c64a2b2e4ec890f3aa752d4d92330b5b114df000`
+
 ### Scope and validation
 - This closes pending-exception root registration, but does not implement guest-facing opaque JNI tokens or the DVM tracing collector. The root is intentionally a strong typed registry entry until a collector can safely trace it.
 - Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
