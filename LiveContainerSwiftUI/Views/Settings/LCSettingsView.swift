@@ -81,6 +81,7 @@ struct LCSettingsView: View {
         _store = State(initialValue: LCUtils.store())
     }
     
+    @available(iOS 16.0, *)
     private var strataRuntimeManagerLink: some View {
         NavigationLink("Runtime Manager · INFINITY \\(INFINITYVersion.display)") {
             StrataRuntimeCenter(
