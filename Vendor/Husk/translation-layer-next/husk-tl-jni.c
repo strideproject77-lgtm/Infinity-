@@ -926,12 +926,7 @@ static jo jni_NewLocalRef(void *env, jo o)
     (void)env;
     if (!o) return NULL;
     jobj *ref = tl_jni_ref(o);
-    if (!local_frame_add_owned(ref)) {
-        tl_jni_unref(ref);
-        tl_jni_throw("java/lang/OutOfMemoryError", "allocating JNI local reference");
-        return NULL;
-    }
-    return ref;
+    return local_frame_adopt(ref);
 }
 static int32_t jni_EnsureLocalCapacity(void *env, int32_t n)
 {
