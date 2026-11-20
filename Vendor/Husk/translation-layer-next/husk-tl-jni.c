@@ -914,6 +914,13 @@ bool tl_jni_native_frame_enter(void)
     return jni_PushLocalFrame(NULL, 16) == 0;
 }
 
+bool tl_jni_native_frame_root(jobj *object)
+{
+    if (!object) return true;
+    /* The DVM owns the incoming reference; the native frame owns this extra root. */
+    return local_frame_adopt(tl_jni_ref(object)) != NULL;
+}
+
 jobj *tl_jni_native_frame_leave(jobj *result)
 {
     return jni_PopLocalFrame(NULL, result);
