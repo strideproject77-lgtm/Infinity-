@@ -2074,3 +2074,15 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - PR #5 head `403f24686e98555036e0d6649a442265e1b9bca8` passed the portable-core workflow `44757572229` and native test workflow `44757572387`. The Ubuntu 24.04 shared-source script passed; manual macOS verification was skipped.
 - Reviewed the complete latest Codemagic build and archive logs again: the only fatal compiler diagnostic is the old-main `StrataVersion` reference in `LiveBoardHomeScreen.swift:565`. The 283 warning diagnostics are non-fatal in that run; the `LCStorageManagementModel.swift:325` async-enumerator warning is explicitly a Swift 6-language-mode issue, while the app target is configured for Swift 5 language mode. Other warnings include existing selector/deprecation/macro warnings in guest hooks and ZSign; they are not changed as part of this compile fix.
 - No new Codemagic run was triggered. No full Xcode archive from the corrected PR head exists yet. Passing Ubuntu tests does not prove SwiftUI/iOS archive, signing, packaging, or device runtime behavior.
+
+
+## 2026-11-20 — Build-fix and cross-platform CI consolidated
+
+- Consolidated the shared Linux/macOS core validation work into PR #3 so the app compile fix and its test infrastructure can be reviewed and merged together. PR #5 is superseded; its portable validation script, Ubuntu/manual-macOS workflow, and compatibility documentation are now included in this branch.
+- The portable Swift checks explicitly use Swift 5 language mode to match the `LiveContainerSwiftUI` target's `SWIFT_VERSION = 5.0`; the compiler version remains Swift 6.0.3 on Ubuntu 24.04.
+- Added regression assertions that the extracted Runtime Manager launch helper still performs the hidden-app authentication gate and calls `app.runApp()`.
+- Latest PR #3 head `0c8a41c6883e698861885bd128bdd799281446ee` passed:
+  - Native/source/APK workflow `44758275762`: all 144 Python tests, Clang header check, and Swift 5-mode parser/version type-check passed.
+  - Cross-platform workflow `44758275844`: shared portable C/Swift script passed on Ubuntu 24.04.
+  - Routine macOS jobs were skipped intentionally; the iPhoneOS SDK bridge smoke job remains manual-only.
+- No Codemagic build was triggered. PR #3 remains open and unmerged; main still points to the old source until the PR is merged. Do not start another Codemagic build from main before the fix is merged or select the corrected PR branch explicitly.
