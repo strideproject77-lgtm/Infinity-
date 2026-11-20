@@ -1,3 +1,14 @@
+## 2026-11-20 — Codemagic test IPA artifact made directly accessible
+
+- Added `LiveContainer.ipa` as a direct Codemagic artifact in addition to the existing ZIP bundles. After a successful Codemagic run, the primary test IPA can be downloaded directly without extracting the ZIP first.
+- The workflow still uses the existing canonical `scripts/build_ipa.sh` pipeline and Xcode 26.2 pin. No IPA build was started by this change.
+- No SideStore source, framework, project setting, or workflow behavior was edited. The existing upstream build pipeline still emits its separate SideStore variant; this change only exposes the primary LiveContainer IPA directly as an artifact.
+- Build is **not yet verified**: no Codemagic run, Xcode archive, IPA inspection, or device test was performed in this batch. Husk integration remains incomplete; outstanding JNI ABI/native marshaling and DVM collector/root-safety blockers listed below are unchanged.
+- Current source HEAD before this handoff note: `9498b1e76334282cb6761b9c833106b56741634d`.
+- Next: user may manually start the Codemagic workflow when ready; inspect the resulting build logs and IPA before device testing. Do not claim build success until Codemagic reports success and the IPA is inspected.
+
+---
+
 ## 2026-11-20 — GitHub regression suite green; native/Swift compile gates queued
 
 - Corrected the final stale root-contract assertion in `tests/test_husk_runtime_bridge.py`; fix commit: `1ed7be66e18adfbb1c9bf055b47b8d9442355c60`.
