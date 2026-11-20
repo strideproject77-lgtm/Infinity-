@@ -6,6 +6,7 @@
 
 struct tl_jni_ref_handle {
     struct tl_jni_ref_handle *next;
+    struct tl_jni_ref_handle *release_next;
     jobj *object;
     pthread_t owner;
     uint32_t frame_depth;
@@ -43,7 +44,7 @@ static tl_jni_ref_handle *create_handle(jobj *object, tl_jni_ref_kind kind)
     tl_jni_ref_handle *h = calloc(1, sizeof(*h));
     if (!h) return NULL;
 
-    h->object = (kind == TL_JNI_REF_WEAK_GLOBAL) ? object : tl_jni_ref(object);
+    h->object = kind == TL_JNI_REF_WEAK_GLOBAL ? object : tl_jni_ref(object);
     h->kind = kind;
     h->alive = true;
     if (kind == TL_JNI_REF_LOCAL) {
@@ -68,36 +69,32 @@ bool tl_jni_refs_push_local_frame(size_t capacity)
 
 tl_jni_ref_handle *tl_jni_refs_pop_local_frame(tl_jni_ref_handle *preserve)
 {
-    jobj *preserved_object = tl_jni_refs_resolve(preserve);
-    if (preserved_object) tl_jni_ref(preserved_object);
-
+    jobj *preserved_object = tl_jni_refs_acquire(preserve);
     if (t_frame_depth == 0) {
         if (preserved_object) tl_jni_unref(preserved_object);
         return NULL;
     }
 
-    jobj **release = NULL;
-    size_t count = 0, capacity = 0;
+    tl_jni_ref_handle *release = NULL;
     pthread_mutex_lock(&g_refs_lock);
     for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
         if (h->alive && h->kind == TL_JNI_REF_LOCAL &&
             pthread_equal(h->owner, pthread_self()) && h->frame_depth == t_frame_depth) {
-            if (count == capacity) {
-                size_t next = capacity ? capacity * 2 : 8;
-                jobj **items = realloc(release, next * sizeof(*items));
-                if (!items) continue; /* Keep this handle live if release storage fails. */
-                release = items;
-                capacity = next;
-            }
             h->alive = false;
-            release[count++] = h->object;
-            h->object = NULL;
+            h->release_next = release;
+            release = h;
         }
     }
     pthread_mutex_unlock(&g_refs_lock);
 
-    for (size_t i = 0; i < count; i++) tl_jni_unref(release[i]);
-    free(release);
+    while (release) {
+        tl_jni_ref_handle *next = release->release_next;
+        jobj *object = release->object;
+        release->object = NULL;
+        release->release_next = NULL;
+        if (object) tl_jni_unref(object);
+        release = next;
+    }
     t_frame_depth--;
 
     tl_jni_ref_handle *result = preserved_object ? create_handle(preserved_object, TL_JNI_REF_LOCAL) : NULL;
@@ -135,12 +132,13 @@ void tl_jni_refs_delete(tl_jni_ref_handle *handle, tl_jni_ref_kind expected_kind
     if (release) tl_jni_unref(release);
 }
 
-jobj *tl_jni_refs_resolve(tl_jni_ref_handle *handle)
+jobj *tl_jni_refs_acquire(tl_jni_ref_handle *handle)
 {
     jobj *object = NULL;
     pthread_mutex_lock(&g_refs_lock);
     tl_jni_ref_handle *h = find_locked(handle);
-    if (h && h->alive && local_owned_by_caller(h)) object = h->object;
+    if (h && h->alive && local_owned_by_caller(h) && h->object)
+        object = tl_jni_ref(h->object);
     pthread_mutex_unlock(&g_refs_lock);
     return object;
 }
@@ -158,33 +156,35 @@ tl_jni_ref_kind tl_jni_refs_get_kind(tl_jni_ref_handle *handle)
 bool tl_jni_refs_is_same(tl_jni_ref_handle *left, tl_jni_ref_handle *right)
 {
     if (left == right) return true;
-    jobj *a = tl_jni_refs_resolve(left);
-    jobj *b = tl_jni_refs_resolve(right);
-    return a && b && a == b;
+    jobj *a = tl_jni_refs_acquire(left);
+    jobj *b = tl_jni_refs_acquire(right);
+    bool same = a && b && a == b;
+    if (a) tl_jni_unref(a);
+    if (b) tl_jni_unref(b);
+    return same;
 }
 
 void tl_jni_refs_detach_thread(void)
 {
-    jobj **release = NULL;
-    size_t count = 0, capacity = 0;
+    tl_jni_ref_handle *release = NULL;
     pthread_mutex_lock(&g_refs_lock);
     for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
         if (h->alive && h->kind == TL_JNI_REF_LOCAL && pthread_equal(h->owner, pthread_self())) {
-            if (count == capacity) {
-                size_t next = capacity ? capacity * 2 : 8;
-                jobj **items = realloc(release, next * sizeof(*items));
-                if (!items) continue;
-                release = items;
-                capacity = next;
-            }
             h->alive = false;
-            release[count++] = h->object;
-            h->object = NULL;
+            h->release_next = release;
+            release = h;
         }
     }
     pthread_mutex_unlock(&g_refs_lock);
-    for (size_t i = 0; i < count; i++) tl_jni_unref(release[i]);
-    free(release);
+
+    while (release) {
+        tl_jni_ref_handle *next = release->release_next;
+        jobj *object = release->object;
+        release->object = NULL;
+        release->release_next = NULL;
+        if (object) tl_jni_unref(object);
+        release = next;
+    }
     t_frame_depth = 0;
 }
 
