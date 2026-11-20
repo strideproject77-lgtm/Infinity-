@@ -611,6 +611,22 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, jni)
 
+    def test_jni_delete_local_ref_releases_its_typed_shadow_root_immediately(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("typedef struct jni_local_entry", jni)
+        self.assertIn("tl_jni_ref_handle *root;", jni)
+        self.assertIn("f->items[f->count++] = (jni_local_entry){ .object = o, .root = root };", jni)
+        remove_start = jni.index("static bool local_frame_remove(jobj *o)")
+        remove_end = jni.index("static void local_frame_release", remove_start)
+        remove = jni[remove_start:remove_end]
+        self.assertIn("f->items[i - 1].object == o", remove)
+        self.assertIn("tl_jni_refs_delete(removed.root, TL_JNI_REF_LOCAL);", remove)
+        release_start = jni.index("static void local_frame_release(jni_local_frame *f)")
+        release_end = jni.index("static void local_frames_detach", release_start)
+        release = jni[release_start:release_end]
+        self.assertIn("tl_jni_refs_delete(f->items[i].root, TL_JNI_REF_LOCAL);", release)
+        self.assertIn("tl_jni_unref(f->items[i].object);", release)
+
     def test_jni_weak_global_slots_are_not_aliased_to_strong_global_slots(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         self.assertIn("static jo jni_NewWeakGlobalRef", jni)
