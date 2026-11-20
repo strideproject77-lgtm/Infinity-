@@ -1812,6 +1812,10 @@ static bool jni_critical_array_copyback(jni_critical_array_access *access)
 static void jni_ReleasePrimitiveArrayCritical(void *env, jo a, void *p, int32_t mode)
 {
     (void)env;
+    if (!a || a->kind != TL_K_PRIM_ARRAY) {
+        tl_jni_throw("java/lang/IllegalArgumentException", "ReleasePrimitiveArrayCritical requires a primitive array");
+        return;
+    }
     if (mode != 0 && mode != 1 && mode != 2) {
         tl_jni_throw("java/lang/IllegalArgumentException", "invalid JNI critical array release mode");
         return;
