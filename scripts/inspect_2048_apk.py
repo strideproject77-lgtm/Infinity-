@@ -121,6 +121,39 @@ def run_tool(command: list[str], output: Path) -> str:
     return completed.stdout
 
 
+def parse_manifest_facts(badging: str, manifest_xmltree: str) -> dict[str, str | None]:
+    def capture(pattern: str, source: str) -> str | None:
+        match = re.search(pattern, source, re.MULTILINE | re.DOTALL)
+        return match.group(1) if match else None
+
+    return {
+        "min_sdk": capture(r"^sdkVersion:'([^']+)'", badging),
+        "target_sdk": capture(r"^targetSdkVersion:'([^']+)'", badging),
+        "compile_sdk": capture(r"compileSdkVersion='([^']+)'", badging),
+        "launch_activity": capture(r"^launchable-activity: name='([^']+)'", badging),
+        "android_support_version": capture(
+            r'android\\.support\\.VERSION.*?\\n\\s+A: android:value.*?="([^"]+)"',
+            manifest_xmltree,
+        ),
+    }
+
+
+def dependency_class_descriptors(dex_payloads: dict[str, bytes]) -> dict[str, set[str]]:
+    patterns = {
+        "android_support": rb"Landroid/support/[A-Za-z0-9_/$]+;",
+        "androidx": rb"Landroidx/[A-Za-z0-9_/$]+;",
+        "google_play_services": rb"Lcom/google/android/gms/[A-Za-z0-9_/$]+;",
+    }
+    result = {name: set() for name in patterns}
+    for payload in dex_payloads.values():
+        for name, pattern in patterns.items():
+            result[name].update(
+                match.decode("ascii", errors="replace")
+                for match in re.findall(pattern, payload)
+            )
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
@@ -147,12 +180,16 @@ def main() -> int:
             f"unexpected APK package: expected {EXPECTED_PACKAGE}, got {package_name}"
         )
 
-    run_tool([args.aapt, "dump", "xmltree", str(apk), "AndroidManifest.xml"],
-             output / "manifest-xmltree.txt")
+    manifest_xmltree = run_tool(
+        [args.aapt, "dump", "xmltree", str(apk), "AndroidManifest.xml"],
+        output / "manifest-xmltree.txt",
+    )
     run_tool([args.aapt, "dump", "resources", str(apk)], output / "resources.txt")
+    manifest_facts = parse_manifest_facts(badging, manifest_xmltree)
 
-    dependency_refs: set[str] = set()
-    for dex_name, payload in inventory.pop("dex_payloads").items():
+    dex_payloads = inventory.pop("dex_payloads")
+    dependency_sets = dependency_class_descriptors(dex_payloads)
+    for dex_name, payload in dex_payloads.items():
         safe_name = dex_name.replace("/", "_")
         extracted = output / safe_name
         extracted.write_bytes(payload)
@@ -170,11 +207,17 @@ def main() -> int:
         "package": package_name,
         "version_code": version_code,
         "version_name": version_name,
+        **manifest_facts,
         "apk_filename": apk.name,
         "apk_bytes": apk.stat().st_size,
         "apk_sha256": apk_digest,
         **inventory,
-        "androidx_and_google_play_class_descriptors": sorted(dependency_refs),
+        "dependency_class_descriptors": {
+            name: sorted(values) for name, values in dependency_sets.items()
+        },
+        "dependency_class_descriptor_counts": {
+            name: len(values) for name, values in dependency_sets.items()
+        },
         "dex_disassembly_files": [
             f"{name.replace('/', '_')}.disassembly.txt"
             for name in inventory["dex_files"]
@@ -200,10 +243,17 @@ def main() -> int:
         f"- Version: `{version_name}` (code `{version_code}`)",
         f"- APK size: {apk.stat().st_size} bytes",
         f"- SHA-256: `{apk_digest}`",
+        f"- Minimum SDK: {manifest_facts['min_sdk']}",
+        f"- Target SDK: {manifest_facts['target_sdk']}",
+        f"- Compile SDK: {manifest_facts['compile_sdk']}",
+        f"- Launcher activity: `{manifest_facts['launch_activity']}`",
+        f"- Android Support Library version: {manifest_facts['android_support_version']}",
         f"- DEX files: {', '.join(inventory['dex_files'])}",
         f"- Resource entries: {len(inventory['resource_entries'])}",
         f"- Native libraries: {len(inventory['native_libraries'])}",
-        f"- AndroidX / Google Play class descriptors: {len(dependency_refs)}",
+        f"- Android Support class descriptors: {len(dependency_sets['android_support'])}",
+        f"- AndroidX class descriptors: {len(dependency_sets['androidx'])}",
+        f"- Google Play Services class descriptors: {len(dependency_sets['google_play_services'])}",
         "",
         "## DEX header counts",
         "",
