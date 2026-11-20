@@ -16,7 +16,7 @@ class CodemagicIOS15AvailabilityTests(unittest.TestCase):
     def test_runtime_center_keeps_ios16_availability_contract(self):
         source = (ROOT / "LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift").read_text()
         lines = source.splitlines()
-        declaration = lines.index("struct StrataRuntimeCenter: View")
+        declaration = next(i for i, line in enumerate(lines) if line.startswith("struct StrataRuntimeCenter: View"))
         self.assertEqual(lines[declaration - 1], "@available(iOS 16.0, *)")
 
 
