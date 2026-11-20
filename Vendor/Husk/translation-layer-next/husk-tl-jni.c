@@ -919,8 +919,84 @@ jobj *tl_jni_native_frame_leave(jobj *result)
     return jni_PopLocalFrame(NULL, result);
 }
 
-static jo jni_NewGlobalRef(void *env, jo o) { (void)env; return tl_jni_ref(o); }
-static void jni_DeleteGlobalRef(void *env, jo o) { (void)env; tl_jni_unref(o); }
+typedef struct jni_nonlocal_ref {
+    struct jni_nonlocal_ref *next;
+    jobj *object;
+    tl_jni_ref_handle *handle;
+    tl_jni_ref_kind kind;
+} jni_nonlocal_ref;
+static pthread_mutex_t g_jni_nonlocal_refs_lock = PTHREAD_MUTEX_INITIALIZER;
+static jni_nonlocal_ref *g_jni_nonlocal_refs;
+
+static bool jni_nonlocal_ref_add(jobj *object, tl_jni_ref_kind kind)
+{
+    if (!object) return true;
+    tl_jni_ref_handle *handle = kind == TL_JNI_REF_GLOBAL
+        ? tl_jni_refs_new_global(object) : tl_jni_refs_new_weak_global(object);
+    if (!handle) return false;
+    jni_nonlocal_ref *entry = calloc(1, sizeof(*entry));
+    if (!entry) {
+        tl_jni_refs_delete(handle, kind);
+        return false;
+    }
+    entry->object = object;
+    entry->handle = handle;
+    entry->kind = kind;
+    pthread_mutex_lock(&g_jni_nonlocal_refs_lock);
+    entry->next = g_jni_nonlocal_refs;
+    g_jni_nonlocal_refs = entry;
+    pthread_mutex_unlock(&g_jni_nonlocal_refs_lock);
+    return true;
+}
+
+static bool jni_nonlocal_ref_delete(jobj *object, tl_jni_ref_kind kind)
+{
+    if (!object) return false;
+    pthread_mutex_lock(&g_jni_nonlocal_refs_lock);
+    jni_nonlocal_ref **cursor = &g_jni_nonlocal_refs;
+    while (*cursor && ((*cursor)->object != object || (*cursor)->kind != kind))
+        cursor = &(*cursor)->next;
+    jni_nonlocal_ref *entry = *cursor;
+    if (entry) *cursor = entry->next;
+    pthread_mutex_unlock(&g_jni_nonlocal_refs_lock);
+    if (!entry) return false;
+    tl_jni_refs_delete(entry->handle, kind);
+    free(entry);
+    return true;
+}
+
+static tl_jni_ref_kind jni_nonlocal_ref_kind(jobj *object)
+{
+    if (!object) return TL_JNI_REF_INVALID;
+    tl_jni_ref_kind kind = TL_JNI_REF_INVALID;
+    pthread_mutex_lock(&g_jni_nonlocal_refs_lock);
+    for (jni_nonlocal_ref *entry = g_jni_nonlocal_refs; entry; entry = entry->next) {
+        if (entry->object == object &&
+            (kind == TL_JNI_REF_INVALID || entry->kind == TL_JNI_REF_GLOBAL)) {
+            kind = entry->kind;
+            if (kind == TL_JNI_REF_GLOBAL) break;
+        }
+    }
+    pthread_mutex_unlock(&g_jni_nonlocal_refs_lock);
+    return kind;
+}
+
+static jo jni_NewGlobalRef(void *env, jo o)
+{
+    (void)env;
+    if (!o) return NULL;
+    if (!jni_nonlocal_ref_add(o, TL_JNI_REF_GLOBAL)) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "recording JNI global reference");
+        return NULL;
+    }
+    return o;
+}
+static void jni_DeleteGlobalRef(void *env, jo o)
+{
+    (void)env;
+    if (!jni_nonlocal_ref_delete(o, TL_JNI_REF_GLOBAL))
+        tl_log_line("jni: DeleteGlobalRef received an untracked global reference");
+}
 static void jni_DeleteLocalRef(void *env, jo o)
 {
     (void)env;
@@ -949,13 +1025,37 @@ static int32_t jni_EnsureLocalCapacity(void *env, int32_t n)
     }
     return 0;
 }
-/* Handles are raw jobj pointers in this compatibility VM, so local/global handle
- * identity cannot yet be distinguished when both refer to the same object. */
-/* The current object model has no tracing collector: retain weak globals strongly so
- * their handles cannot dangle. This is a safe lifetime fallback, not ART weak-GC semantics. */
-static jo jni_NewWeakGlobalRef(void *env, jo o) { (void)env; return tl_jni_ref(o); }
-static void jni_DeleteWeakGlobalRef(void *env, jo o) { (void)env; tl_jni_unref(o); }
-static uint32_t jni_GetObjectRefType(void *env, jo o) { (void)env; return o ? 1u : 0u; }
+/* Weak globals are registered with a distinct kind. Until DVM has a complete
+ * tracing collector and safepoint protocol, the registry deliberately retains
+ * them strongly rather than exposing dangling raw pointers through the legacy ABI. */
+static jo jni_NewWeakGlobalRef(void *env, jo o)
+{
+    (void)env;
+    if (!o) return NULL;
+    if (!jni_nonlocal_ref_add(o, TL_JNI_REF_WEAK_GLOBAL)) {
+        tl_jni_throw("java/lang/OutOfMemoryError", "recording JNI weak global reference");
+        return NULL;
+    }
+    return o;
+}
+static void jni_DeleteWeakGlobalRef(void *env, jo o)
+{
+    (void)env;
+    if (!jni_nonlocal_ref_delete(o, TL_JNI_REF_WEAK_GLOBAL))
+        tl_log_line("jni: DeleteWeakGlobalRef received an untracked weak global reference");
+}
+static uint32_t jni_GetObjectRefType(void *env, jo o)
+{
+    (void)env;
+    if (!o) return 0u;
+    for (jni_local_frame *frame = t_local_frame; frame; frame = frame->parent)
+        for (size_t i = 0; i < frame->count; i++)
+            if (frame->items[i].object == o) return 1u;
+    tl_jni_ref_kind kind = jni_nonlocal_ref_kind(o);
+    if (kind == TL_JNI_REF_GLOBAL) return 2u;
+    if (kind == TL_JNI_REF_WEAK_GLOBAL) return 3u;
+    return 1u;
+}
 /* ART ensures the class is initialised before JNI object-creation and method-lookup operations. */
 static bool ensure_class_initialized(tl_jclass *jc)
 {
