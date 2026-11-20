@@ -17,6 +17,20 @@ class CodemagicIOS16DeploymentTests(unittest.TestCase):
         self.assertTrue(deployment_targets, "No iOS deployment targets found")
         self.assertGreaterEqual(min(deployment_targets), 16.0)
 
+    def test_jni_object_varargs_stubs_export_linkable_implementations(self):
+        jni = (ROOT / "Vendor/Husk/translation-layer-next/husk-tl-jni.c").read_text()
+        for name in (
+            "CallObjectMethod",
+            "CallNonvirtualObjectMethod",
+            "CallStaticObjectMethod",
+        ):
+            implementation = f"tl_vai_jni_{name}(tl_va_frame *f)"
+            stub = f"TL_VA_STUB(tl_va_jni_{name}, tl_vai_jni_{name})"
+            self.assertIn(implementation, jni)
+            self.assertIn(stub, jni)
+            self.assertNotIn(f"static jo {implementation}", jni)
+
+
     def test_runtime_manager_and_runtime_center_availability_contract(self):
         settings = (ROOT / "LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift").read_text()
         self.assertIn("@available(iOS 16.0, *)", settings)
