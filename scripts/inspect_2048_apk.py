@@ -304,7 +304,7 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
                 if current == owner:
                     missing_owners.add(owner)
                 break
-            source, package, imports = loaded
+            source, package, imports, wildcard_imports = loaded
             if re.search(r"\b" + re.escape(method) + r"\s*\(", source):
                 found = True
                 break
