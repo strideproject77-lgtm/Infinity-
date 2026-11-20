@@ -1886,3 +1886,11 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Commits: `935988d0f9d2fe4cd50616425f543c011295c470`, `f1b464acfb2dc2a390f6e8b656909778137bdad6`, `595685654da40732e5b9d350eb02f6c92bad57e7`.
 - Limitation remains: this hardens the token registry, but the JNI function table and DVM/native argument-return boundary still use raw `jobj *`. Full ABI migration requires coordinated conversion of every object-bearing JNI entry point and native return path; not yet complete. Collector sweep and weak-global clearing remain disabled.
 - No tests or compile run; keep single consolidated GitHub validation at the integration checkpoint. No IPA/APK build or device test. SideStore untouched.
+
+## 2026-11-20 — JNI native-return boundary validation
+
+- Hardened `jni_PopLocalFrame`: a non-null object returned by native code is checked with `tl_jni_heap_contains()` before `tl_jni_ref()` can read its reference count. Invalid/non-heap pointers are logged and rejected as null while the local frame is still popped normally.
+- Updated the JNI registry source-contract test to match the monotonic opaque-ID implementation, and added a regression assertion that heap membership validation precedes retaining the native result.
+- Commits: `b116bc6d93e9b080999ca7cec93905a6ae83119f`, `3ab39c3ddb8ceff52d8824a83e11ede78208a06f`.
+- Scope limitation: this is native-return safety hardening, not the complete JNI ABI conversion. The 233-slot standard `JNIEnv` table and object-bearing native arguments still use raw `jobj *`; converting them safely requires wrappers/adapters for every JNI entry point and consistent argument/return translation. No claim that this blocker is fully resolved.
+- No tests or compile run; retain one consolidated GitHub validation at the integration checkpoint. No IPA/APK build or device test. SideStore untouched.
