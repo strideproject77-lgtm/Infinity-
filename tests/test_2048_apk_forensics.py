@@ -144,7 +144,7 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (framework / "app/Activity.java").write_text(
-                "package android.app;\nimport android.view.*; "
+                "package android.app;\nimport android.view.ContextThemeWrapper; "
                 "public class Activity extends ContextThemeWrapper { "
                 "public void onCreate() {} }",
                 encoding="utf-8",
