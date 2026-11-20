@@ -439,6 +439,13 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("N.callbacks.onInputQueueDestroyed(&N.na, input_queue)", activity)
         self.assertNotIn("callback withheld because no real queue is available", activity)
         for marker in (
+            "return e ? e->type : 0;",
+            "return e ? e->source : 0;",
+            "return e ? e->device : 0;",
+            "return e ? e->action : 0;",
+            "return e ? e->flags : 0;",
+            "return e ? e->meta : 0;",
+            "return e ? e->button_state : 0;",
             "return e && e->nptr > 0 ? (size_t)e->nptr : 0;",
             "e && i < (size_t)e->nptr && i < 10",
             "if (!e || axis < 0) return 0.0f;",
