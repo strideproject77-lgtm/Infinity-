@@ -1650,3 +1650,25 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 
 - DEX root callback lock-safety fix: 90c6727816a1dd869b35fef944216b6a5f1b49e3
 - Regression coverage: 095e79e1a6f952f5a309790b5c9c5c55c7ceb388
+
+
+## 2026-11-20 — Unified current-thread and typed-JNI root composition
+
+### Implemented on main
+- Added `tl_dvm_visit_current_thread_roots()` to compose DEX/class static/runtime roots, the calling thread's active DVM receiver/argument roots, and the typed JNI strong-root registry.
+- Changed typed JNI strong-root enumeration to snapshot object pointers under its registry mutex and invoke collector callbacks only after releasing the mutex.
+- The typed-root visitor now returns a success boolean and reports allocation/count instability rather than silently claiming a complete enumeration.
+- Added source-contract tests for callback lock release, allocation failure reporting, and composite root wiring.
+
+### Safety limits
+- This is a root-enumeration composition API, not a collector or a stop-the-world protocol. Active DVM call roots are currently thread-local and this API sees only the calling thread's active invocation chain. JNI registry entries are process-wide, but their lifetime is safe to snapshot only when an external coordinator has stopped mutators.
+- No object heap registry, object-field/array graph traversal, verified register maps, all-thread stack roots, mutator parking/handshake, or reclamation exists yet. Do not enable weak-GC semantics or claim full integration.
+- Source-contract tests added but not executed. No compilation, workflow, IPA build/export, signing, or device test run. SideStore untouched.
+- Integration estimate remains **99.90%**; the root categories are better connected, but the missing collector and safepoint are fundamental blockers.
+- Next: implement a real mutator registration/park handshake and verified frame maps before heap graph tracing/reclamation.
+
+- Unified current-thread root composition: 7188c072cba429368026cca954f635571ee17b9b
+- Public API declaration: 6c0d47cfa6ffc8f1aef37cc1545c97200fd42258
+- JNI registry snapshot visitor: 1d0fea0acf89cdd814aa13ef1b771ff1ba03fa1a
+- JNI visitor status contract: fd2798a27470988a39ba8c98595842e2fa1328ce
+- Regression coverage: 54a016afa1ee2686f28ae688e408eecbd1242906
