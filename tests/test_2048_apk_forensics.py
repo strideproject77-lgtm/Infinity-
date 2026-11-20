@@ -138,9 +138,14 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
                 "public Object getResources() { return null; } }",
                 encoding="utf-8",
             )
+            (framework / "view/ContextThemeWrapper.java").write_text(
+                "package android.view; import android.content.Context; "
+                "public class ContextThemeWrapper extends Context {}",
+                encoding="utf-8",
+            )
             (framework / "app/Activity.java").write_text(
-                "package android.app; import android.content.Context; "
-                "public class Activity extends Context { "
+                "package android.app; import android.view.*; "
+                "public class Activity extends ContextThemeWrapper { "
                 "public void onCreate() {} }",
                 encoding="utf-8",
             )
