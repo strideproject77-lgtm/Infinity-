@@ -1,3 +1,13 @@
+## 2026-11-20 — Native payload destructor lifecycle foundation
+
+- Added an optional per-object native-payload destructor hook, installable only once during object initialization and before the object is published.
+- Centralized object storage teardown in `tl_jni_destroy_unreachable_object()`: it first removes the exact object from the heap registry as a one-shot gate, zeroes its reference count, detaches the native payload from the object, invokes the registered destructor once, then releases built-in string/array/field storage.
+- The ordinary non-DVM 1→0 reference-count path now delegates to the same teardown routine, avoiding two divergent destruction implementations.
+- DVM-mode `tl_jni_unref()` still does not reclaim objects. The explicit collector entry point is documented as requiring a complete stop-the-world safepoint and a proven-unreachable result; no current collector path calls it yet, and sweeping remains disabled.
+- Added source-contract coverage for initialization-only destructor registration, one-shot heap removal, callback invocation, and the DVM reclamation gate.
+- **Progress accounting:** Husk integration advances from **99.95% to 99.96%**. This closes the shared object/native-payload destruction primitive, not the collector's safe sweep integration, Android/Java finalizer semantics, native-thread quiescence, or weak-reference clearing. The 99.98% milestone remains the next target.
+- Tests added but not executed. No compilation, GitHub workflow, IPA build, APK run, or device test. SideStore untouched.
+
 ## JNI global/weak-global typed registry integration batch — 2026-11-20
 
 - Replaced the direct refcount-only global-reference functions with a synchronized adapter registry. Each created global reference now receives a distinct `TL_JNI_REF_GLOBAL` typed-registry handle; deletion invalidates that handle and releases its registry-owned object reference.
