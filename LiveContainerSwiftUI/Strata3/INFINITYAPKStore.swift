@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct INFINITYAPKInstalledApp: Codable, Hashable, Identifiable, Sendable {
     let packageName: String
@@ -76,6 +77,22 @@ struct INFINITYAPKRuntimeBundle: Sendable {
 }
 
 enum INFINITYAPKStore {
+    private struct RuntimeAssetManifest: Decodable {
+        struct PayloadFile: Decodable {
+            let path: String
+            let size: UInt64
+            let sha256: String
+        }
+
+        let format: Int
+        let payloadFiles: [PayloadFile]
+
+        enum CodingKeys: String, CodingKey {
+            case format
+            case payloadFiles = "payload_files"
+        }
+    }
+
     enum StoreError: LocalizedError {
         case invalidManifest
         case invalidPackageName
@@ -629,15 +646,18 @@ enum INFINITYAPKStore {
         let maximumEntryBytes: UInt64 = 1024 * 1024 * 1024
 
         for entry in inspection.entries {
-            if entry.path == "runtime-assets-manifest.json" { continue }
-            let isRuntimePath = entry.path == "cacert.pem" ||
+            // Optional ART support is not consumed by the iOS host runtime.
+            if entry.path.hasPrefix("art-support/") { continue }
+            let isManifest = entry.path == "runtime-assets-manifest.json"
+            let isRuntimePath = isManifest || entry.path == "cacert.pem" ||
                 entry.path.hasPrefix("java-runtime/") ||
                 entry.path.hasPrefix("android-system/")
             guard isRuntimePath else { throw StoreError.invalidRuntimeArchive }
 
             let (nextTotal, overflow) = totalBytes.addingReportingOverflow(entry.uncompressedSize)
+            let entryLimit = isManifest ? UInt64(4 * 1024 * 1024) : maximumEntryBytes
             guard !overflow, nextTotal <= maximumTotalBytes,
-                  entry.uncompressedSize <= maximumEntryBytes else {
+                  entry.uncompressedSize <= entryLimit else {
                 throw StoreError.runtimeArchiveTooLarge
             }
             totalBytes = nextTotal
@@ -658,9 +678,97 @@ enum INFINITYAPKStore {
             guard status == 0 else { throw StoreError.invalidRuntimeArchive }
         }
 
+        try validateRuntimeArchiveManifest(at: root)
         guard hasJavaRuntimeAssets(at: root), hasAndroidSystemAssets(at: root) else {
             throw StoreError.missingRuntimeAssets
         }
+    }
+
+    /// Verify every core payload file against the SHA-256 inventory produced by
+    /// build_infinity_runtime_assets.sh before the data can replace an installed runtime.
+    private static func validateRuntimeArchiveManifest(at root: URL) throws {
+        let manifestURL = root.appendingPathComponent("runtime-assets-manifest.json")
+        guard fileManager.isReadableFile(atPath: manifestURL.path) else {
+            throw StoreError.invalidRuntimeArchive
+        }
+        let data = try Data(contentsOf: manifestURL, options: [.mappedIfSafe])
+        guard data.count <= 4 * 1024 * 1024 else { throw StoreError.runtimeArchiveTooLarge }
+        let manifest: RuntimeAssetManifest
+        do {
+            manifest = try JSONDecoder().decode(RuntimeAssetManifest.self, from: data)
+        } catch {
+            throw StoreError.invalidRuntimeArchive
+        }
+        guard manifest.format == 1, !manifest.payloadFiles.isEmpty else {
+            throw StoreError.invalidRuntimeArchive
+        }
+
+        let allowedRoots = ["java-runtime/", "android-system/"]
+        var expected: [String: RuntimeAssetManifest.PayloadFile] = [:]
+        for item in manifest.payloadFiles {
+            let path = item.path
+            let components = path.split(separator: "/", omittingEmptySubsequences: false)
+            guard path == "cacert.pem" ||
+                    (allowedRoots.contains(where: { path.hasPrefix($0) }) &&
+                     !path.hasPrefix("/") && !path.contains("\\\\") &&
+                     components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
+                  item.sha256.range(of: "^[0-9a-fA-F]{64}$", options: .regularExpression) != nil,
+                  expected[path] == nil else {
+                throw StoreError.invalidRuntimeArchive
+            }
+            expected[path] = item
+        }
+
+        var actualPaths = Set<String>()
+        for top in ["java-runtime", "android-system", "cacert.pem"] {
+            let topURL = root.appendingPathComponent(top)
+            var isDirectory: ObjCBool = false
+            guard fileManager.fileExists(atPath: topURL.path, isDirectory: &isDirectory) else {
+                throw StoreError.missingRuntimeAssets
+            }
+            if isDirectory.boolValue {
+                guard let enumerator = fileManager.enumerator(
+                    at: topURL,
+                    includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
+                    options: []
+                ) else { throw StoreError.invalidRuntimeArchive }
+                for case let fileURL as URL in enumerator {
+                    let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+                    if values.isSymbolicLink == true { throw StoreError.invalidRuntimeArchive }
+                    guard values.isRegularFile == true else { continue }
+                    let relative = String(fileURL.standardizedFileURL.path.dropFirst(root.path.count + 1))
+                    actualPaths.insert(relative)
+                }
+            } else {
+                actualPaths.insert(top)
+            }
+        }
+        guard actualPaths == Set(expected.keys) else { throw StoreError.invalidRuntimeArchive }
+
+        for (path, item) in expected {
+            let fileURL = root.appendingPathComponent(path)
+            let values = try fileURL.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true,
+                  UInt64(values.fileSize ?? -1) == item.size else {
+                throw StoreError.invalidRuntimeArchive
+            }
+            let digest = try sha256Hex(of: fileURL)
+            guard digest.caseInsensitiveCompare(item.sha256) == .orderedSame else {
+                throw StoreError.invalidRuntimeArchive
+            }
+        }
+    }
+
+    private static func sha256Hex(of url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while true {
+            let chunk = try handle.read(upToCount: 1024 * 1024) ?? Data()
+            if chunk.isEmpty { break }
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
     }
 
     private static func hasJavaRuntimeAssets(at root: URL) -> Bool {

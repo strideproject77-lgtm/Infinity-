@@ -30,6 +30,13 @@ class RuntimeAssetBuilderTests(unittest.TestCase):
         self.assertIn(r'-exec cp {} "$ANDROID_SYSTEM/fonts/" \;', script)
         self.assertIn('cacerts', script)
 
+    def test_builder_records_streamed_sha256_for_every_required_runtime_payload(self):
+        script = self.read("scripts/build_infinity_runtime_assets.sh")
+        self.assertIn("import datetime, hashlib, json, os, sys", script)
+        self.assertIn('"payload_files": payload_files', script)
+        self.assertIn('"sha256": hasher.hexdigest()', script)
+        self.assertIn("source.read(1024 * 1024)", script)
+
     def test_builder_never_packages_qemu_guest_or_ipa(self):
         script = self.read("scripts/build_infinity_runtime_assets.sh")
         workflow = self.read(".github/workflows/infinity-runtime-assets.yml")

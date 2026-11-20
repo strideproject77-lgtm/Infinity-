@@ -228,8 +228,31 @@ JDK_VERSION="$("$JDK/bin/java" -version 2>&1 | head -n 1)"
 D8_VERSION="$(basename "$D8")"
 HUSK_REVISION="$(grep '^Revision:' "$ROOT/Vendor/Husk/UPSTREAM_REVISION.txt" | cut -d' ' -f2)"
 python3 - "$OUT/runtime-assets-manifest.json" "$IMAGE_SHA" "$JDK_VERSION" "$D8_VERSION" "$HUSK_REVISION" "$IMAGE" <<'PY'
-import datetime, json, os, sys
+import datetime, hashlib, json, os, sys
 output, digest, jdk, d8, revision, image = sys.argv[1:]
+payload_root = os.path.dirname(output)
+payload_files = []
+for top in ("java-runtime", "android-system", "cacert.pem"):
+    candidate = os.path.join(payload_root, top)
+    if os.path.isfile(candidate):
+        paths = [candidate]
+    else:
+        paths = []
+        for current, dirs, files in os.walk(candidate):
+            dirs.sort()
+            for name in sorted(files):
+                paths.append(os.path.join(current, name))
+    for path in paths:
+        relative = os.path.relpath(path, payload_root).replace(os.sep, "/")
+        hasher = hashlib.sha256()
+        with open(path, "rb") as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        payload_files.append({
+            "path": relative,
+            "size": os.path.getsize(path),
+            "sha256": hasher.hexdigest()
+        })
 data = {
     "format": 1,
     "upstream": "https://github.com/Leviidev/Husk",
@@ -241,6 +264,7 @@ data = {
     "created_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     "runtime_payloads": ["java-runtime/", "android-system/", "cacert.pem"],
     "optional_payloads": ["art-support/"],
+    "payload_files": payload_files,
     "qemu_guest_included": False,
     "ipa_included": False
 }
