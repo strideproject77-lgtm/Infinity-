@@ -37,6 +37,27 @@ static uint32_t hash_str(const char *s) { uint32_t h = 2166136261u; while (*s) {
 
 /* --------------------------------------------------------------- objects */
 
+static pthread_mutex_t g_heap_lock = PTHREAD_MUTEX_INITIALIZER;
+static jobj *g_heap_objects;
+
+static void heap_register(jobj *object)
+{
+    pthread_mutex_lock(&g_heap_lock);
+    object->heap_next = g_heap_objects;
+    g_heap_objects = object;
+    pthread_mutex_unlock(&g_heap_lock);
+}
+
+static void heap_unregister(jobj *object)
+{
+    pthread_mutex_lock(&g_heap_lock);
+    jobj **cursor = &g_heap_objects;
+    while (*cursor && *cursor != object) cursor = &(*cursor)->heap_next;
+    if (*cursor == object) *cursor = object->heap_next;
+    object->heap_next = NULL;
+    pthread_mutex_unlock(&g_heap_lock);
+}
+
 static jobj *obj_alloc(uint8_t kind, tl_jclass *cls)
 {
     jobj *o = calloc(1, sizeof(*o));
@@ -44,6 +65,7 @@ static jobj *obj_alloc(uint8_t kind, tl_jclass *cls)
     o->refs = 1;
     o->kind = kind;
     o->cls = cls;
+    heap_register(o);
     return o;
 }
 
@@ -181,6 +203,7 @@ void tl_jni_unref(jobj *o)
             break;
     }
     if (refs != 1) return;
+    heap_unregister(o);
     switch (o->kind) {
     case TL_K_STRING: free(o->str.utf8); free(o->str.u16); break;
     case TL_K_PRIM_ARRAY: free(o->arr.data); break;
@@ -562,6 +585,64 @@ static jvalue *field_slot(jobj *o, tl_jfield *f)
         o->nfields = n;
     }
     return &o->fields[f->index];
+}
+
+bool tl_jni_visit_heap_objects(tl_jni_object_visitor visitor, void *context)
+{
+    if (!visitor) return false;
+    jobj **snapshot = NULL;
+    size_t count = 0, capacity = 0;
+    pthread_mutex_lock(&g_heap_lock);
+    for (jobj *o = g_heap_objects; o; o = o->heap_next) {
+        if (count == capacity) {
+            size_t next = capacity ? capacity * 2 : 64;
+            if (next < capacity || next > SIZE_MAX / sizeof(*snapshot)) {
+                pthread_mutex_unlock(&g_heap_lock);
+                free(snapshot);
+                return false;
+            }
+            jobj **grown = realloc(snapshot, next * sizeof(*snapshot));
+            if (!grown) {
+                pthread_mutex_unlock(&g_heap_lock);
+                free(snapshot);
+                return false;
+            }
+            snapshot = grown;
+            capacity = next;
+        }
+        snapshot[count++] = o;
+    }
+    pthread_mutex_unlock(&g_heap_lock);
+    for (size_t i = 0; i < count; i++) visitor(snapshot[i], context);
+    free(snapshot);
+    return true;
+}
+
+bool tl_jni_visit_object_references(jobj *object, tl_jni_object_visitor visitor, void *context)
+{
+    if (!object || !visitor) return false;
+    if (object->kind == TL_K_OBJ_ARRAY) {
+        for (uint32_t i = 0; i < object->oarr.len; i++) {
+            jobj *child = object->oarr.v ? object->oarr.v[i] : NULL;
+            if (child) visitor(child, context);
+        }
+        return true;
+    }
+    if (object->kind != TL_K_OBJECT || !object->fields || !object->cls) return true;
+
+    /* JNI field metadata carries the declared descriptor. Never interpret
+     * primitive slots as pointers; inherited fields are visited via superclasses. */
+    for (tl_jclass *cls = object->cls; cls; cls = cls->super) {
+        for (int i = 0; i < cls->nfields; i++) {
+            tl_jfield *field = cls->fields[i];
+            if (!field || field->is_static || field->detached || !field->sig) continue;
+            if (field->sig[0] != 'L' && field->sig[0] != '[') continue;
+            if (field->index >= object->nfields) continue;
+            jobj *child = object->fields[field->index].l;
+            if (child) visitor(child, context);
+        }
+    }
+    return true;
 }
 
 void tl_jni_set_field(jobj *o, const char *name, const char *sig, jvalue v)
