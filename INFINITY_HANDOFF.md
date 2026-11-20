@@ -1672,3 +1672,12 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - JNI registry snapshot visitor: 1d0fea0acf89cdd814aa13ef1b771ff1ba03fa1a
 - JNI visitor status contract: fd2798a27470988a39ba8c98595842e2fa1328ce
 - Regression coverage: 54a016afa1ee2686f28ae688e408eecbd1242906
+
+
+### Follow-up correction — atomic JNI root snapshot
+- Tightened the strong-root snapshot to count and copy handles during one registry-lock acquisition, growing the snapshot buffer safely while locked. This removes the race window between separate count/copy passes if callers violate the safepoint contract.
+- Collector callbacks still run only after unlocking. Allocation/overflow failures return false and do not report a complete root walk.
+- Updated source-contract coverage to match the single-pass allocation-failure path. Tests remain unexecuted by project policy.
+- Commit: f983ffa0f9da8be2a5ee45f0a35cdd0eff4fc5ae
+
+- Atomic JNI root snapshot regression update: 22a50e388c6f8c5653bd702fb21c20f1a00f41f5
