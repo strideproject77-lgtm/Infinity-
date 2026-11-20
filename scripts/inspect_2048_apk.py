@@ -158,20 +158,20 @@ def dependency_class_descriptors(dex_payloads: dict[str, bytes]) -> dict[str, se
 def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
     """Extract app class identity and Android framework method references from dexdump."""
     descriptors = sorted(set(re.findall(
-        r"Class descriptor\\s*:\\s*'([^']+)'", disassembly
+        r"Class descriptor\s*:\s*'([^']+)'", disassembly
     )))
-    class_blocks = re.split(r"(?=^Class #\\d+)", disassembly, flags=re.MULTILINE)
+    class_blocks = re.split(r"(?=^Class #\d+)", disassembly, flags=re.MULTILINE)
     main_block = next(
         (block for block in class_blocks
          if "Lcom/tpcstld/twozerogame/MainActivity;" in block),
         "",
     )
     superclass_match = re.search(
-        r"Superclass\\s*:\\s*'([^']+)'", main_block
+        r"Superclass\s*:\s*'([^']+)'", main_block
     )
     method_refs = set()
     for owner, method in re.findall(
-        r"(L[^;\\s]+;)(?:->|\\.)([A-Za-z_$][A-Za-z0-9_$]*)\\s*(?::|\\()",
+        r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*(?::|\()",
         disassembly,
     ):
         if owner.startswith("Landroid/") and not owner.startswith("Landroid/support/"):
@@ -187,7 +187,6 @@ def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
         "android_framework_method_ref_count": len(method_refs),
         "android_framework_method_refs": sorted(method_refs),
     }
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
