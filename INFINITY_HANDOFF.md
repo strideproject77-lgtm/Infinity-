@@ -1,3 +1,13 @@
+## JNI local-reference shadow-root deletion refinement — 2026-11-20
+
+- Changed the legacy JNI local-frame bookkeeping from a raw `jobj *` array to per-slot entries containing both the object pointer and its typed-registry `tl_jni_ref_handle *`.
+- `jni_DeleteLocalRef` now removes the matching local-frame entry and immediately invalidates its corresponding typed shadow-root handle before releasing the legacy object's ownership. Previously, the shadow-root handle remained live until the entire containing frame was popped, unnecessarily extending the root lifetime.
+- Local-frame teardown now invalidates each remaining typed root and releases its matching object reference together. The frame-pop and thread-detach registry cleanup remains as a defensive cleanup path; already-invalidated handles are safe to encounter again.
+- Added a focused source-contract regression test asserting the per-entry object/root pairing, immediate root deletion in local removal, and paired teardown.
+- Source commits: `d50f3e5601f0499ca8a0d15aaa7718dce7aca651` and `84e7016a9748cdaf9f6fba647f839d225eeb72a4`.
+- **Progress accounting:** Husk integration is now **99.55%**. This batch closes the local-reference shadow-root deletion/lifetime subtask; it does not complete guest-visible typed-handle conversion, native argument/return marshaling, DVM tracing GC/root traversal, or true weak-global semantics. The remaining 0.45% is still reserved for those four integration areas.
+- No tests, compiler run, workflow run, IPA build, or device/APK test was performed. Per the consolidated-test plan, the new regression test is committed for the eventual single GitHub test pass. SideStore remains untouched.
+
 ## Husk JNI reference identity correctness — 2026-11-20
 
 - Fixed `tl_jni_refs_is_same()`: two null handles compare as the same reference, but non-null handles are now resolved through the registry before comparing their underlying Java objects.
