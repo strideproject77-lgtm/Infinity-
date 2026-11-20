@@ -1,14 +1,5 @@
 import SwiftUI
 
-/// Marketing version plus build revision, e.g. "4.0 (r43)", read from the packaged Info.plist.
-enum INFINITYVersion {
-    static var marketing: String { Bundle.main.object(forInfoDictionaryKey: "INFINITYMarketingVersion") as? String ?? "1.0" }
-    static var revision: Int? { (Bundle.main.object(forInfoDictionaryKey: "INFINITYRevision") as? NSNumber)?.intValue }
-    static var channel: String? { Bundle.main.object(forInfoDictionaryKey: "INFINITYBuildChannel") as? String }
-    static var display: String { marketing }
-    static var full: String { "INFINITY " + display }
-}
-
 extension Notification.Name {
     /// Any interface posts this to open the Settings app.
     static let strataOpenSettings = Notification.Name("StrataOpenSettings")
