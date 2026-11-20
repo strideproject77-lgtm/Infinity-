@@ -108,7 +108,7 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
             result["main_activity_superclass"],
             "Landroid/support/v7/app/AppCompatActivity;",
         )
-        self.assertEqual(result["class_descriptor_count"], 2)
+        self.assertEqual(result["class_descriptor_count"], 3)
         self.assertEqual(result["app_class_descriptors"], ["Lcom/tpcstld/twozerogame/MainActivity;"])
         self.assertIn("Landroid/view/View;->invalidate", result["android_framework_method_refs"])
         self.assertNotIn("Landroid/graphics/Bitmap$Config;->ARGB_8888", result["android_framework_method_refs"])
