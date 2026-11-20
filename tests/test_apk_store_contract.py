@@ -85,6 +85,8 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("xapkOrderedEntries", store)
         self.assertIn("mapped.count == apkEntries.count", store)
         self.assertIn("xapkPackageName != manifest.packageName", store)
+        self.assertIn('rawVersionCode as? NSNumber', store)
+        self.assertIn('stringVersionCode as? String', store)
         self.assertIn("splitManifest.packageName == manifest.packageName", store)
         self.assertIn("splitManifest.versionCode == manifest.versionCode", store)
 
