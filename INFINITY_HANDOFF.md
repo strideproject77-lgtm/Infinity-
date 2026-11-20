@@ -1,3 +1,12 @@
+## 2026-11-20 — Weak-reference transitions require collector safepoint ownership
+
+- Added the DVM safepoint header dependency to the typed JNI reference registry.
+- `tl_jni_refs_enable_weak_gc()` now refuses to drop the weak-global strong-retention fallback unless the caller owns the active stop-the-world safepoint.
+- `tl_jni_refs_process_weak()` now refuses weak-target clearing outside that same safepoint owner.
+- This closes an unsafe coordination path, but does **not** activate weak GC: the guest-facing JNI ABI still carries raw `jobj *` references, so true weak clearing remains disabled until stale weak handles can be safely resolved at every JNI boundary.
+- **Progress accounting:** Husk integration advances from **99.97% to 99.98%**. This is a narrow safety milestone, not a claim of complete runtime compatibility or finished GC.
+- No tests or compilation run; no GitHub workflow, IPA build, APK/device test. SideStore untouched.
+
 ## 2026-11-20 — Reclamation API safepoint-owner enforcement
 
 - Added `tl_dvm_safepoint_is_owner()`, which checks the active safepoint request and calling-thread ownership while holding the coordinator mutex.
