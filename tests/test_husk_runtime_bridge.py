@@ -972,6 +972,21 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
         ))
 
+    def test_external_jni_attached_threads_block_gc_safepoints_until_detach(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("static _Thread_local bool t_native_attach_owned;", dvm)
+        self.assertIn("bool tl_dvm_native_thread_attach(void)", dvm)
+        self.assertIn("if (t_mutator_registered) return true;", dvm)
+        self.assertIn("void tl_dvm_native_thread_detach(void)", dvm)
+        self.assertIn("bool tl_dvm_native_thread_attach(void);", header)
+        self.assertIn('#include "husk-tl-dvm.h"', jni)
+        self.assertGreaterEqual(jni.count("tl_dvm_native_thread_attach()"), 2)
+        self.assertIn("tl_dvm_native_thread_detach();", jni)
+        self.assertIn("It is intentionally not considered parked", dvm)
+        self.assertIn("dvm_safepoint_poll();", dvm)
+
 
 if __name__ == "__main__":
     unittest.main()

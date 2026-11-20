@@ -1766,3 +1766,21 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Added `tl_dvm_safepoint_begin_timeout(timeout_ms)` using a monotonic-duration deadline expressed through the condition variable's configured realtime clock. The default `tl_dvm_safepoint_begin()` now uses a 5-second timeout.
 - If a mutator remains in a native transition or otherwise fails to park, the request is cancelled, waiters are broadcast, and the caller receives false instead of hanging indefinitely. Heap tracing aborts without marking/sweeping when acquisition fails.
 - Added source-contract coverage for timed waiting and cancellation. This improves failure behavior but does not make native code interruptible or extend stop-the-world coverage to non-DVM host threads.
+
+
+## 2026-11-20 — External JNI-attached thread safepoint fail-closed coverage
+
+### Implemented on main
+- Added explicit DVM native-thread attach/detach registration APIs, sharing the existing per-thread mutator record and nested invocation depth.
+- Wired both JavaVM AttachCurrentThread and the runtime's implicit tl_jni_env() attachment path into that registration. DetachCurrentThread releases only registrations created for external host threads; attachment from an already-running DVM mutator does not create or remove an extra registration.
+- External attached threads remain registered but unparked while executing arbitrary native code. The existing safepoint handshake therefore times out and cancels the request rather than claiming a complete stop-the-world while such a thread may hold raw JNI/object pointers. If the thread enters DVM, nested mutator tracking and bytecode dispatch polling apply; after it leaves DVM, it remains unparked until detach.
+- Added source-contract regression coverage for attach/detach wiring and the fail-closed behavior.
+
+### Safety and remaining gaps
+- This is a conservative safety gate, not asynchronous native-thread suspension. A collector cannot proceed while an external JNI-attached thread remains outside DVM polling; this deliberately trades collection availability for avoiding unsafe reclamation.
+- JNI calls made by a thread that never explicitly detaches can keep GC safepoints unavailable. Native-resource finalizers, object destructor ownership, and weak-reference clearing are still not implemented/activated.
+- No tests, compilation, GitHub workflow, IPA build, APK run, or device test was performed. SideStore remains untouched.
+- Husk integration estimate remains **99.95%**: this batch closes external JNI attach registration/fail-closed safepoint accounting, but does not make sweeping safe or justify 100%.
+
+### Next
+- Audit every native thread creation and JNI attach/detach path, then introduce an explicit native-to-managed transition protocol before adding any reclamation path. Keep sweeping and weak-GC activation disabled until that protocol can prove all object holders are quiescent.

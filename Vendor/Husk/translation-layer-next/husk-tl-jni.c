@@ -12,6 +12,7 @@
 
 #include "husk-tl-bionic.h"
 #include "husk-tl-dexindex.h"
+#include "husk-tl-dvm.h"
 #include "husk-tl-va.h"
 #include "husk-tl-jni-refs.h"
 
@@ -2314,6 +2315,7 @@ static int32_t vm_Attach(void *vm, void **penv, void *args)
     if (!penv) return JNI_ERR;
     if (!t_vm_attached) {
         if (!local_frame_current()) return JNI_ERR;
+        if (!tl_dvm_native_thread_attach()) return JNI_ERR;
         t_vm_attached = true;
     }
     *penv = thread_env();
@@ -2328,6 +2330,9 @@ static int32_t vm_Detach(void *vm)
     jni_string_accesses_detach();
     local_frames_detach();
     pending_set(NULL);
+    /* Drop only a registration created for this external attached thread.
+     * Threads already executing inside DVM keep their enclosing mutator record. */
+    tl_dvm_native_thread_detach();
     t_vm_attached = false;
     return JNI_OK;
 }
@@ -2349,6 +2354,7 @@ void *tl_jni_env(void)
     tl_jni_init();
     if (!t_vm_attached) {
         if (!local_frame_current()) return NULL;
+        if (!tl_dvm_native_thread_attach()) return NULL;
         t_vm_attached = true;
     }
     return thread_env();

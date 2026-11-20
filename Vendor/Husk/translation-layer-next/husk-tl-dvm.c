@@ -1238,6 +1238,9 @@ static bool g_safepoint_requested;
 static pthread_t g_safepoint_owner;
 static _Thread_local dvm_mutator_record t_mutator;
 static _Thread_local bool t_mutator_registered;
+/* An attached host/JNI thread stays registered while outside DVM bytecode.
+ * It is intentionally not considered parked: a collector must fail closed. */
+static _Thread_local bool t_native_attach_owned;
 
 static void dvm_mutator_enter(void)
 {
@@ -1265,6 +1268,25 @@ static void dvm_mutator_leave(void)
     t_mutator_registered = false;
     pthread_cond_broadcast(&g_safepoint_cv);
     pthread_mutex_unlock(&g_safepoint_lock);
+}
+
+/* Register a host thread that attaches to the VM outside an active DVM call.
+ * Such a thread cannot be asynchronously parked while executing arbitrary
+ * native code, so its presence makes a stop-the-world request time out safely.
+ * When it enters DVM, the normal nested mutator depth and dispatch polling apply. */
+bool tl_dvm_native_thread_attach(void)
+{
+    if (t_mutator_registered) return true;
+    dvm_mutator_enter();
+    t_native_attach_owned = true;
+    return true;
+}
+
+void tl_dvm_native_thread_detach(void)
+{
+    if (!t_native_attach_owned) return;
+    t_native_attach_owned = false;
+    dvm_mutator_leave();
 }
 
 static void dvm_safepoint_poll(void)

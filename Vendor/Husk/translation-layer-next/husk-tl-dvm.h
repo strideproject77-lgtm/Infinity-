@@ -55,6 +55,11 @@ void tl_dvm_visit_active_call_roots(tl_dvm_root_visitor visitor, void *context);
 /* Visit static, current-thread active-call, and typed JNI strong roots.
  * Requires external all-mutator safepoint; not a stop-the-world implementation. */
 bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *context);
+/* Register/deregister a host thread attached to JNI outside DVM execution.
+ * Attached native threads remain unparked, causing GC safepoints to fail closed
+ * until they detach or re-enter DVM and reach a dispatch poll. */
+bool tl_dvm_native_thread_attach(void);
+void tl_dvm_native_thread_detach(void);
 /* Cooperative interpreter safepoint. begin blocks until other DVM mutators park. */
 bool tl_dvm_safepoint_begin(void);
 /* Bounded variant; false means another safepoint exists or mutators did not park in time. */
