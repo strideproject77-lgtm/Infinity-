@@ -72,6 +72,10 @@ bool tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *conte
 /* Run a complete conservative mark traversal at a cooperative DVM safepoint.
  * This reports reachable objects but deliberately does not sweep/reclaim them. */
 bool tl_dvm_trace_heap(tl_dvm_root_visitor on_mark, void *user_context, size_t *marked_count);
+/* Reclaim unreachable non-class objects after a complete stop-the-world mark.
+ * Weak JNI globals are conservatively retained until the raw-pointer JNI ABI can
+ * represent cleared weak handles safely. */
+bool tl_dvm_collect_heap(size_t *reclaimed_count, size_t *reachable_count);
 void tl_dvm_set_trace(int level);       /* 1: classes and natives; 2: every invoke */
 
 #ifdef __cplusplus
