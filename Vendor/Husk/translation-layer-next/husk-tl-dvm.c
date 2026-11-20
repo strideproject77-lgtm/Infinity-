@@ -3115,6 +3115,114 @@ static void visit_dex_runtime_roots(dvm_static_root_walk *walk)
  * Caller must externally stop every mutator and keep class/DEX metadata stable.
  * Active interpreter call roots are currently per-thread; this function sees
  * the calling thread's chain only, so it is not a process-wide safepoint. */
+
+typedef struct dvm_mark_state {
+    jobj **queue;
+    size_t queue_count, queue_capacity, scan_index;
+    jobj **slots;
+    size_t slot_capacity;
+    bool failed;
+    tl_dvm_root_visitor on_mark;
+    void *user_context;
+} dvm_mark_state;
+
+static size_t dvm_mark_hash(const jobj *object)
+{
+    uintptr_t x = (uintptr_t)object;
+    x ^= x >> 33;
+    x *= (uintptr_t)0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    x *= (uintptr_t)0xc4ceb9fe1a85ec53ULL;
+    x ^= x >> 33;
+    return (size_t)x;
+}
+
+static bool dvm_mark_grow_slots(dvm_mark_state *state)
+{
+    size_t next = state->slot_capacity ? state->slot_capacity * 2 : 128;
+    if (next < state->slot_capacity || next > SIZE_MAX / sizeof(*state->slots)) return false;
+    jobj **slots = calloc(next, sizeof(*slots));
+    if (!slots) return false;
+    for (size_t i = 0; i < state->slot_capacity; i++) {
+        jobj *object = state->slots[i];
+        if (!object) continue;
+        size_t at = dvm_mark_hash(object) & (next - 1);
+        while (slots[at]) at = (at + 1) & (next - 1);
+        slots[at] = object;
+    }
+    free(state->slots);
+    state->slots = slots;
+    state->slot_capacity = next;
+    return true;
+}
+
+static bool dvm_mark_add(dvm_mark_state *state, jobj *object)
+{
+    if (!object || state->failed) return !state->failed;
+    if (!tl_jni_heap_contains(object)) return true;
+    if (!state->slot_capacity || state->queue_count + 1 > state->slot_capacity * 7 / 10) {
+        if (!dvm_mark_grow_slots(state)) { state->failed = true; return false; }
+    }
+    size_t at = dvm_mark_hash(object) & (state->slot_capacity - 1);
+    while (state->slots[at]) {
+        if (state->slots[at] == object) return true;
+        at = (at + 1) & (state->slot_capacity - 1);
+    }
+    if (state->queue_count == state->queue_capacity) {
+        size_t next = state->queue_capacity ? state->queue_capacity * 2 : 128;
+        if (next < state->queue_capacity || next > SIZE_MAX / sizeof(*state->queue)) {
+            state->failed = true; return false;
+        }
+        jobj **grown = realloc(state->queue, next * sizeof(*grown));
+        if (!grown) { state->failed = true; return false; }
+        state->queue = grown;
+        state->queue_capacity = next;
+    }
+    state->slots[at] = object;
+    state->queue[state->queue_count++] = object;
+    if (state->on_mark) state->on_mark(object, state->user_context);
+    return true;
+}
+
+static void dvm_mark_root(jobj *object, void *context)
+{
+    dvm_mark_add((dvm_mark_state *)context, object);
+}
+
+static bool tl_dvm_trace_heap_at_safepoint(tl_dvm_root_visitor on_mark,
+                                            void *user_context,
+                                            size_t *marked_count)
+{
+    dvm_mark_state state = { .on_mark = on_mark, .user_context = user_context };
+    bool ok = tl_dvm_visit_static_roots(dvm_mark_root, &state), roots_ok = true;
+    if (ok && !state.failed) {
+        if (!tl_dvm_visit_all_active_call_roots(dvm_mark_root, &state)) roots_ok = false;
+        if (roots_ok && !state.failed &&
+            !tl_jni_refs_visit_strong_roots(dvm_mark_root, &state)) roots_ok = false;
+    } else roots_ok = false;
+    while (roots_ok && !state.failed && state.scan_index < state.queue_count) {
+        jobj *object = state.queue[state.scan_index++];
+        if (!tl_jni_visit_object_references(object, dvm_mark_root, &state)) roots_ok = false;
+    }
+    bool complete = roots_ok && !state.failed;
+    if (marked_count) *marked_count = complete ? state.queue_count : 0;
+    free(state.queue);
+    free(state.slots);
+    return complete;
+}
+
+/* Mark only: no object is reclaimed by this API. The callback runs at the
+ * safepoint and must not re-enter the runtime or mutate managed objects. */
+bool tl_dvm_trace_heap(tl_dvm_root_visitor on_mark, void *user_context,
+                       size_t *marked_count)
+{
+    if (marked_count) *marked_count = 0;
+    if (!tl_dvm_safepoint_begin()) return false;
+    bool complete = tl_dvm_trace_heap_at_safepoint(on_mark, user_context, marked_count);
+    tl_dvm_safepoint_end();
+    return complete;
+}
+
 bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *context)
 {
     if (!visitor) return false;
