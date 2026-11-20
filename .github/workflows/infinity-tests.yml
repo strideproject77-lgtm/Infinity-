@@ -15,7 +15,6 @@ on:
       - "LiveContainerSwiftUI/Models/LCAppModel.swift"
       - "LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYVersion.swift"
-      - "LiveContainerSwiftUI/Strata3/INFINITYVersion.swift"
       - "LiveContainerSwiftUI/Utilities/LCUtils.h"
       - "LiveContainerSwiftUI/Utilities/LCUtils.m"
       - "ShareExtension/StrataJITWorker.swift"
