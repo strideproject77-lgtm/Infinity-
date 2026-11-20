@@ -88,10 +88,10 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
 
     def test_manifest_facts_identify_legacy_support_target_and_launcher(self):
         facts = parse_manifest_facts(
-            "package: name='com.tpcstld.twozerogame' versionCode='1007' versionName='1.3.3'\\n"
-            "sdkVersion:'14'\\ntargetSdkVersion:'28' compileSdkVersion='28'\\n"
-            "launchable-activity: name='com.tpcstld.twozerogame.MainActivity'\\n",
-            'A: android:name="android.support.VERSION"\\n'
+            "package: name='com.tpcstld.twozerogame' versionCode='1007' versionName='1.3.3'\n"
+            "sdkVersion:'14'\ntargetSdkVersion:'28' compileSdkVersion='28'\n"
+            "launchable-activity: name='com.tpcstld.twozerogame.MainActivity'\n",
+            'A: android:name="android.support.VERSION"\n'
             'A: android:value="26.1.0"',
         )
         self.assertEqual(facts["min_sdk"], "14")
