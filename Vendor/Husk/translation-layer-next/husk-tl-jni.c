@@ -1040,6 +1040,12 @@ static jo jni_PopLocalFrame(void *env, jo r)
 {
     (void)env;
     if (!t_local_frame || !t_local_frame->parent) return NULL;
+    /* Native code can return an arbitrary pointer. Validate exact heap membership
+     * before tl_jni_ref() reads the candidate object's reference count. */
+    if (r && !tl_jni_heap_contains(r)) {
+        tl_log_line("jni: PopLocalFrame rejected a non-heap result pointer");
+        r = NULL;
+    }
     jni_local_frame *frame = t_local_frame;
     jni_local_frame *parent = frame->parent;
     jobj *preserved = r ? tl_jni_ref(r) : NULL;
