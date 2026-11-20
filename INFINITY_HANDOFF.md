@@ -1905,3 +1905,14 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Commits: `b116bc6d93e9b080999ca7cec93905a6ae83119f`, `3ab39c3ddb8ceff52d8824a83e11ede78208a06f`.
 - Scope limitation: this is native-return safety hardening, not the complete JNI ABI conversion. The 233-slot standard `JNIEnv` table and object-bearing native arguments still use raw `jobj *`; converting them safely requires wrappers/adapters for every JNI entry point and consistent argument/return translation. No claim that this blocker is fully resolved.
 - No tests or compile run; retain one consolidated GitHub validation at the integration checkpoint. No IPA/APK build or device test. SideStore untouched.
+
+
+## 2026-11-20 — Codemagic iOS archive compiler failure fixed
+
+- Inspected the uploaded `codemagic-logs` branch for build `6affaec38f52ca275129239e` (workflow: `INFINITY IPA (Codemagic backup)`, source commit `ad78e8caec9d09c647fad0ba5f183bcef727980e`, Xcode 26.2). The archive exited with code 65.
+- The only fatal compiler diagnostics in the archived build log were five related C errors in `Vendor/Husk/translation-layer-next/husk-tl-ld.c`: calls to `symbol_version_name()` at lines 512/1933 and `symbol_version_file()` at line 1934 preceded their static definitions at lines 2242/2261, causing implicit-declaration and static-after-nonstatic conflicts.
+- Fixed the root cause by adding matching `static` forward declarations after the `tl_lib` helper declarations and before either function is first used. Definitions and call behavior were not changed.
+- Fix commit: `18506b1d79a46560e3386ff7faa71624c098796d`.
+- The remaining messages in the log are warnings/notes, not additional fatal errors. The archive stopped at this compile failure, so downstream archive/signing/artifact stages were not reached; no other independent fatal error was exposed by this run.
+- **Validation:** no new GitHub workflow or Codemagic build was started, in keeping with the single consolidated validation approach. The fix is source-reviewed against the exact compiler diagnostics but is not yet compile-verified. User should start one new Codemagic run after the planned batch/checkpoint.
+- No IPA/APK build, no device test, and SideStore untouched. Husk integration remains incomplete; this build fix does not change the integration percentage or resolve JNI ABI/collector blockers.
