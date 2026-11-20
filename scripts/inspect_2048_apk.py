@@ -132,7 +132,7 @@ def parse_manifest_facts(badging: str, manifest_xmltree: str) -> dict[str, str |
         "compile_sdk": capture(r"compileSdkVersion='([^']+)'", badging),
         "launch_activity": capture(r"^launchable-activity: name='([^']+)'", badging),
         "android_support_version": capture(
-            r'android\\.support\\.VERSION.*?\\n\\s+A: android:value.*?="([^"]+)"',
+            r'android\.support\.VERSION.*?\n\s+A: android:value.*?="([^"]+)"',
             manifest_xmltree,
         ),
     }
