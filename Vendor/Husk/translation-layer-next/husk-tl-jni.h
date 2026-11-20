@@ -81,6 +81,10 @@ bool tl_jni_class_known(const tl_jclass *c);                  /* an HLE method o
 void *tl_jni_vm(void);
 void *tl_jni_env(void);
 
+/* Scope JNI local references created during one interpreted native-method call. */
+bool tl_jni_native_frame_enter(void);
+jobj *tl_jni_native_frame_leave(jobj *result);
+
 /* ---------------------------------------------------------------- objects */
 
 jobj *tl_jni_new_object(tl_jclass *cls);
