@@ -44,6 +44,9 @@ jobj *tl_jni_refs_acquire(tl_jni_ref_handle *handle);
  * tl_jni_unref(). A NULL token represents Java null. */
 void *tl_jni_refs_export_token(tl_jni_ref_handle *handle);
 jobj *tl_jni_refs_acquire_token(const void *token);
+/* Distinguish Java null (valid, resolves to NULL) from a stale/invalid token.
+ * A non-null resolved object is strongly retained for the caller. */
+bool tl_jni_refs_resolve_token(const void *token, jobj **out_object);
 tl_jni_ref_kind tl_jni_refs_token_kind(const void *token);
 tl_jni_ref_kind tl_jni_refs_get_kind(tl_jni_ref_handle *handle);
 bool tl_jni_refs_is_same(tl_jni_ref_handle *left, tl_jni_ref_handle *right);
