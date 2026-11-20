@@ -25,7 +25,7 @@ printf '%s\n' \
       -I Vendor/Husk/include -
 
 echo "==> Type-checking Foundation-only Swift APK parsers"
-swiftc -typecheck \
+swiftc -swift-version 5 -typecheck \
   tests/fixtures/INFINITYAPKArchiveLinuxShim.swift \
   LiveContainerSwiftUI/Strata3/INFINITYVersion.swift \
   LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \
