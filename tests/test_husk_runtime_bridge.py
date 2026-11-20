@@ -820,6 +820,20 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("(void *)(uintptr_t)h->token_id", refs)
         self.assertNotIn("(void *)h : NULL;", refs)
 
+    def test_opaque_jni_token_resolution_distinguishes_null_from_invalid_and_cleared_weak(self):
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.h")
+        refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
+        self.assertIn("bool tl_jni_refs_resolve_token(const void *token, jobj **out_object);", header)
+        start = refs.index("bool tl_jni_refs_resolve_token(")
+        end = refs.index("\\ntl_jni_ref_kind tl_jni_refs_token_kind", start)
+        resolver = refs[start:end]
+        self.assertIn("if (!out_object) return false;", resolver)
+        self.assertIn("if (!token) return true;", resolver)
+        self.assertIn("bool valid = h && h->alive && local_owned_by_caller(h);", resolver)
+        self.assertIn("if (!valid) return false;", resolver)
+        self.assertIn("*out_object = object;", resolver)
+        self.assertIn("A cleared weak-global handle is valid and resolves to Java null.", resolver)
+
     def test_typed_jni_registry_exposes_opaque_non_dereferenced_tokens(self):
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.h")
         refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
