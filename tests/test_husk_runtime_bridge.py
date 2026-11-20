@@ -693,6 +693,15 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn(".receiver = (m->flags & 8) ? NULL : self", dvm)
         self.assertIn("t_call_root_frames = root_frame.previous;", dvm)
 
+    def test_dvm_visits_runtime_owned_class_proxy_and_dex_roots(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        self.assertIn("if (jc->mirror) walk->visitor(jc->mirror, walk->context);", dvm)
+        self.assertIn("methods[i].proxy_method", dvm)
+        self.assertIn("methods[i].proxy_throws", dvm)
+        self.assertIn("if (dex->loader) walk->visitor(dex->loader, walk->context);", dvm)
+        self.assertIn("dex->scache[n]", dvm)
+        self.assertIn("visit_dex_runtime_roots(&walk);", dvm)
+
     def test_dvm_exposes_object_valued_class_statics_as_gc_roots(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
