@@ -11,6 +11,7 @@ on:
       - "Vendor/Husk/bridge/**"
       - "Vendor/Husk/include/**"
       - "LiveContainerSwiftUI/Strata3/**"
+      - "LiveContainerSwiftUI/Views/StrataSettingsApp.swift"
       - "scripts/**"
       - "tests/**"
       - ".github/workflows/infinity-linux-tests.yml"
