@@ -1632,3 +1632,21 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
 - Overall integration estimate remains **99.90%**; this batch closes additional runtime-owned root categories but does not resolve the collector/ABI blockers required for 100%.
 - Next required work: implement the heap object registry and full mark traversal, then add a genuine stop-the-world protocol and verifier-backed register maps; only then can weak-global processing be safely enabled.
+
+
+## 2026-11-20 — DEX root visitor lock-safety hardening
+
+### Implemented on main
+- Changed DEX runtime-root enumeration to snapshot the fixed 256-entry DEX registry under the DVM mutex, then release the mutex before invoking collector callbacks.
+- Read interned-string cache entries with acquire atomic loads while enumerating the safepoint-stable DEX snapshots.
+- Added source-contract coverage proving callback invocation occurs after the DEX registry mutex is released.
+
+### Scope and validation
+- This prevents a tracing callback from deadlocking by re-entering DVM metadata paths that need the same mutex. Correctness still relies on the documented stop-the-world safepoint keeping DEX lifetime and cache storage stable during traversal; this change does not create that safepoint.
+- No heap tracing/reclamation, instance-field graph walk, verifier-backed register maps, or guest-facing opaque JNI ABI conversion is completed. Do not claim 100% integration.
+- Tests were added but not executed. No compilation, GitHub workflow, IPA build/export, signing, or device test was run. SideStore was not touched.
+- Overall integration estimate remains **99.90%**.
+- Next: establish a real mutator safepoint/coordination contract and heap object ownership registry before implementing mark/sweep or enabling weak-global clearing.
+
+- DEX root callback lock-safety fix: 90c6727816a1dd869b35fef944216b6a5f1b49e3
+- Regression coverage: 095e79e1a6f952f5a309790b5c9c5c55c7ceb388
