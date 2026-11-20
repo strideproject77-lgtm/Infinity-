@@ -57,6 +57,17 @@ class APKArchiveTests(unittest.TestCase):
             archive.writestr("classes.dex", b"dex\n035\0")
         return buffer.read_bytes()
 
+    def test_linux_swift_archive_shim_matches_the_exported_c_api(self):
+        shim = (ROOT / "tests" / "fixtures" / "INFINITYAPKArchiveLinuxShim.swift").read_text(encoding="utf-8")
+        header = (INCLUDE / "INFINITYAPKArchive.h").read_text(encoding="utf-8")
+        self.assertIn("@_silgen_name(\"infinity_apk_extract_entry\")", shim)
+        self.assertIn("@_silgen_name(\"infinity_apk_free\")", shim)
+        self.assertIn("const uint8_t *archive, size_t archive_length", header)
+        self.assertIn("uint8_t **output, size_t *output_length", header)
+        self.assertIn("void infinity_apk_free(void *pointer)", header)
+        self.assertIn("UnsafePointer<UInt8>?", shim)
+        self.assertIn("UnsafeMutablePointer<Int>?", shim)
+
     def test_extract_stored_manifest(self):
         payload = b"binary-xml-stored-fixture"
         status, result = self.extract(self.make_zip(0, payload), "AndroidManifest.xml")
