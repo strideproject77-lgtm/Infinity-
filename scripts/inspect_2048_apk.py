@@ -43,11 +43,9 @@ def parse_dex_header(data: bytes) -> dict[str, Any]:
         raise ValueError(f"unexpected DEX header_size: {header_size}")
     if endian_tag != DEX_ENDIAN_CONSTANT:
         raise ValueError(f"unsupported DEX endian tag: 0x{endian_tag:08x}")
-    if hashlib.sha1(data[32:]).digest() != data[12:32]:
-        raise ValueError("DEX SHA-1 signature mismatch")
+    sha1_valid = hashlib.sha1(data[32:]).digest() == data[12:32]
     stored_checksum = int.from_bytes(data[8:12], "little")
-    if zlib.adler32(data[12:]) & 0xFFFFFFFF != stored_checksum:
-        raise ValueError("DEX Adler-32 checksum mismatch")
+    adler32_valid = (zlib.adler32(data[12:]) & 0xFFFFFFFF) == stored_checksum
     fields = {
         "string_ids_size": (56, 60, 4),
         "type_ids_size": (64, 68, 4),
@@ -62,6 +60,8 @@ def parse_dex_header(data: bytes) -> dict[str, Any]:
         "header_size": header_size,
         "checksum_adler32": data[8:12].hex(),
         "sha1_signature": data[12:32].hex(),
+        "sha1_signature_valid": sha1_valid,
+        "adler32_checksum_valid": adler32_valid,
     }
     for name, (size_offset, data_offset, item_size) in fields.items():
         count = int.from_bytes(data[size_offset:size_offset + 4], "little")
@@ -212,7 +212,9 @@ def main() -> int:
             f"- `{name}`: DEX {header['version']}, "
             f"{header['class_defs_size']} classes, "
             f"{header['method_ids_size']} method IDs, "
-            f"{header['field_ids_size']} field IDs"
+            f"{header['field_ids_size']} field IDs, "
+            f"SHA-1={'ok' if header['sha1_signature_valid'] else 'MISMATCH'}, "
+            f"Adler-32={'ok' if header['adler32_checksum_valid'] else 'MISMATCH'}"
         )
     summary += [
         "",
