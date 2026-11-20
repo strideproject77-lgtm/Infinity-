@@ -9,6 +9,7 @@ from scripts.inspect_2048_apk import (
     EXPECTED_PACKAGE,
     APK_RELEASE_URL,
     archive_inventory,
+    audit_framework_api_methods,
     dependency_class_descriptors,
     parse_dex_header,
     parse_dex_disassembly,
@@ -124,6 +125,44 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
             "Landroid/content/SharedPreferences;->getInt",
             result["android_framework_method_refs"],
         )
+
+    def test_framework_api_audit_resolves_inherited_methods_and_reports_gaps(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            framework = root / "Vendor/Husk/src/java-framework/src/android"
+            (framework / "content").mkdir(parents=True)
+            (framework / "app").mkdir(parents=True)
+            (framework / "view").mkdir(parents=True)
+            (framework / "content/Context.java").write_text(
+                "package android.content; public class Context { "
+                "public Object getResources() { return null; } }",
+                encoding="utf-8",
+            )
+            (framework / "app/Activity.java").write_text(
+                "package android.app; import android.content.Context; "
+                "public class Activity extends Context { "
+                "public void onCreate() {} }",
+                encoding="utf-8",
+            )
+            (framework / "view/View.java").write_text(
+                "package android.view; public class View { "
+                "public void invalidate() {} }",
+                encoding="utf-8",
+            )
+            result = audit_framework_api_methods(
+                [
+                    "Landroid/app/Activity;->getResources",
+                    "Landroid/app/Activity;->onCreate",
+                    "Landroid/view/View;->missing",
+                ],
+                root,
+            )
+        self.assertEqual(result["checked_method_ref_count"], 3)
+        self.assertEqual(
+            result["unresolved_method_refs"],
+            ["Landroid/view/View;->missing"],
+        )
+        self.assertEqual(result["missing_owner_class_count"], 0)
 
     def test_manifest_facts_identify_legacy_support_target_and_launcher(self):
         facts = parse_manifest_facts(

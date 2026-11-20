@@ -214,6 +214,103 @@ def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
         "support_framework_method_refs": sorted(support_method_refs),
     }
 
+
+def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict[str, Any]:
+    """Check referenced Android API methods against Husk Java framework sources and superclasses."""
+    source_roots = (
+        repo_root / "Vendor/Husk/src/java-framework/src",
+        repo_root / "Vendor/Husk/src/java-framework/gen-src",
+    )
+    source_cache: dict[str, tuple[str, str, dict[str, str]] | None] = {}
+
+    def load_source(descriptor: str):
+        if descriptor in source_cache:
+            return source_cache[descriptor]
+        relative = descriptor[1:-1].split("$")[0] + ".java"
+        for root in source_roots:
+            path = root / relative
+            if path.is_file():
+                source = path.read_text(encoding="utf-8", errors="replace")
+                package_match = re.search(r"^\s*package\s+([\w.]+)\s*;", source, re.MULTILINE)
+                package = package_match.group(1) if package_match else ""
+                imports = {
+                    name.split(".")[-1]: name
+                    for name in re.findall(
+                        r"^\s*import\s+(?:static\s+)?([\w.$]+)\s*;",
+                        source,
+                        re.MULTILINE,
+                    )
+                }
+                result = (source, package, imports)
+                source_cache[descriptor] = result
+                return result
+        source_cache[descriptor] = None
+        return None
+
+    def parent_descriptor(descriptor: str, source: str, package: str,
+                          imports: dict[str, str]) -> str | None:
+        simple_name = descriptor[1:-1].split("/")[-1].split("$")[-1]
+        declaration = re.search(
+            r"\b(?:class|interface|enum)\s+" + re.escape(simple_name)
+            + r"\b(?:\s*<[^>{}]*>)?\s+extends\s+([\w.$]+)",
+            source,
+        )
+        if declaration is None:
+            return None
+        parent = declaration.group(1)
+        if parent in imports:
+            qualified = imports[parent]
+        elif parent.startswith(("android.", "java.", "javax.", "dalvik.")):
+            qualified = parent
+        elif "." in parent:
+            qualified = parent
+        elif package:
+            qualified = package + "." + parent
+        else:
+            return None
+        return "L" + qualified.replace(".", "/") + ";"
+
+    missing_methods = []
+    missing_owners = set()
+    checked = 0
+    object_methods = {"equals", "hashCode", "toString", "getClass", "wait",
+                      "notify", "notifyAll", "clone", "finalize"}
+    for reference in sorted(set(method_refs)):
+        if "->" not in reference:
+            continue
+        owner, method = reference.split("->", 1)
+        checked += 1
+        current = owner
+        visited = set()
+        found = method in object_methods
+        for _ in range(10):
+            if found or current in visited:
+                break
+            visited.add(current)
+            loaded = load_source(current)
+            if loaded is None:
+                if current == owner:
+                    missing_owners.add(owner)
+                break
+            source, package, imports = loaded
+            if re.search(r"\b" + re.escape(method) + r"\s*\(", source):
+                found = True
+                break
+            parent = parent_descriptor(current, source, package, imports)
+            if parent is None:
+                break
+            current = parent
+        if not found:
+            missing_methods.append(reference)
+    return {
+        "checked_method_ref_count": checked,
+        "missing_owner_classes": sorted(missing_owners),
+        "missing_owner_class_count": len(missing_owners),
+        "unresolved_method_refs": missing_methods,
+        "unresolved_method_ref_count": len(missing_methods),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
@@ -260,6 +357,13 @@ def main() -> int:
         )
         dex_disassembly_facts[dex_name] = parse_dex_disassembly(disassembly)
 
+    all_framework_method_refs = sorted({
+        *next(iter(dex_disassembly_facts.values()))["android_framework_method_refs"],
+        *next(iter(dex_disassembly_facts.values()))["support_framework_method_refs"],
+    })
+    framework_api_audit = audit_framework_api_methods(
+        all_framework_method_refs, Path(__file__).resolve().parents[1]
+    )
     apk_digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     report = {
         "source_release": APK_RELEASE_URL,
@@ -279,6 +383,7 @@ def main() -> int:
             name: len(values) for name, values in dependency_sets.items()
         },
         "dex_disassembly_facts": dex_disassembly_facts,
+        "framework_api_audit": framework_api_audit,
         "dex_disassembly_files": [
             f"{name.replace('/', '_')}.disassembly.txt"
             for name in inventory["dex_files"]
@@ -318,6 +423,7 @@ def main() -> int:
         f"- MainActivity superclass: {next(iter(dex_disassembly_facts.values())).get('main_activity_superclass')}",
         f"- Android framework method references: {sum(v['android_framework_method_ref_count'] for v in dex_disassembly_facts.values())}",
         f"- DEX SHA-1 signature valid: {all(v['sha1_signature_valid'] for v in inventory['dex_headers'].values())}",
+        f"- Framework API refs not resolved from Husk Java sources/superclasses: {framework_api_audit['unresolved_method_ref_count']} of {framework_api_audit['checked_method_ref_count']}",
         "",
         "## DEX header counts",
         "",
