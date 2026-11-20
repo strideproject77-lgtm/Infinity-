@@ -256,7 +256,8 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
         return None
 
     def parent_descriptor(descriptor: str, source: str, package: str,
-                          imports: dict[str, str]) -> str | None:
+                          imports: dict[str, str],
+                          wildcard_imports: list[str]) -> str | None:
         simple_name = descriptor[1:-1].split("/")[-1].split("$")[-1]
         declaration = re.search(
             r"\b(?:class|interface|enum)\s+" + re.escape(simple_name)
@@ -308,7 +309,7 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
             if re.search(r"\b" + re.escape(method) + r"\s*\(", source):
                 found = True
                 break
-            parent = parent_descriptor(current, source, package, imports)
+            parent = parent_descriptor(current, source, package, imports, wildcard_imports)
             if parent is None:
                 break
             current = parent
