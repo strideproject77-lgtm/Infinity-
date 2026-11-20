@@ -2019,3 +2019,12 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - **Progress remains 59%**: the helper and tests do not justify a percentage increase because JNI table/native argument-return migration is still incomplete.
 - No tests have been run yet. Next planned test checkpoint is the existing `infinity-tests.yml` source/parser + iPhoneOS native syntax + Swift bridge checks after this batch is merged. No IPA/APK build or device/game test. SideStore untouched.
 - Next implementation: build a typed JNI ABI adapter in stages, starting with object-reference creation/deletion/equality and then object-bearing method/field/array/string entry points. Do not expose token values to guest code until all reachable object-bearing slots and native argument/return paths are adapted.
+
+
+## 2026-11-20 — Follow-up Codemagic archive failure fix
+
+- Inspected the latest uploaded Codemagic archive log for build `6affff598f52ca27512937ee`, source commit `e0a317ac588c6cb8de7074750f454078251b4982` (Xcode 26.2).
+- The fatal Swift diagnostics were in `LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift`: `StrataVersion` was not defined (the project uses `INFINITYVersion.display`), which also caused the enclosing `body` expression type-check failure.
+- Replaced the invalid version reference with `INFINITYVersion.display` using Swift string interpolation. No runtime, SideStore, LiveContainer launch, or JIT behavior was changed.
+- Fix branch: `fix/codemagic-strata-version-20261120`; source commit: `798becbed03b4ee98b8ffc382c0fc7c16df0772e`.
+- Source review confirms the invalid symbol is gone. A new Xcode/Codemagic archive is still required to verify the compiler fix and expose any subsequent errors.
