@@ -861,34 +861,35 @@ static int32_t b_AInputQueue_getEvent(void *q, void **ev)
 static int32_t b_AInputQueue_preDispatchEvent(void *q, void *ev) { (void)ev; return q == &IQ ? 0 : -1; }
 static void b_AInputQueue_finishEvent(void *q, void *ev, int handled) { (void)handled; if (q == &IQ) free(ev); }
 
-static int32_t b_AInputEvent_getType(const tl_ievent *e) { return e->type; }
-static int32_t b_AInputEvent_getSource(const tl_ievent *e) { return e->source; }
-static int32_t b_AInputEvent_getDeviceId(const tl_ievent *e) { return e->device; }
-static int32_t b_AMotionEvent_getAction(const tl_ievent *e) { return e->action; }
-static int32_t b_AMotionEvent_getFlags(const tl_ievent *e) { return e->flags; }
-static int32_t b_AMotionEvent_getMetaState(const tl_ievent *e) { return e->meta; }
-static int32_t b_AMotionEvent_getButtonState(const tl_ievent *e) { return e->button_state; }
+static int32_t b_AInputEvent_getType(const tl_ievent *e) { return e ? e->type : 0; }
+static int32_t b_AInputEvent_getSource(const tl_ievent *e) { return e ? e->source : 0; }
+static int32_t b_AInputEvent_getDeviceId(const tl_ievent *e) { return e ? e->device : 0; }
+static int32_t b_AMotionEvent_getAction(const tl_ievent *e) { return e ? e->action : 0; }
+static int32_t b_AMotionEvent_getFlags(const tl_ievent *e) { return e ? e->flags : 0; }
+static int32_t b_AMotionEvent_getMetaState(const tl_ievent *e) { return e ? e->meta : 0; }
+static int32_t b_AMotionEvent_getButtonState(const tl_ievent *e) { return e ? e->button_state : 0; }
 static int32_t b_AMotionEvent_getEdgeFlags(const tl_ievent *e) { (void)e; return 0; }
-static int64_t b_AMotionEvent_getEventTime(const tl_ievent *e) { return e->time; }
-static int64_t b_AMotionEvent_getDownTime(const tl_ievent *e) { return e->time; }
-static size_t b_AMotionEvent_getPointerCount(const tl_ievent *e) { return (size_t)e->nptr; }
-static int32_t b_AMotionEvent_getPointerId(const tl_ievent *e, size_t i) { return i < (size_t)e->nptr ? e->pid[i] : 0; }
-static float b_AMotionEvent_getX(const tl_ievent *e, size_t i) { return i < (size_t)e->nptr ? e->px[i] : 0.0f; }
-static float b_AMotionEvent_getY(const tl_ievent *e, size_t i) { return i < (size_t)e->nptr ? e->py[i] : 0.0f; }
+static int64_t b_AMotionEvent_getEventTime(const tl_ievent *e) { return e ? e->time : 0; }
+static int64_t b_AMotionEvent_getDownTime(const tl_ievent *e) { return e ? e->time : 0; }
+static size_t b_AMotionEvent_getPointerCount(const tl_ievent *e) { return e && e->nptr > 0 ? (size_t)e->nptr : 0; }
+static int32_t b_AMotionEvent_getPointerId(const tl_ievent *e, size_t i) { return e && i < (size_t)e->nptr && i < 10 ? e->pid[i] : 0; }
+static float b_AMotionEvent_getX(const tl_ievent *e, size_t i) { return e && i < (size_t)e->nptr && i < 10 ? e->px[i] : 0.0f; }
+static float b_AMotionEvent_getY(const tl_ievent *e, size_t i) { return e && i < (size_t)e->nptr && i < 10 ? e->py[i] : 0.0f; }
 static float b_AMotionEvent_getPressure(const tl_ievent *e, size_t i) { (void)e; (void)i; return 1.0f; }
 static float b_AMotionEvent_getSize(const tl_ievent *e, size_t i) { (void)e; (void)i; return 0.1f; }
 static size_t b_AMotionEvent_getHistorySize(const tl_ievent *e) { (void)e; return 0; }
 static float b_AMotionEvent_getAxisValue(const tl_ievent *e, int32_t axis, size_t i)
 {
-    if (e->has_axes && axis >= 0 && axis < 48) return e->axis[axis];
+    if (!e || axis < 0) return 0.0f;
+    if (e->has_axes && axis < 48) return e->axis[axis];
     if (axis == 0) return b_AMotionEvent_getX(e, i);
     if (axis == 1) return b_AMotionEvent_getY(e, i);
     return 0.0f;
 }
-static int32_t b_AKeyEvent_getAction(const tl_ievent *e) { return e->action; }
-static int32_t b_AKeyEvent_getKeyCode(const tl_ievent *e) { return e->keycode; }
-static int32_t b_AKeyEvent_getFlags(const tl_ievent *e) { return e->flags; }
-static int32_t b_AKeyEvent_getMetaState(const tl_ievent *e) { return e->meta; }
+static int32_t b_AKeyEvent_getAction(const tl_ievent *e) { return e ? e->action : 0; }
+static int32_t b_AKeyEvent_getKeyCode(const tl_ievent *e) { return e ? e->keycode : 0; }
+static int32_t b_AKeyEvent_getFlags(const tl_ievent *e) { return e ? e->flags : 0; }
+static int32_t b_AKeyEvent_getMetaState(const tl_ievent *e) { return e ? e->meta : 0; }
 static int32_t b_AKeyEvent_getRepeatCount(const tl_ievent *e) { (void)e; return 0; }
 static int32_t b_AKeyEvent_getScanCode(const tl_ievent *e) { (void)e; return 0; }
 static void b_ANativeActivity_noop(void *a) { (void)a; }
