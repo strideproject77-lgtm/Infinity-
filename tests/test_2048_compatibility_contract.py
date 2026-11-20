@@ -85,9 +85,10 @@ class TPCSTLD2048FrameworkContractTests(unittest.TestCase):
         for symbol in ("onCreate(Bundle state)", "onResume()", "onPause()", "onSaveInstanceState(Bundle out)", "setContentView(View v)"):
             with self.subTest(symbol=symbol):
                 self.assertIn(symbol, activity)
-        for symbol in ("public static void run(", "onResume", "onPause", "dispatchTouchEvent"):
-            with self.subTest(symbol=symbol):
-                self.assertIn(symbol, runner)
+        self.assertIn("public static void run(", runner)
+        # Activity owns its lifecycle callbacks; ViewRoot owns touch delivery.
+        view_root = self.read("Vendor/Husk/src/java-framework/src/husk/ViewRoot.java")
+        self.assertIn("r.mView.dispatchTouchEvent", view_root)
 
     def test_android_15_status_bar_path_and_legacy_fallback_exist(self):
         build = self.read("Vendor/Husk/src/java-framework/src/android/os/Build.java")
