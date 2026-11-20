@@ -1354,3 +1354,6 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Overall source integration remains **99%**. This closes additional NDK input boundary safety gaps but does not solve the JNI reference handle architecture or all ART/JNI semantics.
 - JNI still exposes raw `jobj *` values as guest handles. Local/global/weak-global handle identity and safe conversion across every JNI object argument/return boundary remain outstanding. Do not claim 100% until this is coherently implemented and source audited.
 - No tests, compiler, workflow, IPA build/export, signing or device testing was performed. Only source inspection and marker checks are permitted before the agreed 100% gate.
+- Follow-up assertion completion: added explicit source-contract markers for null-safe event type/source/device/action/flags/meta/button getters (`f40cd8f095660d6dd4605f2b0a4c41912d9a6514`).
+- Static source audit after this follow-up found all seven targeted NDK accessor safety markers present in the implementation. The test file contains the matching source assertions; these tests were not executed.
+- JNI handle work remains blocked on a full boundary inventory and coordinated conversion of every object-bearing JNI slot; no unsafe partial pointer-wrapper change was made.
