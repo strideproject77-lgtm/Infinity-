@@ -68,6 +68,28 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("husk_unity_set_paused(paused)", adapter)
 
 
+    def test_recent_iphoneos_compile_failures_are_regressed(self):
+        pthread = self.read("Vendor/Husk/translation-layer-next/husk-tl-bionic-pthread.c")
+        gamepad = self.read("Vendor/Husk/translation-layer-next/husk-tl-gamepad.c")
+        refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("static int rc(int darwin_error)", pthread)
+        self.assertLess(gamepad.index("static const int k_keycode"), gamepad.index("void tl_pad_disconnect"))
+        self.assertNotIn("*/\\n    if", refs)
+        self.assertIn("static jobj *local_frame_adopt(jobj *o)", jni)
+        for symbol in (
+            "jni_GetObjectField", "jni_SetObjectField",
+            "jni_GetStaticObjectField", "jni_SetStaticObjectField",
+        ):
+            with self.subTest(symbol=symbol):
+                self.assertIn(symbol, jni)
+
+    def test_swift_bridge_typecheck_uses_iphoneos_sdk(self):
+        workflow = self.read(".github/workflows/infinity-tests.yml")
+        bridge_job = workflow.split("husk-bridge-header-check:", 1)[1].split("swift-typecheck:", 1)[0]
+        self.assertEqual(bridge_job.count('-sdk "$(xcrun --sdk iphoneos --show-sdk-path)"'), 2)
+        self.assertEqual(bridge_job.count("-target arm64-apple-ios15.0"), 2)
+
     def test_dex_invoke_register_count_is_checked_against_prototype(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         self.assertIn("expected_slots != count", dvm)

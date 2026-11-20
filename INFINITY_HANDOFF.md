@@ -1916,3 +1916,17 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - The remaining messages in the log are warnings/notes, not additional fatal errors. The archive stopped at this compile failure, so downstream archive/signing/artifact stages were not reached; no other independent fatal error was exposed by this run.
 - **Validation:** no new GitHub workflow or Codemagic build was started, in keeping with the single consolidated validation approach. The fix is source-reviewed against the exact compiler diagnostics but is not yet compile-verified. User should start one new Codemagic run after the planned batch/checkpoint.
 - No IPA/APK build, no device test, and SideStore untouched. Husk integration remains incomplete; this build fix does not change the integration percentage or resolve JNI ABI/collector blockers.
+
+
+## 2026-11-20 — Deep audit: latest iOS source-check failures and fixes
+
+- Audited GitHub Actions on source commit `18506b1d79a46560e3386ff7faa71624c098796d`: Linux regression run `44661717759` passed; native workflow `44661717734` failed at 93/97 native sources; Swift bridge job in `44661717758` failed because macOS-hosted `swiftc` used the macOS SDK and could not import UIKit. The Swift APK parser job passed.
+- Native diagnostics exposed four concrete source failures:
+  1. `husk-tl-bionic-pthread.c` called undefined `rc()`. Added a helper translating Darwin pthread error values with `tl_errno_to_guest()`, preserving Bionic/Linux errno numbering.
+  2. `husk-tl-gamepad.c` referenced `k_keycode` before its static definition. Moved the table above its first use.
+  3. `husk-tl-jni-refs.c` contained literal backslash-n sequences after two block comments, escaping the comments and causing C syntax errors. Replaced them with actual newlines.
+  4. `husk-tl-jni.c` used `jo` before its typedef in the early `local_frame_adopt` declaration and the JNI table referenced four missing object-field accessors. Changed the early return type to `jobj *`; added instance/static object get/set accessors, with getters creating tracked local references and static enum fallback preserved.
+- Corrected the Swift bridge check to use the iPhoneOS SDK and `arm64-apple-ios15.0` target instead of the default macOS SDK.
+- Added regression assertions for these source/workflow corrections.
+- Source repairs only; pending the planned single consolidated GitHub validation. No IPA/APK build or device test. SideStore untouched.
+- Husk integration percentage is not increased by compiler/test harness repairs. Core runtime blockers remain: raw guest-facing JNI ABI, native argument/return marshaling, collector-owned sweep/root proof, and safe weak-global semantics.

@@ -67,6 +67,8 @@ void tl_pad_connect(int slot, const char *name)
     tl_log_line("pad: controller %d connected (%s)", slot, P.name[slot]);
 }
 
+static const int k_keycode[TL_PAD_BUTTONS] = { 96, 97, 99, 100, 102, 103, 106, 107, 108, 109, 110, 19, 20, 21, 22 };
+
 void tl_pad_disconnect(int slot)
 {
     if (slot < 0 || slot >= TL_PADS) return;
@@ -103,7 +105,6 @@ void tl_pad_disconnect(int slot)
 }
 
 /* Android key code of each button bit; the D-pad has none here (it is the hat) unless TL_PAD_DPAD says so. */
-static const int k_keycode[TL_PAD_BUTTONS] = { 96, 97, 99, 100, 102, 103, 106, 107, 108, 109, 110, 19, 20, 21, 22 };
 
 void tl_pad_update(int slot, const tl_pad_state *s)
 {

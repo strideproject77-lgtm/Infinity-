@@ -139,7 +139,7 @@ static bool local_frame_add_owned(jobj *o, tl_jni_ref_handle *root)
     f->items[f->count++] = (jni_local_entry){ .object = o, .root = root };
     return true;
 }
-static jo local_frame_adopt(jobj *o)
+static jobj *local_frame_adopt(jobj *o)
 {
     if (!o) return NULL;
     /*
@@ -1536,6 +1536,36 @@ static void enum_constant_fallback(void *fid, jvalue *slot)
     static CT jni_GetStatic##T##Field(void *env, jo c, void *fid) { (void)env; (void)c; if (!fid) return (CT)0; jvalue *sl = field_slot(NULL, fid); if (#T[0] == 'O') enum_constant_fallback(fid, sl); return (CT)REF_##T(sl->F); } \
     static void jni_SetStatic##T##Field(void *env, jo c, void *fid, CT v) { (void)env; (void)c; if (!fid) return; field_slot(NULL, fid)->F = v; }
 JV_TYPES(GEN_FIELDS)
+
+/* Object fields are separate from JV_TYPES because their getters must create
+ * JNI local references rather than returning an untracked heap pointer. */
+static jo jni_GetObjectField(void *env, jo o, void *fid)
+{
+    (void)env;
+    if (!fid || !o) return NULL;
+    jobj *value = field_slot(o, fid)->l;
+    return local_frame_adopt(value ? tl_jni_ref(value) : NULL);
+}
+static void jni_SetObjectField(void *env, jo o, void *fid, jo value)
+{
+    (void)env;
+    if (!fid || !o) return;
+    field_slot(o, fid)->l = value;
+}
+static jo jni_GetStaticObjectField(void *env, jo c, void *fid)
+{
+    (void)env; (void)c;
+    if (!fid) return NULL;
+    jvalue *slot = field_slot(NULL, fid);
+    enum_constant_fallback(fid, slot);
+    return local_frame_adopt(slot->l ? tl_jni_ref(slot->l) : NULL);
+}
+static void jni_SetStaticObjectField(void *env, jo c, void *fid, jo value)
+{
+    (void)env; (void)c;
+    if (!fid) return;
+    field_slot(NULL, fid)->l = value;
+}
 
 /* --- strings --- */
 

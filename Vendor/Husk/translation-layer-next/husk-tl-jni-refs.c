@@ -264,7 +264,10 @@ void tl_jni_refs_detach_thread(void)
 
 void tl_jni_refs_enable_weak_gc(void)
 {
-    /* Weak-handle transitions are collector metadata mutations. Never drop the\n     * strong-retention fallback outside the active stop-the-world owner. */\n    if (!tl_dvm_safepoint_is_owner()) return;\n    tl_jni_ref_handle *release = NULL;
+    /* Weak-handle transitions are collector metadata mutations. Never drop the
+     * strong-retention fallback outside the active stop-the-world owner. */
+    if (!tl_dvm_safepoint_is_owner()) return;
+    tl_jni_ref_handle *release = NULL;
     pthread_mutex_lock(&g_refs_lock);
     g_weak_gc_enabled = true;
     for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
@@ -324,7 +327,11 @@ bool tl_jni_refs_visit_strong_roots(tl_jni_refs_root_visitor visitor, void *cont
 
 void tl_jni_refs_process_weak(tl_jni_refs_is_marked is_marked, void *context)
 {
-    /* Clearing weak targets is only valid while every DVM mutator is parked.\n     * The guest ABI still uses raw object pointers, so weak-GC activation remains\n     * disabled by default until handle resolution is converted at the JNI boundary. */\n    if (!is_marked || !tl_dvm_safepoint_is_owner()) return;\n    pthread_mutex_lock(&g_refs_lock);
+    /* Clearing weak targets is only valid while every DVM mutator is parked.
+     * The guest ABI still uses raw object pointers, so weak-GC activation remains
+     * disabled by default until handle resolution is converted at the JNI boundary. */
+    if (!is_marked || !tl_dvm_safepoint_is_owner()) return;
+    pthread_mutex_lock(&g_refs_lock);
     if (g_weak_gc_enabled) {
         for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
             if (h->alive && h->kind == TL_JNI_REF_WEAK_GLOBAL && h->object &&

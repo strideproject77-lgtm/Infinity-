@@ -45,6 +45,12 @@ typedef struct { uint32_t value; _Atomic uint32_t magic; void *host; } guest_obj
  * the Bionic wrapper that requested the object. */
 static __thread int t_obj_error;
 
+/* pthread APIs return Darwin errno values directly; Bionic expects Linux errno numbers. */
+static int rc(int darwin_error)
+{
+    return darwin_error ? tl_errno_to_guest(darwin_error) : 0;
+}
+
 static void *obj_host(void *g, void *(*make)(uint32_t value))
 {
     if (!g || !make) { t_obj_error = EINVAL; return NULL; }
