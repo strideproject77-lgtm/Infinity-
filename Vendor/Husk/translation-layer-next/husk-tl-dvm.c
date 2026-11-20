@@ -1257,6 +1257,13 @@ bool dvm_call(dvm_method *m, jobj *self, const jvalue *params, jvalue *ret)
         t_overflowing = false;
         return r;
     }
+    dvm_call_root_frame root_frame = {
+        .previous = t_call_root_frames,
+        .method = m,
+        .receiver = (m->flags & 8) ? NULL : self,
+        .params = params
+    };
+    t_call_root_frames = &root_frame;
     static const char *watch;
     if (!watch) watch = getenv("TL_DVM_CALLS") ? getenv("TL_DVM_CALLS") : "";
     if (watch[0] && watch_hit(watch, m)) {
@@ -1280,13 +1287,6 @@ bool dvm_call(dvm_method *m, jobj *self, const jvalue *params, jvalue *ret)
             tl_jni_clear(); if (saved) tl_jni_set_pending(saved);
         }
     }
-    dvm_call_root_frame root_frame = {
-        .previous = t_call_root_frames,
-        .method = m,
-        .receiver = (m->flags & 8) ? NULL : self,
-        .params = params
-    };
-    t_call_root_frames = &root_frame;
     bool ok = dvm_call_inner(m, self, params, ret);
     t_call_root_frames = root_frame.previous;
     t_depth--;
@@ -2959,6 +2959,12 @@ static void visit_dex_runtime_roots(dvm_static_root_walk *walk)
  * Caller must externally stop every mutator and keep class/DEX metadata stable.
  * Active interpreter call roots are currently per-thread; this function sees
  * the calling thread's chain only, so it is not a process-wide safepoint. */
+static void visit_heap_root(jobj *object, void *context)
+{
+    tl_dvm_root_visitor visitor = (tl_dvm_root_visitor)context;
+    if (visitor && object) visitor(object, NULL);
+}
+
 bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *context)
 {
     if (!visitor) return false;
