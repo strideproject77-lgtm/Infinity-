@@ -31,6 +31,7 @@ typedef union jvalue {
 
 typedef struct jobj jobj;               /* every jobject, jclass, jstring, jarray handed to the guest */
 typedef struct tl_jclass tl_jclass;
+typedef void (*tl_jni_native_destructor)(jobj *object, void *native_state);
 
 enum { TL_K_OBJECT, TL_K_CLASS, TL_K_STRING, TL_K_PRIM_ARRAY, TL_K_OBJ_ARRAY };
 
@@ -47,6 +48,7 @@ struct jobj {
     jvalue *fields;                     /* instance fields, indexed by tl_jfield::index */
     uint32_t nfields;
     void *native;                       /* an implementation's own state */
+    tl_jni_native_destructor native_destructor; /* optional owner cleanup; installed before publication */
     void *monitor;
     struct jobj *heap_next;          /* private ownership-registry link; not a guest-visible field */
 };
@@ -97,6 +99,10 @@ jobj *tl_jni_new_prim_array(char etype, uint32_t len);
 jobj *tl_jni_new_obj_array(tl_jclass *elem, uint32_t len);
 jobj *tl_jni_ref(jobj *o);                                    /* a new reference to the same object */
 void  tl_jni_unref(jobj *o);
+/* Install before publishing an object; called once when its storage is reclaimed. */
+bool tl_jni_set_native_destructor(jobj *o, tl_jni_native_destructor destructor);
+/* Collector-only: call after a complete stop-the-world liveness pass proves the object unreachable. */
+bool tl_jni_destroy_unreachable_object(jobj *o);
 typedef void (*tl_jni_object_visitor)(jobj *object, void *context);
 /* Enumerate heap allocations and descriptor-typed object edges at an external safepoint. */
 bool tl_jni_visit_heap_objects(tl_jni_object_visitor visitor, void *context);
