@@ -139,12 +139,12 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (framework / "view/ContextThemeWrapper.java").write_text(
-                "package android.view; import android.content.Context; "
+                "package android.view;\\nimport android.content.Context; "
                 "public class ContextThemeWrapper extends Context {}",
                 encoding="utf-8",
             )
             (framework / "app/Activity.java").write_text(
-                "package android.app; import android.view.*; "
+                "package android.app;\\nimport android.view.*; "
                 "public class Activity extends ContextThemeWrapper { "
                 "public void onCreate() {} }",
                 encoding="utf-8",
