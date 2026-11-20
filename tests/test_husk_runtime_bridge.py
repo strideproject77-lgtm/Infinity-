@@ -760,6 +760,8 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("!g_safepoint_requested", walker)
         self.assertIn("pthread_equal(g_safepoint_owner, pthread_self())", walker)
         self.assertIn("for (dvm_call_root_frame *f = frames[i];", walker)
+        self.assertIn("return false;", walker)
+        self.assertIn("return true;", walker)
         self.assertIn("tl_dvm_visit_all_active_call_roots(visitor, context);", dvm)
 
     def test_dex_root_callbacks_run_after_registry_lock_is_released(self):
