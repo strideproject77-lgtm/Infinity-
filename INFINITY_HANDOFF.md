@@ -1702,3 +1702,20 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Next: complete all-mutator safepoint coordination and verified DEX register maps, then wire a mark phase and only later safe sweep/finalization.
 
 - Follow-up cleanup removed an unused visitor adapter: 921e78c0473e25c60907dd208a988236beac9a49
+
+
+## 2026-11-20 — Cooperative DVM mutator safepoint handshake
+
+### Implemented on main
+- Added per-thread DVM mutator registration with nested invocation depth and a published active-call root-frame chain.
+- Added a cooperative safepoint request/owner protocol using a mutex and condition variable. Registered interpreter threads park at every bytecode dispatch boundary and resume when the owning thread ends the safepoint.
+- Safepoint begin waits until all registered non-owner DVM mutators are parked. The owner can enumerate active call receiver/object-parameter roots from every registered DVM thread through `tl_dvm_visit_all_active_call_roots()`.
+- Unified DVM root composition now uses the all-thread active-call visitor rather than only the caller's thread-local chain.
+- Added source-contract tests for parking, ownership checks, and all-thread root enumeration.
+
+### Safety limits
+- This is cooperative DVM-interpreter coordination only. Threads currently executing native JNI/HLE code do not park until they return to an interpreter dispatch boundary. A permanently blocked native call can therefore prevent safepoint completion. Non-DVM host threads are not registered by this coordinator.
+- It roots DVM invocation receivers and object parameters, not arbitrary live DEX local registers. No verifier-derived register reference maps exist. Therefore this does NOT yet make heap sweeping safe.
+- No mark/sweep or reclamation enabled. Weak globals remain strong. Tests added but not executed; no compilation, workflow, IPA, or device testing. SideStore untouched.
+- Integration estimate remains **99.92%**. Safepoint coordination and all-thread invocation roots are implemented, but verifier maps, native-thread coverage, collector mark/sweep, and weak processing remain blockers.
+- Next: add verifier-backed register reference maps and make safepoint waits bounded/cancellable around native transitions; only then implement mark/sweep and weak-reference clearing.
