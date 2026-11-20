@@ -587,6 +587,18 @@ static jvalue *field_slot(jobj *o, tl_jfield *f)
     return &o->fields[f->index];
 }
 
+bool tl_jni_heap_contains(const void *candidate)
+{
+    if (!candidate) return false;
+    bool found = false;
+    pthread_mutex_lock(&g_heap_lock);
+    for (jobj *o = g_heap_objects; o; o = o->heap_next) {
+        if ((const void *)o == candidate) { found = true; break; }
+    }
+    pthread_mutex_unlock(&g_heap_lock);
+    return found;
+}
+
 bool tl_jni_visit_heap_objects(tl_jni_object_visitor visitor, void *context)
 {
     if (!visitor) return false;
