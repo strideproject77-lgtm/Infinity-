@@ -1,3 +1,12 @@
+## 2026-11-20 — Reclamation API safepoint-owner enforcement
+
+- Added `tl_dvm_safepoint_is_owner()`, which checks the active safepoint request and calling-thread ownership while holding the coordinator mutex.
+- Hardened `tl_jni_destroy_unreachable_object()`: when the DVM is active, it now refuses reclamation unless the caller is the current safepoint owner. Non-DVM reference-count destruction retains its existing path.
+- This closes an unsafe API-contract gap: a future collector or accidental caller cannot invoke the DVM reclamation primitive from an arbitrary thread outside the cooperative safepoint.
+- Added a source-contract regression test for the owner check and its enforcement at the object-destruction boundary.
+- **Progress accounting:** Husk integration advances from **99.96% to 99.97%**. This is a necessary safety gate, not permission to sweep: the complete mark result still must be connected to a collector-owned sweep pass, and native/weak-reference constraints remain.
+- Tests added but not run. No compilation, workflow, IPA build, APK/device test. SideStore untouched.
+
 ## 2026-11-20 — Native payload destructor lifecycle foundation
 
 - Added an optional per-object native-payload destructor hook, installable only once during object initialization and before the object is published.
