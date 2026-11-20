@@ -14,6 +14,7 @@
 
 #include "husk-tl-bionic.h"
 #include "husk-tl-internal.h"
+#include "husk-tl-jni-refs.h"
 #include "husk-tl-arm32.h"
 #include "husk-tl-ld.h"
 
@@ -2952,6 +2953,18 @@ static void visit_dex_runtime_roots(dvm_static_root_walk *walk)
             }
         }
     }
+}
+
+/* Compose the currently implemented DVM and typed-JNI root categories.
+ * Caller must externally stop every mutator and keep class/DEX metadata stable.
+ * Active interpreter call roots are currently per-thread; this function sees
+ * the calling thread's chain only, so it is not a process-wide safepoint. */
+bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *context)
+{
+    if (!visitor) return false;
+    tl_dvm_visit_static_roots(visitor, context);
+    tl_dvm_visit_active_call_roots(visitor, context);
+    return tl_jni_refs_visit_strong_roots(visitor, context);
 }
 
 void tl_dvm_visit_static_roots(tl_dvm_root_visitor visitor, void *context)
