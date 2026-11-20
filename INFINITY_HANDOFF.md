@@ -1374,3 +1374,23 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Overall Husk source integration remains **99%**. This fixes previously aliased JNI ABI slots but does not complete distinct local/global/weak-global opaque handles, accurate `GetObjectRefType`, or weak-reference collection semantics.
 - A correct handle conversion must cover every JNI object argument/return, native method entry/return, object arrays, fields, exceptions and frame ownership together. Do not claim 100% until that conversion is complete and source-audited.
 - No tests, compiler, workflow, IPA build/export, signing or device testing was performed. Once source integration reaches 100%, perform one consolidated validation/test pass as requested.
+
+## 2026-11-20 — JNI native-method local-frame lifecycle
+
+### Implemented on main
+- Exposed a small JNI API for opening and closing a local-reference frame around an interpreted native-method invocation.
+- Both the normal AArch64 JNI call path and the ARM32 JNI bridge path now enter a per-call local frame.
+- On return, the JNI object result is preserved into the caller's frame while temporary local references created by the native method are released.
+- Removed the previous native-return workaround that set returned object refcounts to a very large sentinel value; object-return ownership now flows through `PopLocalFrame` preservation.
+- Added source-contract assertions for both call paths, frame enter/leave, object-result preservation, and removal of the refcount sentinel.
+
+### Commits
+- Public JNI native-frame API: `61da7afb18a56dc6735465cb8526c0b31ad7b3ef`
+- JNI frame enter/leave implementation: `7143eab4efd17c17cf1a8b01ab9ef78bc5388f75`
+- DVM normal and ARM32 native-call integration: `b12505fc8872bfaa1eecd5047c936484629a3ccc`
+- Source-contract coverage: `34a5910e7f654a4f04eb864c593eedad37688b6f`
+
+### Remaining work and validation
+- This closes JNI local-reference frame lifetime at the native-method boundary, but it does not implement opaque local/global/weak-global handles or correct weak-GC behavior. The strong-retained weak-reference fallback is still only a safe lifetime compromise.
+- Overall Husk source integration remains **99%** until the cross-boundary JNI handle architecture and remaining ART/GC semantics are completed and audited.
+- No tests or compiler/build/workflow/IPA/device validation were run. After source integration reaches 100%, perform one consolidated test/validation pass.
