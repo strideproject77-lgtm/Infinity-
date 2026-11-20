@@ -797,7 +797,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("for (dvm_call_root_frame *f = frames[i];", walker)
         self.assertIn("return false;", walker)
         self.assertIn("return true;", walker)
-        self.assertIn("tl_dvm_visit_all_active_call_roots(visitor, context);", dvm)
+        self.assertIn("if (!tl_dvm_visit_all_active_call_roots(visitor, context)) return false;", dvm)
 
     def test_dex_root_callbacks_run_after_registry_lock_is_released(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
