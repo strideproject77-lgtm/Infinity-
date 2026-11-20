@@ -754,6 +754,17 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("return tl_dvm_safepoint_begin_timeout(5000);", dvm)
         self.assertIn("bool tl_dvm_safepoint_begin_timeout(uint32_t timeout_ms);", header)
 
+    def test_typed_jni_registry_exposes_opaque_non_dereferenced_tokens(self):
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.h")
+        refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
+        self.assertIn("void *tl_jni_refs_export_token(tl_jni_ref_handle *handle);", header)
+        self.assertIn("jobj *tl_jni_refs_acquire_token(const void *token);", header)
+        self.assertIn("tl_jni_ref_kind tl_jni_refs_token_kind(const void *token);", header)
+        self.assertIn("return tl_jni_refs_acquire((tl_jni_ref_handle *)token);", refs)
+        self.assertIn("return tl_jni_refs_get_kind((tl_jni_ref_handle *)token);", refs)
+        self.assertIn("it is never\\n     * dereferenced", refs)
+        self.assertIn("void *token = h && h->alive ? (void *)h : NULL;", refs)
+
     def test_dvm_root_snapshot_fails_closed_for_unparked_or_unframed_mutators(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         start = dvm.index("bool tl_dvm_visit_all_active_call_roots(")
