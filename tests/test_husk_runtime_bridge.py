@@ -664,6 +664,17 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("default: ret->l = preserved; break;", dvm)
         self.assertNotIn("((jobj *)ret->l)->refs = 1u << 30", dvm)
 
+    def test_native_jni_frames_root_incoming_receiver_and_object_arguments(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.h")
+        self.assertIn("bool tl_jni_native_frame_root(jobj *object)", header)
+        self.assertIn("return local_frame_adopt(tl_jni_ref(object)) != NULL;", jni)
+        self.assertIn("static bool native_frame_root_arguments", dvm)
+        self.assertIn("m->shorty[1 + i] == 'L'", dvm)
+        self.assertIn("native_frame_root_arguments(m, self, params)", dvm)
+        self.assertGreaterEqual(dvm.count("native_frame_root_arguments(m, self, params)"), 2)
+
     def test_nativeactivity_has_joinable_teardown_and_never_fakes_input_queue(self):
         native = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.h")
