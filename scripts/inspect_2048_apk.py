@@ -11,8 +11,8 @@ import argparse
 import hashlib
 import json
 import re
-import shutil
 import subprocess
+import zlib
 import sys
 import zipfile
 from pathlib import Path
@@ -43,13 +43,18 @@ def parse_dex_header(data: bytes) -> dict[str, Any]:
         raise ValueError(f"unexpected DEX header_size: {header_size}")
     if endian_tag != DEX_ENDIAN_CONSTANT:
         raise ValueError(f"unsupported DEX endian tag: 0x{endian_tag:08x}")
+    if hashlib.sha1(data[32:]).digest() != data[12:32]:
+        raise ValueError("DEX SHA-1 signature mismatch")
+    stored_checksum = int.from_bytes(data[8:12], "little")
+    if zlib.adler32(data[12:]) & 0xFFFFFFFF != stored_checksum:
+        raise ValueError("DEX Adler-32 checksum mismatch")
     fields = {
-        "string_ids_size": 56,
-        "type_ids_size": 64,
-        "proto_ids_size": 72,
-        "field_ids_size": 80,
-        "method_ids_size": 88,
-        "class_defs_size": 96,
+        "string_ids_size": (56, 60, 4),
+        "type_ids_size": (64, 68, 4),
+        "proto_ids_size": (72, 76, 12),
+        "field_ids_size": (80, 84, 8),
+        "method_ids_size": (88, 92, 8),
+        "class_defs_size": (96, 100, 32),
     }
     result: dict[str, Any] = {
         "version": version_bytes.decode("ascii"),
@@ -58,8 +63,16 @@ def parse_dex_header(data: bytes) -> dict[str, Any]:
         "checksum_adler32": data[8:12].hex(),
         "sha1_signature": data[12:32].hex(),
     }
-    for name, offset in fields.items():
-        result[name] = int.from_bytes(data[offset:offset + 4], "little")
+    for name, (size_offset, data_offset, item_size) in fields.items():
+        count = int.from_bytes(data[size_offset:size_offset + 4], "little")
+        offset = int.from_bytes(data[data_offset:data_offset + 4], "little")
+        if count == 0:
+            if offset != 0:
+                raise ValueError(f"empty DEX section has a nonzero offset: {name}")
+        elif (offset < DEX_HEADER_SIZE or offset % 4 != 0
+              or count > (len(data) - offset) // item_size):
+            raise ValueError(f"DEX section is out of bounds: {name}")
+        result[name] = count
     return result
 
 
@@ -71,10 +84,12 @@ def archive_inventory(apk_path: Path) -> dict[str, Any]:
         names = [item.filename for item in archive.infolist() if not item.is_dir()]
         if "AndroidManifest.xml" not in names:
             raise ValueError("APK has no AndroidManifest.xml")
-        dex_names = sorted(
+        dex_names = [
             name for name in names
-            if re.fullmatch(r"classes(?:[2-9][0-9]*)?\.dex", name)
-        )
+            if re.fullmatch(r"classes(?:[2-9]|[1-9][0-9]+)?\.dex", name)
+        ]
+        dex_names.sort(key=lambda name: 1 if name == "classes.dex"
+                       else int(name[len("classes"):-len(".dex")]))
         if not dex_names:
             raise ValueError("APK has no classes.dex")
         dex_headers = {}
