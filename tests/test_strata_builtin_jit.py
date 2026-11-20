@@ -59,6 +59,11 @@ class StrataBuiltInJITContractTests(unittest.TestCase):
         self.assertIn("INFINITYVersion.display", about)
         self.assertIn("INFINITYVersion.display", settings)
         self.assertIn("private var strataRuntimeManagerLink: some View", settings)
+        self.assertIn("launch: launchStrataApp", settings)
+        self.assertIn("private func launchStrataApp(_ app: LCAppModel)", settings)
+        self.assertIn("LCUtils.authenticateUser()", settings)
+        self.assertIn("try await app.runApp()", settings)
+        self.assertIn("Strata runtime · INFINITY", runtime)
 
         version = source("LiveContainerSwiftUI/Strata3/INFINITYVersion.swift")
         self.assertIn("enum INFINITYVersion", version)
