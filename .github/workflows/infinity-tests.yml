@@ -88,7 +88,7 @@ jobs:
 
   husk-bridge-header-check:
     name: Swift to Husk bridge header check
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: macos-15
     steps:
       - name: Check out source
@@ -134,7 +134,7 @@ jobs:
 
   swift-typecheck:
     name: Swift APK parser type-check
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: macos-15
     steps:
       - name: Check out source
