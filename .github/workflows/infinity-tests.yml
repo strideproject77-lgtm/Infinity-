@@ -48,6 +48,8 @@ on:
       - ".github/workflows/infinity-runtime-assets.yml"
       - ".github/workflows/infinity-husk-angle.yml"
       - "scripts/audit_husk_runtime.py"
+      - "scripts/test-portable-core.sh"
+      - ".github/workflows/infinity-cross-platform-core.yml"
       - "tests/test_apk_store_contract.py"
       - "tests/test_infinity_apk_archive.py"
       - "tests/test_husk_import_pipeline.py"
