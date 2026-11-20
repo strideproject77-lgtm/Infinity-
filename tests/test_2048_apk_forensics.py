@@ -134,7 +134,7 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
             (framework / "app").mkdir(parents=True)
             (framework / "view").mkdir(parents=True)
             (framework / "content/Context.java").write_text(
-                "package android.content; public class Context { "
+                "package android.content;\npublic class Context { "
                 "public Object getResources() { return null; } }",
                 encoding="utf-8",
             )
