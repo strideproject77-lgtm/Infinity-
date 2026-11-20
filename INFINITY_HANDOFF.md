@@ -1877,3 +1877,12 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Commits: `20949583750ea61d16407032c5861b31804dce59`, `7060dc3523ff9057e483fd25237ad070e00e8124`, `dd8d7adb199fc8df662b10148981557c0a3475f4`.
 - Important limitation: this is the registry adapter foundation only. The 233-slot JNI function table and DVM/native argument-return paths still use raw `jobj *`; they have NOT yet been switched to exported tokens. Do not claim JNI ABI migration complete and do not enable weak clearing or GC sweep.
 - No tests/compilation run; preserve the single consolidated GitHub validation plan. No IPA/APK build or device test. SideStore untouched.
+
+## 2026-11-20 — JNI opaque token identity hardening
+
+- Replaced exported JNI token values based on handle addresses with monotonically allocated opaque integer IDs encoded as `void *` values. IDs are resolved only by equality lookup in the registry; token values are never dereferenced.
+- Added registry token lookup, caller-thread ownership validation for export/acquire/kind operations, and fail-closed handling for invalid/stale IDs.
+- Added exhaustion handling without incorrectly releasing an unowned weak-global object, plus source-contract tests for monotonic token identity.
+- Commits: `935988d0f9d2fe4cd50616425f543c011295c470`, `f1b464acfb2dc2a390f6e8b656909778137bdad6`, `595685654da40732e5b9d350eb02f6c92bad57e7`.
+- Limitation remains: this hardens the token registry, but the JNI function table and DVM/native argument-return boundary still use raw `jobj *`. Full ABI migration requires coordinated conversion of every object-bearing JNI entry point and native return path; not yet complete. Collector sweep and weak-global clearing remain disabled.
+- No tests or compile run; keep single consolidated GitHub validation at the integration checkpoint. No IPA/APK build or device test. SideStore untouched.
