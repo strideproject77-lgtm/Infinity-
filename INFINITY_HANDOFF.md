@@ -1,3 +1,17 @@
+## 2026-11-20 — 2048 APKPure XAPK execution batch started
+
+- User's immediate target is the actual 2048 `.xapk` package downloaded from APKPure, with complete real execution through Husk. This is a stricter target than the previously pinned tpcstld v1.3.3 single-APK forensic fixture.
+- Confirmed the current importer already routes `.xapk`, `.apks`, and `.apkm` through the package-archive path and stores the base APK plus embedded split APKs. This is only source-level capability; it does not establish that the user's APKPure XAPK is fully supported.
+- Audited the current 2048 DEX-to-Husk framework API audit. Fixed superclass resolution so explicit and wildcard Java imports can be followed across the framework source tree; added a regression fixture for inherited Android framework methods.
+- Latest main commit: `21a6a754bf2ed87d8cdb8baa95e88359feeef7a1`.
+- Latest Linux regression workflow [44719396448](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44719396448) passed all **142 tests**.
+- Latest pinned 2048 forensic workflow [44719396438](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44719396438) passed its focused tests, downloaded the pinned upstream APK, completed AAPT/DEX inspection, and uploaded report artifact [2048-v1.3.3-apk-forensic-report](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44719396438/artifacts/14621114302). This remains static APK analysis, not game execution.
+- The exact APKPure XAPK binary has not yet been supplied in this conversation. Request it before claiming its package contents, split layout, OBB/assets, signatures, or package identity are verified. The current importer only extracts embedded `.apk` entries; it does not yet persist XAPK OBB payloads or validate APKPure's `manifest.json` metadata. Decide whether those are required only after inspecting the user's exact XAPK.
+- No IPA build, real device launch, rendering/input/gameplay test, or full 2048 compatibility claim. SideStore, LiveContainer, GitHub IPA build workflow, and Codemagic workflow were not intentionally modified in this batch.
+- Next: obtain the exact APKPure `.xapk` from the user; inventory every entry and manifest; compare base/split package names, version codes, signing certs, ABI/resources and OBB requirements; then implement only the missing real package/runtime behavior with regression tests and validate on an actual iOS build.
+
+---
+
 ## 2026-11-20 — 2048 exact distributable APK audit pinned on main
 
 - User-directed workflow: all current implementation work is on `main`; do not create branches or pull requests until the Version 1.0 testing phase.
