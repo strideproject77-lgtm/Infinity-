@@ -894,6 +894,10 @@ static int32_t jni_EnsureLocalCapacity(void *env, int32_t n)
 }
 /* Handles are raw jobj pointers in this compatibility VM, so local/global handle
  * identity cannot yet be distinguished when both refer to the same object. */
+/* The current object model has no tracing collector: retain weak globals strongly so
+ * their handles cannot dangle. This is a safe lifetime fallback, not ART weak-GC semantics. */
+static jo jni_NewWeakGlobalRef(void *env, jo o) { (void)env; return tl_jni_ref(o); }
+static void jni_DeleteWeakGlobalRef(void *env, jo o) { (void)env; tl_jni_unref(o); }
 static uint32_t jni_GetObjectRefType(void *env, jo o) { (void)env; return o ? 1u : 0u; }
 /* ART ensures the class is initialised before JNI object-creation and method-lookup operations. */
 static bool ensure_class_initialized(tl_jclass *jc)
@@ -907,6 +911,7 @@ static jo jni_AllocObject(void *env, jo cls)
     if (!ensure_class_initialized(cls->klass.jc)) return NULL;
     return local_frame_adopt(tl_jni_new_object(cls->klass.jc));
 }
+static jo jni_GetObjectClass(void *env, jo o)
 static jo jni_GetObjectClass(void *env, jo o)
 {
     (void)env;
@@ -2107,7 +2112,7 @@ static void build_tables(void)
     SLOT(219, jni_GetJavaVM); SLOT(220, jni_GetStringRegion); SLOT(221, jni_GetStringUTFRegion);
     SLOT(222, jni_GetPrimitiveArrayCritical); SLOT(223, jni_ReleasePrimitiveArrayCritical);
     SLOT(224, jni_GetStringCritical); SLOT(225, jni_ReleaseStringCritical);
-    SLOT(226, jni_NewGlobalRef); SLOT(227, jni_DeleteGlobalRef);
+    SLOT(226, jni_NewWeakGlobalRef); SLOT(227, jni_DeleteWeakGlobalRef);
     SLOT(228, jni_ExceptionOccurred);   /* replaced below: ExceptionCheck returns a boolean */
     SLOT(229, jni_NewDirectByteBuffer); SLOT(230, jni_GetDirectBufferAddress); SLOT(231, jni_GetDirectBufferCapacity);
     SLOT(232, jni_GetObjectRefType);
