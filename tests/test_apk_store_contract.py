@@ -77,6 +77,19 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("splitAPKCount: splitEntries.count", store)
         self.assertIn('Button("Import IPA / APK"', view)
 
+    def test_apkpure_xapk_manifest_selects_named_base_and_orders_all_splits(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        self.assertIn('container.entries.contains(where: { $0.path == "manifest.json" })', store)
+        self.assertIn('metadata["split_apks"] as? [[String: Any]]', store)
+        self.assertIn('identifier == "base"', store)
+        self.assertIn("xapkOrderedEntries", store)
+        self.assertIn("mapped.count == apkEntries.count", store)
+        self.assertIn("xapkPackageName != manifest.packageName", store)
+        self.assertIn('rawVersionCode as? NSNumber', store)
+        self.assertIn('let stringVersionCode = rawVersionCode as? String', store)
+        self.assertIn("splitManifest.packageName == manifest.packageName", store)
+        self.assertIn("splitManifest.versionCode == manifest.versionCode", store)
+
     def test_archive_extractor_streams_embedded_apks_without_large_heap_allocations(self):
         source = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.c")
         header = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h")
