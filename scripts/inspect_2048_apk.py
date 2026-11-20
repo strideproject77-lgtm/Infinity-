@@ -114,7 +114,8 @@ def archive_inventory(apk_path: Path) -> dict[str, Any]:
 
 
 def run_tool(command: list[str], output: Path) -> str:
-    completed = subprocess.run(command, check=True, text=True, stdout=subprocess.PIPE,
+    completed = subprocess.run(command, check=True, text=True, encoding="utf-8",
+                               errors="replace", stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT)
     output.write_text(completed.stdout, encoding="utf-8")
     return completed.stdout
