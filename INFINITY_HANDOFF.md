@@ -1,3 +1,17 @@
+## 2026-11-20 — GitHub regression suite green; native/Swift compile gates queued
+
+- Corrected the final stale root-contract assertion in `tests/test_husk_runtime_bridge.py`; fix commit: `1ed7be66e18adfbb1c9bf055b47b8d9442355c60`.
+- GitHub Actions run [44656407965](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656407965) completed successfully after the source-contract repairs.
+- Expanded CI coverage without building an app or IPA:
+  - `.github/workflows/infinity-tests.yml` now runs both Swift-to-Husk bridge header checks and Swift APK parser type-check on pushes as well as manual dispatch.
+  - `.github/workflows/infinity-husk-native-compile.yml` now runs the iPhoneOS arm64 compile-only audit on Husk translation source/workflow changes. It invokes `scripts/check_husk_native_sources.sh`; no link/archive/sign/package step.
+- Workflow commits: `916c7d44f0a6244c67bb48f4f0d8c10460d181aa`, `fc83d10991a2639acb81b1850cc906accb0d3718`, `de72fba9caf00036df99193175cd0654a23a1521`.
+- Latest source-contract test job on run [44656527518](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656527518) passed all **117 tests** and the audit-script syntax step. At last inspection, the overall run was still queued/in progress for macOS Swift checks; separate native iOS source compile run [44656476247](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656476247) was queued. Inspect both before calling CI fully green.
+- **Integration progress:** the old `99.98%` aggregate remains withdrawn; do not claim 100%. The raw guest JNI ABI still uses `jobj *`, native argument/return marshaling is not fully migrated to opaque handles, DVM mark traversal is not connected to a safe sweep, and weak-global clearing remains gated off. These are runtime integration blockers, not test assertion issues.
+- No IPA/APK build or device execution. SideStore untouched.
+
+---
+
 ## 2026-11-20 — CI regression audit and test repair
 
 - Audited failed GitHub Actions run `44655868527` on commit `d99cec2aa5c2dbd7cfe5b06a3fc6b6c54ff1ee72`.
