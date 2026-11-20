@@ -1,3 +1,14 @@
+## JNI global/weak-global typed registry integration batch — 2026-11-20
+
+- Replaced the direct refcount-only global-reference functions with a synchronized adapter registry. Each created global reference now receives a distinct `TL_JNI_REF_GLOBAL` typed-registry handle; deletion invalidates that handle and releases its registry-owned object reference.
+- Weak-global creation/deletion now use distinct `TL_JNI_REF_WEAK_GLOBAL` handles through the same adapter registry. Until the DVM tracing collector and safepoint protocol are complete, the lower-level registry retains weak globals strongly as the safe lifetime fallback.
+- Implemented JNI `GetObjectRefType` classification using current-thread local-frame membership first, then tracked global/weak-global kind (JNI values 1, 2, and 3 respectively); null remains 0.
+- Added a focused source-contract test covering typed global/weak creation, deletion, and reference-kind classification.
+- Source commits: `fa33f06f2345d259006802dad45d092de08c56df` and `fb2b66557524e1e1dd2247d74aa6b8cba5f69570`.
+- **Progress accounting:** Husk integration is now **99.60%**. This batch wires global and weak-global ownership into the typed registry, but does not yet expose opaque typed tokens through the guest-facing JNI ABI. Because the active ABI still carries raw `jobj *` values, two same-object references of the same kind cannot be distinguished by their raw value at call boundaries; the adapter tracks separate ownership entries internally. True weak collection remains disabled until DVM tracing GC/root traversal is safe.
+- Remaining locked work: (1) guest-facing typed-handle conversion and full JNI boundary resolution; (2) native argument/return marshaling migration; (3) DVM tracing GC with complete root traversal; (4) weak-global clearing integrated with collector weak processing.
+- No tests, compiler run, workflow run, IPA build, or device/APK test was performed. The regression test is committed for the planned single consolidated GitHub test pass. SideStore remains untouched.
+
 ## JNI local-reference shadow-root deletion refinement — 2026-11-20
 
 - Changed the legacy JNI local-frame bookkeeping from a raw `jobj *` array to per-slot entries containing both the object pointer and its typed-registry `tl_jni_ref_handle *`.
