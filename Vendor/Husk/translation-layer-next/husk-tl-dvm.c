@@ -2893,18 +2893,50 @@ static _Thread_local dvm_static_root_walk *t_static_root_walk;
 static void visit_class_static_roots(tl_jclass *jc)
 {
     dvm_static_root_walk *walk = t_static_root_walk;
-    if (!walk || !walk->visitor || !jc || !jc->dvm || !jc->statics || jc->nstatics <= 0)
-        return;
+    if (!walk || !walk->visitor || !jc) return;
 
+    /* A class mirror is runtime-owned even when the class has no static fields. */
+    if (jc->mirror) walk->visitor(jc->mirror, walk->context);
     dvm_class *c = jc->dvm;
-    for (int i = 0; i < c->nsf; i++) {
-        const char *type = c->sf[i].type;
-        if (!type || (type[0] != 'L' && type[0] != '[')) continue;
-        uint32_t slot = c->sf[i].slot;
-        if (slot >= (uint32_t)jc->nstatics) continue;
-        jobj *object = (jobj *)jc->statics[slot].l;
-        if (object) walk->visitor(object, walk->context);
+    if (!c) return;
+
+    /* Proxy metadata keeps the reflected Method and checked-exception Class[] alive. */
+    for (int group = 0; group < 2; group++) {
+        dvm_method *methods = group ? c->vm : c->dm;
+        int count = group ? c->nvm : c->ndm;
+        for (int i = 0; methods && i < count; i++) {
+            if (methods[i].proxy_method) walk->visitor(methods[i].proxy_method, walk->context);
+            if (methods[i].proxy_throws) walk->visitor(methods[i].proxy_throws, walk->context);
+        }
     }
+
+    if (jc->statics && jc->nstatics > 0) {
+        for (int i = 0; i < c->nsf; i++) {
+            const char *type = c->sf[i].type;
+            if (!type || (type[0] != 'L' && type[0] != '[')) continue;
+            uint32_t slot = c->sf[i].slot;
+            if (slot >= (uint32_t)jc->nstatics) continue;
+            jobj *object = (jobj *)jc->statics[slot].l;
+            if (object) walk->visitor(object, walk->context);
+        }
+    }
+}
+
+static void visit_dex_runtime_roots(dvm_static_root_walk *walk)
+{
+    if (!walk || !walk->visitor) return;
+    /* DEX string caches and dynamic DexFile class loaders are runtime-owned roots. */
+    pthread_mutex_lock(&g_lock);
+    for (int i = 0; i < g_ndex; i++) {
+        dvm_dex *dex = g_dex[i];
+        if (!dex) continue;
+        if (dex->loader) walk->visitor(dex->loader, walk->context);
+        if (dex->scache) {
+            for (uint32_t n = 0; n < dex->nstr; n++)
+                if (dex->scache[n]) walk->visitor(dex->scache[n], walk->context);
+        }
+    }
+    pthread_mutex_unlock(&g_lock);
 }
 
 void tl_dvm_visit_static_roots(tl_dvm_root_visitor visitor, void *context)
@@ -2914,6 +2946,7 @@ void tl_dvm_visit_static_roots(tl_dvm_root_visitor visitor, void *context)
     dvm_static_root_walk *previous = t_static_root_walk;
     t_static_root_walk = &walk;
     tl_jni_each_declared(visit_class_static_roots);
+    visit_dex_runtime_roots(&walk);
     t_static_root_walk = previous;
 }
 
