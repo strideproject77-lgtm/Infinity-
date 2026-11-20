@@ -743,6 +743,25 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
                         body.index("static const char *watch;"))
         self.assertIn("t_call_root_frames = root_frame.previous;", body)
 
+    def test_dvm_cooperative_safepoint_parks_registered_mutators(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
+        self.assertIn("pthread_cond_wait(&g_safepoint_cv, &g_safepoint_lock)", dvm)
+        self.assertIn("t_mutator.parked = true;", dvm)
+        self.assertIn("dvm_safepoint_poll();", dvm)
+        self.assertIn("bool tl_dvm_safepoint_begin(void);", header)
+        self.assertIn("void tl_dvm_safepoint_end(void);", header)
+
+    def test_dvm_all_thread_roots_require_owned_safepoint(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        start = dvm.index("void tl_dvm_visit_all_active_call_roots(")
+        end = dvm.index("\nvoid tl_dvm_visit_active_call_roots", start)
+        walker = dvm[start:end]
+        self.assertIn("!g_safepoint_requested", walker)
+        self.assertIn("pthread_equal(g_safepoint_owner, pthread_self())", walker)
+        self.assertIn("for (dvm_call_root_frame *f = frames[i];", walker)
+        self.assertIn("tl_dvm_visit_all_active_call_roots(visitor, context);", dvm)
+
     def test_dex_root_callbacks_run_after_registry_lock_is_released(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         start = dvm.index("static void visit_dex_runtime_roots(")
