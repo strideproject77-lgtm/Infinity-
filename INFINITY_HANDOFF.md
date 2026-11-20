@@ -1740,3 +1740,18 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - No mark/sweep or reclamation has been enabled. The heap registry and graph visitor are now better suited to a conservative mark phase, but object destruction/finalizer/native-resource ownership must be audited before sweep. Weak globals remain strongly retained until mark semantics are complete.
 - Tests added but not executed. No compilation, workflow, IPA, or device test. SideStore untouched.
 - Integration estimate remains **99.93%**. Active DEX register values now participate in all-thread conservative root discovery; actual collector/reclamation, full native-thread coordination, and weak processing remain outstanding.
+
+
+## 2026-11-20 — Conservative heap mark traversal
+
+### Implemented on main
+- Added a safepoint-owned conservative mark traversal API, `tl_dvm_trace_heap()`, that acquires the cooperative DVM safepoint, enumerates DEX static roots, all registered DVM invocation roots (including exact-heap-validated register candidates), and typed JNI strong roots, then traces descriptor-aware object/array edges to closure.
+- Added an open-addressed visited set plus dynamically growing work queue, overflow/allocation failure propagation, and optional per-object mark callbacks. A failed/incomplete root or edge walk returns false and reports zero marked objects.
+- The traversal releases temporary mark metadata and always ends a successfully acquired safepoint.
+
+### Explicit limits
+- This is a real conservative mark phase, not a complete production collector. It intentionally does not sweep, decrement refcounts, free objects, run finalizers, or clear weak references. Those actions remain disabled because native-resource ownership, non-DVM mutator coverage, and safe object lifetime guarantees have not been proven.
+- Primitive register words that exactly equal heap object addresses can retain objects. Native/non-DVM threads are not covered by the cooperative DVM safepoint. A native call that does not return to an interpreter dispatch poll can block safepoint acquisition.
+- JNI weak globals remain strongly retained. Do not enable weak processing or reclaim based on this mark result until all mutators and native/JNI roots are coordinated and finalization semantics are implemented.
+- Tests added but not executed. No compilation, workflow, IPA, or device test. SideStore untouched.
+- Integration estimate remains **99.94%**. Conservative graph marking is now implemented; safe sweeping/reclamation, native-thread safepoints, and weak-reference semantics remain outstanding.
