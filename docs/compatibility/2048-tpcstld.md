@@ -32,7 +32,14 @@ The source audit found implementations for the core platform APIs used by the ga
 
 The source-level regression contract is `tests/test_2048_compatibility_contract.py`. It protects these known API paths; it does not prove that the app launches or renders correctly.
 
-## Pinned distributable APK forensic audit\n\n- Selected the upstream GitHub release asset `133-release.apk` from tag `1.3.3` as the reproducible APK under test. The published asset is 2,233,942 bytes; the audit workflow computes and records its SHA-256 at run time rather than assuming an unverified digest.\n- `scripts/inspect_2048_apk.py` validates the ZIP/DEX structure, records DEX header table counts, checks the package identity with AAPT, dumps the binary manifest and resources, and disassembles every DEX file with `dexdump`. It also records AndroidX and Google Play SDK class descriptors found in DEX strings.\n- `.github/workflows/2048-apk-forensics.yml` downloads that exact release asset and publishes a report artifact. The report is static evidence only: it does not prove class verification, framework execution, or a successful Husk launch.\n- The actual inspection results remain pending until the workflow completes and its artifact is reviewed.\n\n## Remaining blockers before claiming full support
+## Pinned distributable APK forensic audit
+
+- Selected the upstream GitHub release asset `133-release.apk` from tag `1.3.3` as the reproducible APK under test. The published asset is 2,233,942 bytes; the audit workflow computes and records its SHA-256 at run time rather than assuming an unverified digest.
+- `scripts/inspect_2048_apk.py` validates the ZIP/DEX structure, records DEX header table counts, checks the package identity with AAPT, dumps the binary manifest and resources, and disassembles every DEX file with `dexdump`. It also records AndroidX and Google Play SDK class descriptors found in DEX strings.
+- `.github/workflows/2048-apk-forensics.yml` downloads that exact release asset and publishes a report artifact. The report is static evidence only: it does not prove class verification, framework execution, or a successful Husk launch.
+- The actual inspection results remain pending until the workflow completes and its artifact is reviewed.
+
+## Remaining blockers before claiming full support
 
 1. Inspect the exact distributable APK's manifest, DEX files, resources, and dependency contents. The upstream source tree is not a substitute for the exact APK under test.
 2. Verify DEX opcodes and class verification for the app's compiled code and bundled AndroidX dependencies.
