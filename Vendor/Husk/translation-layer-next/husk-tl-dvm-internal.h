@@ -107,6 +107,8 @@ bool dvm_assignable(tl_jclass *sub, tl_jclass *sup);
 tl_jclass *dvm_object_class(jobj *o);                   /* what getClass() says, arrays and classes included */
 bool dvm_throw(const char *cls, const char *fmt, ...) __attribute__((format(printf, 2, 3)));   /* always false */
 jvalue *dvm_slots(jobj *o);                             /* the object's instance slots (made for Class mirrors on demand) */
+/* Exact heap membership check; does not dereference candidate pointers. */
+bool tl_jni_heap_contains(const void *candidate);
 void dvm_monitor_enter(jobj *o);
 bool dvm_monitor_exit(jobj *o);
 jobj *dvm_current_thread(void);
