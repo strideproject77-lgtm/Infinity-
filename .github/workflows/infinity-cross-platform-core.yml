@@ -1,0 +1,43 @@
+name: INFINITY cross-platform core
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.c"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"
+      - "LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift"
+      - "LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift"
+      - "Vendor/Husk/include/**"
+      - "scripts/test-portable-core.sh"
+      - ".github/workflows/infinity-cross-platform-core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ubuntu:
+    name: Shared core (Ubuntu)
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+      - name: Run shared-source checks
+        run: bash scripts/test-portable-core.sh
+
+  macos:
+    name: Shared core (macOS manual verification)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shared-source checks
+        run: bash scripts/test-portable-core.sh
