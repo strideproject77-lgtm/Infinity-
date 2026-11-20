@@ -701,7 +701,9 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         unlock = walker.rindex("pthread_mutex_unlock(&g_refs_lock);")
         callback = walker.index("visitor(snapshot[i], context)")
         self.assertLess(unlock, callback)
-        self.assertIn("if (count && !snapshot) return false;", walker)
+        self.assertIn("if (!grown)", walker)
+        self.assertIn("pthread_mutex_unlock(&g_refs_lock);", walker)
+        self.assertIn("return true;", walker)
         self.assertIn("return used == count;", walker)
 
     def test_dvm_composes_available_current_thread_and_jni_roots(self):
