@@ -1423,7 +1423,14 @@ static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue 
         return dvm_throw("java/lang/UnsatisfiedLinkError", "No implementation found for %s.%s%s", m->cls->name, m->name, m->sig);
     }
     if (g_dvm_trace >= 2) tl_log_line("dvm: jni %s.%s%s", m->cls->name, m->name, m->sig);
-    if (tl_a32_is_fn(fn)) return tl_a32_jni_native(fn, m, self, params, ret);
+    if (tl_a32_is_fn(fn)) {
+        if (!tl_jni_native_frame_enter()) return false;
+        bool ok = tl_a32_jni_native(fn, m, self, params, ret);
+        jobj *native_result = ok && ret && m->shorty[0] == 'L' ? (jobj *)ret->l : NULL;
+        jobj *preserved = tl_jni_native_frame_leave(native_result);
+        if (ret && m->shorty[0] == 'L') ret->l = preserved;
+        return ok && !tl_jni_pending();
+    }
     int64_t gp[8]; double fp[8];
     if (m->nparams < 0 || m->nparams > 4096)
         return dvm_throw("java/lang/VerifyError", "native method has invalid parameter count: %d", m->nparams);
@@ -1455,9 +1462,12 @@ static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue 
         }
     }
     char rk = m->shorty[0];
+    if (!tl_jni_native_frame_enter()) { free(stk); return false; }
     double dr = 0;
     int64_t r = tl_dvm_jcall(fn, gp, fp, stk, (uint64_t)ns, &dr);
     free(stk);
+    jobj *native_result = rk == 'L' && r ? (jobj *)(uintptr_t)r : NULL;
+    jobj *preserved = tl_jni_native_frame_leave(native_result);
     if (rk == 'F' || rk == 'D') {
         union { double d; uint64_t u; } u = { .d = dr };
         if (rk == 'F') ret->i = (int32_t)(uint32_t)u.u; else ret->j = (int64_t)u.u;
@@ -1470,7 +1480,7 @@ static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue 
         case 'I': ret->i = (int32_t)r; break;
         case 'J': ret->j = r; break;
         case 'V': ret->j = 0; break;
-        default: ret->l = (void *)(uintptr_t)r; if (ret->l) ((jobj *)ret->l)->refs = 1u << 30; break;
+        default: ret->l = preserved; break;
         }
     }
     return !tl_jni_pending();
