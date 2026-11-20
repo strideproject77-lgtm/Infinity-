@@ -46,7 +46,21 @@ static jobj *obj_alloc(uint8_t kind, tl_jclass *cls)
     return o;
 }
 
-jobj *tl_jni_ref(jobj *o) { if (o) __atomic_add_fetch(&o->refs, 1, __ATOMIC_RELAXED); return o; }
+jobj *tl_jni_ref(jobj *o)
+{
+    if (!o) return NULL;
+
+    /* A wrapped refcount must never become zero: zero is the destruction
+     * transition in the non-DVM lifetime path. Saturate instead, making an
+     * extremely over-retained object immortal rather than allowing wraparound. */
+    uint32_t refs = __atomic_load_n(&o->refs, __ATOMIC_RELAXED);
+    while (refs != UINT32_MAX) {
+        if (__atomic_compare_exchange_n(&o->refs, &refs, refs + 1, true,
+                                         __ATOMIC_RELAXED, __ATOMIC_RELAXED))
+            break;
+    }
+    return o;
+}
 
 
 /* JNI local references are scoped to the calling native thread and its pushed frames.
@@ -135,7 +149,17 @@ void tl_jni_unref(jobj *o)
     /* With the Java runtime up, objects live as long as Java can reach them, which reference counts from native code do not
      * know about: nothing is freed here (a tracing collector's job). */
     if (tl_dvm) return;
-    if (__atomic_sub_fetch(&o->refs, 1, __ATOMIC_ACQ_REL) != 0) return;
+
+    /* Ignore duplicate releases instead of underflowing the counter. Only the
+     * thread that performs the 1 -> 0 transition owns destruction. */
+    uint32_t refs = __atomic_load_n(&o->refs, __ATOMIC_ACQUIRE);
+    for (;;) {
+        if (refs == 0) return;
+        if (__atomic_compare_exchange_n(&o->refs, &refs, refs - 1, true,
+                                        __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))
+            break;
+    }
+    if (refs != 1) return;
     switch (o->kind) {
     case TL_K_STRING: free(o->str.utf8); free(o->str.u16); break;
     case TL_K_PRIM_ARRAY: free(o->arr.data); break;
