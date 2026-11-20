@@ -1410,6 +1410,22 @@ static bool native_platform_ok_to_stub(const char *n)
         || strncmp(n, "libcore/", 8) == 0;
 }
 
+static bool native_frame_root_arguments(dvm_method *m, jobj *self, const jvalue *params)
+{
+    if (!m || !m->shorty || m->nparams < 0 || m->nparams > 4096) return false;
+
+    /* A JNI static method receives its jclass as the second native argument. */
+    jobj *receiver = (m->flags & 8) ? m->cls->jc->mirror : self;
+    if (receiver && !tl_jni_native_frame_root(receiver)) return false;
+
+    for (int i = 0; i < m->nparams; i++) {
+        if (m->shorty[1 + i] == 'L' && params[i].l &&
+            !tl_jni_native_frame_root((jobj *)params[i].l))
+            return false;
+    }
+    return true;
+}
+
 static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue *ret)
 {
     if (m->intrinsic) return m->intrinsic(self, params, ret);
@@ -1425,6 +1441,10 @@ static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue 
     if (g_dvm_trace >= 2) tl_log_line("dvm: jni %s.%s%s", m->cls->name, m->name, m->sig);
     if (tl_a32_is_fn(fn)) {
         if (!tl_jni_native_frame_enter()) return false;
+        if (!native_frame_root_arguments(m, self, params)) {
+            (void)tl_jni_native_frame_leave(NULL);
+            return false;
+        }
         bool ok = tl_a32_jni_native(fn, m, self, params, ret);
         jobj *native_result = ok && ret && m->shorty[0] == 'L' ? (jobj *)ret->l : NULL;
         jobj *preserved = tl_jni_native_frame_leave(native_result);
@@ -1463,6 +1483,11 @@ static bool call_native(dvm_method *m, jobj *self, const jvalue *params, jvalue 
     }
     char rk = m->shorty[0];
     if (!tl_jni_native_frame_enter()) { free(stk); return false; }
+    if (!native_frame_root_arguments(m, self, params)) {
+        free(stk);
+        (void)tl_jni_native_frame_leave(NULL);
+        return false;
+    }
     double dr = 0;
     int64_t r = tl_dvm_jcall(fn, gp, fp, stk, (uint64_t)ns, &dr);
     free(stk);
