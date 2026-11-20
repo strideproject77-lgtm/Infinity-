@@ -156,6 +156,28 @@ jobj *tl_jni_refs_acquire(tl_jni_ref_handle *handle)
     return object;
 }
 
+void *tl_jni_refs_export_token(tl_jni_ref_handle *handle)
+{
+    if (!handle) return NULL;
+    pthread_mutex_lock(&g_refs_lock);
+    tl_jni_ref_handle *h = find_locked(handle);
+    void *token = h && h->alive ? (void *)h : NULL;
+    pthread_mutex_unlock(&g_refs_lock);
+    return token;
+}
+
+jobj *tl_jni_refs_acquire_token(const void *token)
+{
+    /* A token is only compared against registry entries; it is never
+     * dereferenced. This also makes stale/deleted tokens fail closed. */
+    return tl_jni_refs_acquire((tl_jni_ref_handle *)token);
+}
+
+tl_jni_ref_kind tl_jni_refs_token_kind(const void *token)
+{
+    return tl_jni_refs_get_kind((tl_jni_ref_handle *)token);
+}
+
 tl_jni_ref_kind tl_jni_refs_get_kind(tl_jni_ref_handle *handle)
 {
     tl_jni_ref_kind kind = TL_JNI_REF_INVALID;
