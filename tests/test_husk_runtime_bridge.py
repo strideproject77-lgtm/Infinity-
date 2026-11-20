@@ -133,6 +133,17 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertEqual(bridge_job.count('-sdk "$(xcrun --sdk iphoneos --show-sdk-path)"'), 2)
         self.assertEqual(bridge_job.count("-target arm64-apple-ios15.0"), 2)
 
+    def test_weak_jni_mark_callbacks_run_outside_the_reference_registry_lock(self):
+        refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
+        body = refs[refs.index("void tl_jni_refs_process_weak"): ]
+        snapshot_unlock = body.index("pthread_mutex_unlock(&g_refs_lock)")
+        mark_callback = body.index("is_marked(snapshot[i], context)")
+        relock = body.index("pthread_mutex_lock(&g_refs_lock)", snapshot_unlock + 1)
+        self.assertLess(snapshot_unlock, mark_callback)
+        self.assertLess(mark_callback, relock)
+        self.assertIn("if (!grown)", body)
+        self.assertIn("free(snapshot)", body)
+
     def test_dex_invoke_register_count_is_checked_against_prototype(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         self.assertIn("expected_slots != count", dvm)

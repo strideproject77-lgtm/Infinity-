@@ -328,15 +328,62 @@ bool tl_jni_refs_visit_strong_roots(tl_jni_refs_root_visitor visitor, void *cont
 void tl_jni_refs_process_weak(tl_jni_refs_is_marked is_marked, void *context)
 {
     /* Clearing weak targets is only valid while every DVM mutator is parked.
-     * The guest ABI still uses raw object pointers, so weak-GC activation remains
-     * disabled by default until handle resolution is converted at the JNI boundary. */
+     * Snapshot target pointers under the registry lock, then call the collector
+     * without holding that lock. A failed allocation leaves every weak ref intact. */
     if (!is_marked || !tl_dvm_safepoint_is_owner()) return;
+
+    jobj **snapshot = NULL;
+    size_t count = 0, capacity = 0;
     pthread_mutex_lock(&g_refs_lock);
     if (g_weak_gc_enabled) {
         for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
-            if (h->alive && h->kind == TL_JNI_REF_WEAK_GLOBAL && h->object &&
-                !is_marked(h->object, context)) h->object = NULL;
+            if (!h->alive || h->kind != TL_JNI_REF_WEAK_GLOBAL || !h->object) continue;
+            bool already_seen = false;
+            for (size_t i = 0; i < count; i++) {
+                if (snapshot[i] == h->object) { already_seen = true; break; }
+            }
+            if (already_seen) continue;
+            if (count == capacity) {
+                size_t next_capacity = capacity ? capacity * 2 : 16;
+                if (next_capacity < capacity || next_capacity > SIZE_MAX / sizeof(*snapshot)) {
+                    pthread_mutex_unlock(&g_refs_lock);
+                    free(snapshot);
+                    return;
+                }
+                jobj **grown = realloc(snapshot, next_capacity * sizeof(*snapshot));
+                if (!grown) {
+                    pthread_mutex_unlock(&g_refs_lock);
+                    free(snapshot);
+                    return;
+                }
+                snapshot = grown;
+                capacity = next_capacity;
+            }
+            snapshot[count++] = h->object;
         }
     }
     pthread_mutex_unlock(&g_refs_lock);
+
+    size_t dead_count = 0;
+    for (size_t i = 0; i < count; i++) {
+        if (!is_marked(snapshot[i], context))
+            snapshot[dead_count++] = snapshot[i];
+    }
+
+    if (dead_count) {
+        pthread_mutex_lock(&g_refs_lock);
+        if (g_weak_gc_enabled) {
+            for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
+                if (!h->alive || h->kind != TL_JNI_REF_WEAK_GLOBAL || !h->object) continue;
+                for (size_t i = 0; i < dead_count; i++) {
+                    if (h->object == snapshot[i]) {
+                        h->object = NULL;
+                        break;
+                    }
+                }
+            }
+        }
+        pthread_mutex_unlock(&g_refs_lock);
+    }
+    free(snapshot);
 }
