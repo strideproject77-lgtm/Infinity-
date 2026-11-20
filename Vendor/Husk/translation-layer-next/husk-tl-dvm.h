@@ -55,6 +55,11 @@ void tl_dvm_visit_active_call_roots(tl_dvm_root_visitor visitor, void *context);
 /* Visit static, current-thread active-call, and typed JNI strong roots.
  * Requires external all-mutator safepoint; not a stop-the-world implementation. */
 bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *context);
+/* Cooperative interpreter safepoint. begin blocks until other DVM mutators park. */
+bool tl_dvm_safepoint_begin(void);
+void tl_dvm_safepoint_end(void);
+/* Valid only between successful begin/end on the owning thread. */
+void tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *context);
 void tl_dvm_set_trace(int level);       /* 1: classes and natives; 2: every invoke */
 
 #ifdef __cplusplus
