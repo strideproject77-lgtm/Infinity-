@@ -201,7 +201,7 @@ def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
             r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*:\s*\(",
             block,
         ):
-            if owner.startswith("Landroid/") and not owner.startswith("Landroid/support/"):
+            if owner.startswith("Landroid/") and not owner.startswith(("Landroid/support/", "Landroid/arch/")):
                 refs.add(f"{owner}->{method}")
     return {
         "class_descriptor_count": len(descriptors),
@@ -216,12 +216,13 @@ def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
 
 
 def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict[str, Any]:
-    """Check referenced Android API methods against Husk Java framework sources and superclasses."""
+    """Check Android framework method refs against Husk sources and inherited APIs."""
     source_roots = (
         repo_root / "Vendor/Husk/src/java-framework/src",
         repo_root / "Vendor/Husk/src/java-framework/gen-src",
+        repo_root / "Vendor/Husk/src/java-framework/stubs",
     )
-    source_cache: dict[str, tuple[str, str, dict[str, str]] | None] = {}
+    source_cache: dict[str, tuple[str, str, dict[str, str], list[str]] | None] = {}
 
     def source_exists(qualified_name: str) -> bool:
         relative = qualified_name.replace(".", "/") + ".java"
@@ -255,64 +256,91 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
         source_cache[descriptor] = None
         return None
 
-    def parent_descriptor(descriptor: str, source: str, package: str,
-                          imports: dict[str, str],
-                          wildcard_imports: list[str]) -> str | None:
-        simple_name = descriptor[1:-1].split("/")[-1].split("$")[-1]
-        declaration = re.search(
-            r"\b(?:class|interface|enum)\s+" + re.escape(simple_name)
-            + r"\b(?:\s*<[^>{}]*>)?\s+extends\s+([\w.$]+)",
-            source,
-        )
-        if declaration is None:
+    def resolve_type(type_name: str, package: str, imports: dict[str, str],
+                     wildcard_imports: list[str]) -> str | None:
+        type_name = re.sub(r"<.*>", "", type_name).strip()
+        if not type_name:
             return None
-        parent = declaration.group(1)
-        if parent in imports:
-            qualified = imports[parent]
-        elif parent.startswith(("android.", "java.", "javax.", "dalvik.")):
-            qualified = parent
-        elif "." in parent:
-            qualified = parent
+        if type_name in imports:
+            qualified = imports[type_name]
+        elif type_name.startswith(("android.", "java.", "javax.", "dalvik.", "org.")):
+            qualified = type_name
+        elif "." in type_name:
+            qualified = type_name
         else:
-            candidates = ([package + "." + parent] if package else []) + [
-                prefix + "." + parent for prefix in wildcard_imports
+            candidates = ([package + "." + type_name] if package else []) + [
+                prefix + "." + type_name for prefix in wildcard_imports
             ]
             qualified = next((candidate for candidate in candidates
                               if source_exists(candidate)), None)
+            if qualified is None and type_name in {
+                "Object", "Thread", "Throwable", "Enum", "String",
+                "RuntimeException", "AutoCloseable", "Cloneable",
+            }:
+                qualified = "java.lang." + type_name
             if qualified is None:
                 return None
         return "L" + qualified.replace(".", "/") + ";"
 
+    def parent_descriptors(descriptor: str, source: str, package: str,
+                           imports: dict[str, str],
+                           wildcard_imports: list[str]) -> list[str]:
+        simple_name = descriptor[1:-1].split("/")[-1].split("$")[-1]
+        declaration = re.search(
+            r"\b(?:class|interface|enum)\s+" + re.escape(simple_name)
+            + r"\b(?:\s*<[^>{}]*>)?\s*([^{]+)",
+            source,
+        )
+        if declaration is None:
+            return []
+        header = declaration.group(1)
+        parent_names = []
+        for clause in re.finditer(r"\b(?:extends|implements)\s+([^;{]+)", header):
+            parent_names.extend(item.strip() for item in clause.group(1).split(","))
+        resolved = []
+        for name in parent_names:
+            parent = resolve_type(name, package, imports, wildcard_imports)
+            if parent and parent not in resolved:
+                resolved.append(parent)
+        return resolved
+
     missing_methods = []
     missing_owners = set()
     checked = 0
-    object_methods = {"equals", "hashCode", "toString", "getClass", "wait",
-                      "notify", "notifyAll", "clone", "finalize"}
     for reference in sorted(set(method_refs)):
         if "->" not in reference:
             continue
         owner, method = reference.split("->", 1)
+        # android.arch.lifecycle is bundled in this APK as a library, not supplied by the platform.
+        if owner.startswith("Landroid/arch/"):
+            continue
         checked += 1
-        current = owner
+        pending = [owner]
         visited = set()
-        found = method in object_methods
-        for _ in range(10):
-            if found or current in visited:
-                break
+        found = False
+        owner_source_missing = False
+        while pending and len(visited) < 32:
+            current = pending.pop()
+            if current in visited:
+                continue
             visited.add(current)
+            if current.startswith("Ljava/lang/"):
+                found = True
+                break
             loaded = load_source(current)
             if loaded is None:
                 if current == owner:
-                    missing_owners.add(owner)
-                break
+                    owner_source_missing = True
+                continue
             source, package, imports, wildcard_imports = loaded
             if re.search(r"\b" + re.escape(method) + r"\s*\(", source):
                 found = True
                 break
-            parent = parent_descriptor(current, source, package, imports, wildcard_imports)
-            if parent is None:
-                break
-            current = parent
+            pending.extend(
+                parent_descriptors(current, source, package, imports, wildcard_imports)
+            )
+        if owner_source_missing:
+            missing_owners.add(owner)
         if not found:
             missing_methods.append(reference)
     return {
@@ -322,7 +350,6 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
         "unresolved_method_refs": missing_methods,
         "unresolved_method_ref_count": len(missing_methods),
     }
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
