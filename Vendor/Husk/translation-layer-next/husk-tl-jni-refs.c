@@ -199,6 +199,25 @@ jobj *tl_jni_refs_acquire_token(const void *token)
     return object;
 }
 
+bool tl_jni_refs_resolve_token(const void *token, jobj **out_object)
+{
+    if (!out_object) return false;
+    *out_object = NULL;
+    /* JNI null is a valid reference value, not a malformed token. */
+    if (!token) return true;
+
+    pthread_mutex_lock(&g_refs_lock);
+    tl_jni_ref_handle *h = find_token_locked(token);
+    bool valid = h && h->alive && local_owned_by_caller(h);
+    jobj *object = valid && h->object ? tl_jni_ref(h->object) : NULL;
+    pthread_mutex_unlock(&g_refs_lock);
+
+    if (!valid) return false;
+    /* A cleared weak-global handle is valid and resolves to Java null. */
+    *out_object = object;
+    return true;
+}
+
 tl_jni_ref_kind tl_jni_refs_token_kind(const void *token)
 {
     tl_jni_ref_kind kind = TL_JNI_REF_INVALID;
