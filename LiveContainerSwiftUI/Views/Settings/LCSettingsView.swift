@@ -82,7 +82,7 @@ struct LCSettingsView: View {
     }
     
     private var strataRuntimeManagerLink: some View {
-        NavigationLink("Runtime Manager · Strata \\(INFINITYVersion.display)") {
+        NavigationLink("Runtime Manager · INFINITY \\(INFINITYVersion.display)") {
             StrataRuntimeCenter(
                 apps: sharedModel.apps + sharedModel.hiddenApps,
                 launch: launchStrataApp,
