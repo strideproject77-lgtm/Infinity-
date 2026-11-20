@@ -1724,3 +1724,19 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Safepoint visitor completeness contract
 - Changed the all-thread active-call root visitor to return `bool`; invalid ownership/safepoint state and snapshot allocation failures now report failure. The composed root visitor propagates that failure instead of continuing as if the root set were complete.
 - Root visitor callbacks must be non-blocking and must not re-enter/mutate the DVM while the safepoint is held. Safepoint begin can wait indefinitely for a mutator stuck in native code; this remains a documented limitation, not a safe sweep guarantee.
+
+
+## 2026-11-20 — Conservative live DEX register root discovery
+
+### Implemented on main
+- Published each active interpreter frame's live register-buffer pointer and register count through its DVM call-root frame while the interpreter is executing; cleared the published pointer before register storage is released.
+- Extended the all-thread safepoint root walk to inspect each parked frame's register words and accept a candidate only when it exactly matches an address currently present in the managed heap allocation registry.
+- Added `tl_jni_heap_contains()`, an exact-address membership check under the heap-registry mutex. Arbitrary register words are never dereferenced.
+- Added source-contract coverage for register publication, heap membership checking, and the all-thread root scan.
+
+### Safety limits
+- This is conservative register scanning, not verifier-derived reference maps. Primitive values that happen to equal a live object address may retain that object (false positive); arbitrary integer values are not dereferenced. It avoids false negatives for object pointers stored as full-width register words, but does not solve compressed/narrow references if a future representation introduces them.
+- The safepoint still covers registered DVM interpreter mutators only. Non-DVM host threads and native code that does not return to a dispatch poll remain outside the coordinator. A blocked native transition can stall safepoint begin.
+- No mark/sweep or reclamation has been enabled. The heap registry and graph visitor are now better suited to a conservative mark phase, but object destruction/finalizer/native-resource ownership must be audited before sweep. Weak globals remain strongly retained until mark semantics are complete.
+- Tests added but not executed. No compilation, workflow, IPA, or device test. SideStore untouched.
+- Integration estimate remains **99.93%**. Active DEX register values now participate in all-thread conservative root discovery; actual collector/reclamation, full native-thread coordination, and weak processing remain outstanding.
