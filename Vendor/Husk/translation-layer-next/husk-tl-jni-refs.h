@@ -53,7 +53,7 @@ typedef void (*tl_jni_refs_root_visitor)(jobj *object, void *context);
 typedef bool (*tl_jni_refs_is_marked)(jobj *object, void *context);
 
 /* Collector hooks run at a stop-the-world safepoint and must not re-enter this registry. */
-void tl_jni_refs_visit_strong_roots(tl_jni_refs_root_visitor visitor, void *context);
+bool tl_jni_refs_visit_strong_roots(tl_jni_refs_root_visitor visitor, void *context);
 void tl_jni_refs_process_weak(tl_jni_refs_is_marked is_marked, void *context);
 
 #ifdef __cplusplus
