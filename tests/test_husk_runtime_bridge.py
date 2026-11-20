@@ -608,6 +608,19 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("SLOT(226, jni_NewGlobalRef)", jni)
         self.assertNotIn("SLOT(227, jni_DeleteGlobalRef)", jni)
 
+    def test_interpreted_native_calls_scope_jni_local_references(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.h")
+        self.assertIn("bool tl_jni_native_frame_enter(void)", header)
+        self.assertIn("jobj *tl_jni_native_frame_leave(jobj *result)", header)
+        self.assertIn("return jni_PushLocalFrame(NULL, 16) == 0;", jni)
+        self.assertIn("return jni_PopLocalFrame(NULL, result);", jni)
+        self.assertIn("tl_jni_native_frame_enter()", dvm)
+        self.assertIn("tl_jni_native_frame_leave(native_result)", dvm)
+        self.assertIn("default: ret->l = preserved; break;", dvm)
+        self.assertNotIn("((jobj *)ret->l)->refs = 1u << 30", dvm)
+
     def test_nativeactivity_has_joinable_teardown_and_never_fakes_input_queue(self):
         native = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.h")
