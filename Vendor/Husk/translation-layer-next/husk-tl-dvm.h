@@ -52,6 +52,9 @@ void tl_dvm_visit_static_roots(tl_dvm_root_visitor visitor, void *context);
 
 /* Visit object references held by active DVM invocation receivers and arguments. */
 void tl_dvm_visit_active_call_roots(tl_dvm_root_visitor visitor, void *context);
+/* Visit static, current-thread active-call, and typed JNI strong roots.
+ * Requires external all-mutator safepoint; not a stop-the-world implementation. */
+bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *context);
 void tl_dvm_set_trace(int level);       /* 1: classes and natives; 2: every invoke */
 
 #ifdef __cplusplus
