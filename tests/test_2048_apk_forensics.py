@@ -52,8 +52,10 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
         struct.pack_into("<I", data, 32, DEX_HEADER_SIZE + 1)
         with self.assertRaisesRegex(ValueError, "file_size mismatch"):
             parse_dex_header(bytes(data))
+        import zlib
         data = bytearray(make_dex())
         data[12] ^= 0x01
+        struct.pack_into("<I", data, 8, zlib.adler32(data[12:]) & 0xFFFFFFFF)
         result = parse_dex_header(bytes(data))
         self.assertFalse(result["sha1_signature_valid"])
         self.assertTrue(result["adler32_checksum_valid"])
