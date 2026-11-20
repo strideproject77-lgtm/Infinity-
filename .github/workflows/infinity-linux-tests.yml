@@ -1,0 +1,43 @@
+name: INFINITY Linux-only regression tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Vendor/Husk/translation-layer/**"
+      - "Vendor/Husk/translation-layer-next/**"
+      - "Vendor/Husk/bridge/**"
+      - "Vendor/Husk/include/**"
+      - "LiveContainerSwiftUI/Strata3/**"
+      - "scripts/**"
+      - "tests/**"
+      - ".github/workflows/infinity-linux-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-regression:
+    name: Ubuntu regression and script checks (no macOS)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out INFINITY
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate runtime shell scripts
+        run: |
+          bash -n scripts/import_husk_runtime.sh
+          bash -n scripts/prepare_stikjit_idevice.sh
+          bash -n scripts/build_infinity_runtime_assets.sh
+          bash -n Vendor/Husk/build-support/build_angle_ios.sh
+          bash -n Vendor/Husk/src/java-framework/build.sh
+          bash -n scripts/check_husk_native_sources.sh
+      - name: Run complete Python regression suite
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Validate runtime audit script
+        run: python -m py_compile scripts/audit_husk_runtime.py
