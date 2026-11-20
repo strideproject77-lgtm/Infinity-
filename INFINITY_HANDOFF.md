@@ -1318,3 +1318,21 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Next implementation target
 - Design and implement the JNI reference handle table as one coherent change: typed local/global/weak-global handle records, identity semantics for `IsSameObject`, deletion and promotion rules, thread/frame ownership, weak collection behavior, and complete conversion at every JNI method argument/return boundary. Do not ship a partial wrapper around raw pointers.
 - Keep the no-test/no-compile/no-workflow/no-IPA gate until the source integration scope is genuinely complete.
+
+## 2026-11-20 — NDK input event ordering under concurrent producers
+
+### Implemented on main
+- Replaced the split queue append path with `iq_enqueue_locked`, which appends while the caller holds the input-queue mutex and captures the wake FD in the same critical section.
+- Touch pointer-state updates and queue insertion now share one lock interval, preventing concurrent producer threads from reordering a later touch event ahead of an earlier one.
+- Key and controller-axis producers now serialize their queue insertion under the same mutex; all producers wake the looper only after releasing the queue lock.
+- The shared queue insertion helper rejects detached/unavailable queue state and lets callers free rejected events without leaving stale event records.
+- Added source-contract assertions for the ordered enqueue helper and wake path.
+
+### Commits
+- Ordered queue insertion for touch/key/axis events: `5a8ed2d213c2d662ef7e88d2c4cffe1e88260662`
+- Source-contract coverage: `05e61547bdabbf9685954dc84bfaff67381a0501`
+
+### Status
+- Overall source integration remains estimated at 99%. This fixes a concrete event-ordering race in the NDK queue; it does not complete JNI reference identity or the remaining ART/JNI semantic gaps.
+- Source was inspected statically only. Tests, compilation, workflows, IPA packaging and device execution remain intentionally unrun.
+- Game/app compatibility estimates must remain provisional until the single consolidated post-integration validation phase. Do not present source integration percentage as a runtime compatibility percentage.
