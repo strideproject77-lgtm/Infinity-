@@ -23,7 +23,7 @@ struct StrataRuntimeCenter: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Strata " + StrataVersion.display).font(.largeTitle.bold())
+                    Text("Strata \(INFINITYVersion.display)").font(.largeTitle.bold())
                     Text("Runtime & data management").font(.subheadline).foregroundStyle(.secondary)
                 }.padding(.vertical, 8)
             }
