@@ -65,6 +65,8 @@ bool tl_dvm_safepoint_begin(void);
 /* Bounded variant; false means another safepoint exists or mutators did not park in time. */
 bool tl_dvm_safepoint_begin_timeout(uint32_t timeout_ms);
 void tl_dvm_safepoint_end(void);
+/* True only for the thread currently holding an active DVM safepoint. */
+bool tl_dvm_safepoint_is_owner(void);
 /* Valid only between successful begin/end on the owning thread. */
 bool tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *context);
 /* Run a complete conservative mark traversal at a cooperative DVM safepoint.
