@@ -48,6 +48,7 @@ struct jobj {
     uint32_t nfields;
     void *native;                       /* an implementation's own state */
     void *monitor;
+    struct jobj *heap_next;          /* private ownership-registry link; not a guest-visible field */
 };
 
 /* What an implemented Java method receives. */
@@ -96,6 +97,11 @@ jobj *tl_jni_new_prim_array(char etype, uint32_t len);
 jobj *tl_jni_new_obj_array(tl_jclass *elem, uint32_t len);
 jobj *tl_jni_ref(jobj *o);                                    /* a new reference to the same object */
 void  tl_jni_unref(jobj *o);
+typedef void (*tl_jni_object_visitor)(jobj *object, void *context);
+/* Enumerate heap allocations and descriptor-typed object edges at an external safepoint. */
+bool tl_jni_visit_heap_objects(tl_jni_object_visitor visitor, void *context);
+bool tl_jni_visit_object_references(jobj *object, tl_jni_object_visitor visitor, void *context);
+
 
 /* Fields by name; created on first use. */
 void tl_jni_set_field(jobj *o, const char *name, const char *sig, jvalue v);
