@@ -60,6 +60,12 @@ class StrataBuiltInJITContractTests(unittest.TestCase):
         self.assertIn("INFINITYVersion.display", settings)
         self.assertIn("private var strataRuntimeManagerLink: some View", settings)
 
+        version = source("LiveContainerSwiftUI/Strata3/INFINITYVersion.swift")
+        self.assertIn("enum INFINITYVersion", version)
+        self.assertIn('info["CFBundleShortVersionString"]', version)
+        self.assertIn('info["CFBundleVersion"]', version)
+        self.assertNotIn("StrataVersion", version)
+
 
 if __name__ == "__main__":
     unittest.main()
