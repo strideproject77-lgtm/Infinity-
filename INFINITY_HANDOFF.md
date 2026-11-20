@@ -1930,3 +1930,11 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Added regression assertions for these source/workflow corrections.
 - Source repairs only; pending the planned single consolidated GitHub validation. No IPA/APK build or device test. SideStore untouched.
 - Husk integration percentage is not increased by compiler/test harness repairs. Core runtime blockers remain: raw guest-facing JNI ABI, native argument/return marshaling, collector-owned sweep/root proof, and safe weak-global semantics.
+
+
+## 2026-11-20 — Swift bridge smoke target dependency completion
+
+- The consolidated validation on commit `4176d055f64b5489dd47bcf8dd2252a486af61f3` passed the Linux regression workflow and all 97/97 iPhoneOS native C/Objective-C syntax checks.
+- The Swift bridge smoke job correctly switched to the iPhoneOS SDK, then exposed missing source inputs in its own compile command: `INFINITYHuskRuntime.swift` references the installed-app/store model and native logger, but the smoke invocation had not included those source files.
+- Added `INFINITYHuskNativeLog.swift`, `INFINITYAPKStore.swift`, `INFINITYAPKInspection.swift`, and `INFINITYAPKManifest.swift` to the bridge smoke type-check invocation, and added a source-contract test to prevent these dependencies from being omitted again.
+- This is a validation-target completeness correction, not a runtime implementation percentage increase. The Swift bridge workflow needs one final consolidated rerun to verify the complete source set. No IPA/APK build, no device test, and SideStore untouched.

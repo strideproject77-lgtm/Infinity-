@@ -107,6 +107,10 @@ jobs:
             -target arm64-apple-ios15.0 \
             -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
             LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYHuskNativeLog.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift \
+            LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \
             LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift \
             /tmp/INFINITYHuskBridgeSmoke.swift
           swiftc -typecheck \
