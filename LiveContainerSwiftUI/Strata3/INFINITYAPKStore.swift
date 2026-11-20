@@ -284,7 +284,19 @@ enum INFINITYAPKStore {
                 throw StoreError.invalidSplitPackage
             }
             xapkPackageName = packageName
-            xapkVersionCode = (metadata["version_code"] as? String).flatMap(UInt64.init)
+            if let rawVersionCode = metadata["version_code"] {
+                if let numericVersionCode = rawVersionCode as? NSNumber {
+                    guard numericVersionCode.int64Value >= 0 else {
+                        throw StoreError.invalidSplitPackage
+                    }
+                    xapkVersionCode = numericVersionCode.uint64Value
+                } else if let stringVersionCode = rawVersionCode as? String,
+                          let parsedVersionCode = UInt64(stringVersionCode) {
+                    xapkVersionCode = parsedVersionCode
+                } else {
+                    throw StoreError.invalidSplitPackage
+                }
+            }
             xapkOrderedEntries = [baseMatches[0]] + mapped.filter { $0.path != baseMatches[0].path }
         }
 
