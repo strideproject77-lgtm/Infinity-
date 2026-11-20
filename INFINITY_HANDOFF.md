@@ -1760,3 +1760,9 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 ### Mark-phase portability and API correction
 - Corrected the mark implementation to treat the static-root visitor as its actual `void` API and propagate failure through the mark context, rather than assigning a nonexistent return status.
 - Made pointer hashing explicitly 64-bit before shifts/multiplication so 32-bit builds do not perform shifts wider than `uintptr_t`.
+
+
+### Bounded safepoint acquisition
+- Added `tl_dvm_safepoint_begin_timeout(timeout_ms)` using a monotonic-duration deadline expressed through the condition variable's configured realtime clock. The default `tl_dvm_safepoint_begin()` now uses a 5-second timeout.
+- If a mutator remains in a native transition or otherwise fails to park, the request is cancelled, waiters are broadcast, and the caller receives false instead of hanging indefinitely. Heap tracing aborts without marking/sweeping when acquisition fails.
+- Added source-contract coverage for timed waiting and cancellation. This improves failure behavior but does not make native code interruptible or extend stop-the-world coverage to non-DVM host threads.
