@@ -49,14 +49,19 @@ static void heap_register(jobj *object)
     pthread_mutex_unlock(&g_heap_lock);
 }
 
-static void heap_unregister(jobj *object)
+static bool heap_unregister(jobj *object)
 {
+    bool found = false;
     pthread_mutex_lock(&g_heap_lock);
     jobj **cursor = &g_heap_objects;
     while (*cursor && *cursor != object) cursor = &(*cursor)->heap_next;
-    if (*cursor == object) *cursor = object->heap_next;
-    object->heap_next = NULL;
+    if (*cursor == object) {
+        *cursor = object->heap_next;
+        object->heap_next = NULL;
+        found = true;
+    }
     pthread_mutex_unlock(&g_heap_lock);
+    return found;
 }
 
 static jobj *obj_alloc(uint8_t kind, tl_jclass *cls)
@@ -187,11 +192,47 @@ static void local_frames_detach(void)
     tl_jni_refs_detach_thread();
 }
 
+bool tl_jni_set_native_destructor(jobj *o, tl_jni_native_destructor destructor)
+{
+    if (!o || !destructor || o->native_destructor) return false;
+    /* This is an initialization-time ownership hook. Mutating it after the
+     * object is published would race the collector's destruction path. */
+    o->native_destructor = destructor;
+    return true;
+}
+
+bool tl_jni_destroy_unreachable_object(jobj *o)
+{
+    if (!o || o->kind == TL_K_CLASS) return false;
+
+    /* The caller must hold a complete stop-the-world safepoint and have
+     * proved this object unreachable. Registry removal is the one-shot gate:
+     * duplicate reclamation attempts never dereference or free the object. */
+    if (!heap_unregister(o)) return false;
+    __atomic_store_n(&o->refs, 0, __ATOMIC_RELEASE);
+
+    tl_jni_native_destructor destructor = o->native_destructor;
+    void *native_state = o->native;
+    o->native_destructor = NULL;
+    o->native = NULL;
+    if (destructor) destructor(o, native_state);
+
+    switch (o->kind) {
+    case TL_K_STRING: free(o->str.utf8); free(o->str.u16); break;
+    case TL_K_PRIM_ARRAY: free(o->arr.data); break;
+    case TL_K_OBJ_ARRAY: free(o->oarr.v); break;
+    default: break;
+    }
+    free(o->fields);
+    free(o);
+    return true;
+}
+
 void tl_jni_unref(jobj *o)
 {
     if (!o || o->kind == TL_K_CLASS) return;
-    /* With the Java runtime up, objects live as long as Java can reach them, which reference counts from native code do not
-     * know about: nothing is freed here (a tracing collector's job). */
+    /* With the Java runtime up, refcounts cannot decide reachability. The
+     * tracing collector alone may call the explicit unreachable-object path. */
     if (tl_dvm) return;
 
     /* Ignore duplicate releases instead of underflowing the counter. Only the
@@ -203,16 +244,7 @@ void tl_jni_unref(jobj *o)
                                         __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))
             break;
     }
-    if (refs != 1) return;
-    heap_unregister(o);
-    switch (o->kind) {
-    case TL_K_STRING: free(o->str.utf8); free(o->str.u16); break;
-    case TL_K_PRIM_ARRAY: free(o->arr.data); break;
-    case TL_K_OBJ_ARRAY: free(o->oarr.v); break;
-    default: break;
-    }
-    free(o->fields);
-    free(o);
+    if (refs == 1) (void)tl_jni_destroy_unreachable_object(o);
 }
 
 static tl_jclass *find_class_locked(const char *name)
