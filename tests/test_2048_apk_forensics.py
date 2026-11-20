@@ -54,8 +54,14 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
             parse_dex_header(bytes(data))
         data = bytearray(make_dex())
         data[12] ^= 0x01
-        with self.assertRaisesRegex(ValueError, "SHA-1 signature mismatch"):
-            parse_dex_header(bytes(data))
+        result = parse_dex_header(bytes(data))
+        self.assertFalse(result["sha1_signature_valid"])
+        self.assertTrue(result["adler32_checksum_valid"])
+        data = bytearray(make_dex())
+        data[8] ^= 0x01
+        result = parse_dex_header(bytes(data))
+        self.assertTrue(result["sha1_signature_valid"])
+        self.assertFalse(result["adler32_checksum_valid"])
 
     def test_archive_inventory_finds_multidex_resources_assets_and_native_libs(self):
         with tempfile.TemporaryDirectory() as directory:
