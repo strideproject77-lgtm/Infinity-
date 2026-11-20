@@ -1462,3 +1462,26 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - **Do not mark this as completed or increase the integration percentage.** A correct integration requires a coordinated conversion of every JNI table entry that consumes or returns object handles, the native method invocation/marshalling path, and local-frame attach/detach behavior. The interpreter's internal `jobj *` object references must remain distinct from guest-facing opaque handles. Weak-global semantics must remain disabled until a real tracing collector's complete root walk and weak-processing safepoints are connected.
 - No source implementation was changed in this audit. No tests, compilation, GitHub Actions/workflows, IPA build, or device testing were run. SideStore was not touched.
 - Current verified Husk integration estimate remains **99.50%**; next implementation milestone is the complete JNI guest-handle boundary conversion, followed by the remaining collector/weak-reference integration. Update this handoff after each substantive batch and only report 100% when the full planned integration is actually implemented (not merely scaffolded).
+
+
+## 2026-11-20 — GitHub regression-contract repair
+
+### Implemented
+- Added explicit primitive-array validation to `jni_ReleasePrimitiveArrayCritical`. Invalid/null/non-primitive inputs now raise `IllegalArgumentException` instead of falling through to an outstanding-access lookup.
+- Updated source-contract tests that were asserting obsolete implementation spellings after refactors:
+  - caller-supplied pthread stack comment now matches the actual exact-range behavior;
+  - ELF symbol-name and GNU version diagnostics match current bounded-linker messages;
+  - JNI UTF string local ownership assertion follows the current Modified UTF-8 decode path;
+  - JNI critical-array detach test no longer accidentally concatenates adjacent Python string literals;
+  - NDK input-queue assertions follow the current enqueue/wake helper split and actual queue attachment guard;
+  - NativeActivity checks the real queue-creation/callback path rather than a removed placeholder comment.
+
+### Commits
+- JNI critical-array release validation: `ce5793db29487882f8eb679069697caed25631c8`
+- Regression-contract updates: `494db4aace34a1b05de1fcc3f2b8a6259715e498`
+
+### Validation and remaining integration
+- The push has automatically queued GitHub Actions run **#367** on `main`; it is the first run against both commits above. Do not start a second run while it is queued/running.
+- No local test run, compiler/build, IPA build, or device test was performed.
+- These fixes address regression checks and one JNI validation gap; they do not complete the four locked JNI/GC integration blockers. Husk integration remains **99.50%** until those actual runtime boundaries and collector semantics are implemented.
+- SideStore remains untouched.
