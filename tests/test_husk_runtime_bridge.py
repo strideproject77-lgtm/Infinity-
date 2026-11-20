@@ -598,6 +598,16 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("static int32_t jni_PushLocalFrame(void *env, int32_t cap) { (void)env; (void)cap; return 0; }", jni)
         self.assertNotIn("static jo jni_PopLocalFrame(void *env, jo r) { (void)env; return r; }", jni)
 
+    def test_jni_weak_global_slots_are_not_aliased_to_strong_global_slots(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("static jo jni_NewWeakGlobalRef", jni)
+        self.assertIn("static void jni_DeleteWeakGlobalRef", jni)
+        self.assertIn("retain weak globals strongly", jni)
+        self.assertIn("SLOT(226, jni_NewWeakGlobalRef)", jni)
+        self.assertIn("SLOT(227, jni_DeleteWeakGlobalRef)", jni)
+        self.assertNotIn("SLOT(226, jni_NewGlobalRef)", jni)
+        self.assertNotIn("SLOT(227, jni_DeleteGlobalRef)", jni)
+
     def test_nativeactivity_has_joinable_teardown_and_never_fakes_input_queue(self):
         native = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.h")
