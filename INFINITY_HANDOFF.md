@@ -1591,3 +1591,23 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
 - Overall Husk source integration estimate advances to **99.80%** for this discrete static-root traversal subtask. This is an engineering integration estimate, not an APK compatibility score.
 - Next target: establish a safe interpreter-frame root map; never scan raw DEX registers as pointers without verified per-register reference types.
+
+
+## 2026-11-20 — Active DVM invocation argument roots
+
+### Implemented on main
+- Added `tl_dvm_visit_active_call_roots()` to enumerate references held by currently active DVM invocation frames.
+- Every `dvm_call()` links a stack-owned frame into a per-thread chain before entering interpreted, intrinsic, proxy, or native call execution, then restores the previous chain on return.
+- The visitor includes instance receivers and only parameters whose DEX shorty descriptor is `L`; static receivers and primitive/wide parameters are excluded. Nested invocations are naturally represented by the linked frame chain.
+- Added source-contract regression coverage for the visitor, typed argument selection, receiver handling, and frame unlink.
+
+### Commits
+- Public visitor API: cb8f55fd24c07200d17d96deb8838bea8074d02d
+- Active invocation frame tracking: 41754577a52db9da24ce773eb0cefca9847a9f86
+- Source-contract regression coverage: 5bbdb223487cae985ff390b99b6b3ee7a2f6b535
+
+### Scope and validation
+- This roots invocation receivers and object arguments, not arbitrary live object locals in DEX register arrays. Register arrays mix primitive and reference values and must not be scanned without verifier-derived register maps. It also does not complete tracing GC, instance-field traversal, safepoint coordination, or weak-global processing.
+- Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
+- Overall Husk source integration estimate advances to **99.90%** for this discrete active-invocation-root subtask. This is an engineering integration estimate, not an APK compatibility score.
+- Next target: derive verifier-backed per-register reference maps and connect static, active-call, JNI typed-registry, and runtime roots under a real safepoint protocol before enabling collection.
