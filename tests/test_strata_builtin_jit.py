@@ -46,6 +46,31 @@ class StrataBuiltInJITContractTests(unittest.TestCase):
         runtime = source("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
         self.assertIn('Color.secondary : Color.orange', runtime)
 
+    def test_strata_version_labels_use_the_shared_infinity_version_symbol(self):
+        runtime = source("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
+        home = source("LiveContainerSwiftUI/Views/LiveBoardHomeScreen.swift")
+        about = source("LiveContainerSwiftUI/Views/StrataAboutView.swift")
+        settings = source("LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift")
+        self.assertNotIn("StrataVersion", runtime)
+        self.assertNotIn("StrataVersion", home)
+        self.assertNotIn("StrataVersion", settings)
+        self.assertIn("INFINITYVersion.display", runtime)
+        self.assertIn("INFINITYVersion.display", home)
+        self.assertIn("INFINITYVersion.display", about)
+        self.assertIn("INFINITYVersion.display", settings)
+        self.assertIn("private var strataRuntimeManagerLink: some View", settings)
+        self.assertIn("launch: launchStrataApp", settings)
+        self.assertIn("private func launchStrataApp(_ app: LCAppModel)", settings)
+        self.assertIn("LCUtils.authenticateUser()", settings)
+        self.assertIn("try await app.runApp()", settings)
+        self.assertIn("Strata runtime · INFINITY", runtime)
+
+        version = source("LiveContainerSwiftUI/Strata3/INFINITYVersion.swift")
+        self.assertIn("enum INFINITYVersion", version)
+        self.assertIn('info["CFBundleShortVersionString"]', version)
+        self.assertIn('info["CFBundleVersion"]', version)
+        self.assertNotIn("StrataVersion", version)
+
 
 if __name__ == "__main__":
     unittest.main()

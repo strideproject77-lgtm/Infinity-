@@ -81,6 +81,30 @@ struct LCSettingsView: View {
         _store = State(initialValue: LCUtils.store())
     }
     
+    private var strataRuntimeManagerLink: some View {
+        NavigationLink("Runtime Manager · INFINITY \\(INFINITYVersion.display)") {
+            StrataRuntimeCenter(
+                apps: sharedModel.apps + sharedModel.hiddenApps,
+                launch: launchStrataApp,
+                manage: { _ in sharedModel.selectedTab = .apps }
+            )
+        }
+    }
+
+    private func launchStrataApp(_ app: LCAppModel) {
+        Task {
+            do {
+                if app.uiIsLocked && !sharedModel.isHiddenAppUnlocked {
+                    guard try await LCUtils.authenticateUser() else { return }
+                }
+                try await app.runApp()
+            } catch {
+                errorInfo = error.localizedDescription
+                errorShow = true
+            }
+        }
+    }
+
     var body: some View {
         NavigationView {
             Form {
@@ -90,11 +114,8 @@ struct LCSettingsView: View {
                     NavigationLink("iPhone Apps") { StrataPhoneAppsView() }
                     NavigationLink("Refresh") { StrataAutoRefreshSettings() }
                     if #available(iOS 16.0, *) {
-                    NavigationLink("Runtime Manager · Strata " + StrataVersion.display) { StrataRuntimeCenter(apps: sharedModel.apps + sharedModel.hiddenApps, launch: { app in Task { do {
-                        if app.uiIsLocked && !sharedModel.isHiddenAppUnlocked { guard try await LCUtils.authenticateUser() else { return } }
-                        try await app.runApp()
-                    } catch { errorInfo = error.localizedDescription; errorShow = true } } }, manage: { _ in sharedModel.selectedTab = .apps }) }
-                    NavigationLink("LocalSigner · Signing Identity") { StrataIdentitySettings() }
+                        strataRuntimeManagerLink
+                        NavigationLink("LocalSigner · Signing Identity") { StrataIdentitySettings() }
                     }
                 }
                 if sharedModel.multiLCStatus != 2 {

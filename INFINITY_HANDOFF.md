@@ -2019,3 +2019,70 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - **Progress remains 59%**: the helper and tests do not justify a percentage increase because JNI table/native argument-return migration is still incomplete.
 - No tests have been run yet. Next planned test checkpoint is the existing `infinity-tests.yml` source/parser + iPhoneOS native syntax + Swift bridge checks after this batch is merged. No IPA/APK build or device/game test. SideStore untouched.
 - Next implementation: build a typed JNI ABI adapter in stages, starting with object-reference creation/deletion/equality and then object-bearing method/field/array/string entry points. Do not expose token values to guest code until all reachable object-bearing slots and native argument/return paths are adapted.
+
+
+## 2026-11-20 — Follow-up Codemagic archive failure fix
+
+- Inspected the latest uploaded Codemagic archive log for build `6affff598f52ca27512937ee`, source commit `e0a317ac588c6cb8de7074750f454078251b4982` (Xcode 26.2).
+- The fatal Swift diagnostics were in `LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift`: `StrataVersion` was not defined (the project uses `INFINITYVersion.display`), which also caused the enclosing `body` expression type-check failure.
+- Replaced the invalid version reference with `INFINITYVersion.display` using Swift string interpolation. No runtime, SideStore, LiveContainer launch, or JIT behavior was changed.
+- Fix branch: `fix/codemagic-strata-version-20261120`; source commit: `798becbed03b4ee98b8ffc382c0fc7c16df0772e`.
+- Source review confirms the invalid symbol is gone. A new Xcode/Codemagic archive is still required to verify the compiler fix and expose any subsequent errors.
+
+
+## 2026-11-20 — Follow-up Codemagic archive diagnostic and regression fix
+
+- Inspected the newest uploaded Codemagic archive logs from build `6b0050808f52ca27512956ee` (Xcode 26.2, source commit `17dfe9694146b8935f763569106b2ad79acd15a4`, exit code 65).
+- The archive log contains one fatal Swift compiler diagnostic: `LiveContainerSwiftUI/Views/LiveBoardHomeScreen.swift:565` referenced undefined `StrataVersion.display` in the settings tab detail. The earlier Strata runtime-center label had the same stale symbol and was already corrected in the pending Codemagic fix branch.
+- Replaced the remaining settings-tab reference with the established `INFINITYVersion.display` symbol, which is already used by `StrataAboutView` and the Strata runtime-center label.
+- Added a source-contract regression test asserting that both Strata labels use `INFINITYVersion.display` and that neither contains `StrataVersion`.
+- Changes are on `fix/codemagic-strata-version-20261120`; main remains untouched. The source fix and regression test are committed, but a fresh CI run and Xcode/Codemagic archive are still required. Do not claim the IPA is built until the archive/sign/package stages pass.
+- The archive log also contains compiler warnings (including an undeclared-selector warning in `NSFileManager+GuestHooks.m`); they are not fatal diagnostics in this build. They should be reviewed separately, but changing unrelated hook behavior in an urgent archive fix would add risk.
+- No SideStore, LiveContainer launch, JIT, or APK runtime behavior was changed by this fix.
+
+
+## 2026-11-20 — Repeat Codemagic archive failure (unmerged fix branch)
+
+- Inspected the latest uploaded archive logs: build `6b0054808f52ca275129589e`, Xcode 26.2, source branch `main`, source commit `17dfe9694146b8935f763569106b2ad79acd15a4`, exit code 65.
+- This build still used the old `main` commit because PR #3 (`fix/codemagic-strata-version-20261120`) had not been merged. The earlier fixes in that PR therefore were not present in this Codemagic build.
+- The new archive log identifies `LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift:93` as another remaining `StrataVersion.display` reference. It also reports a Swift type-check-time failure for the enclosing `body` expression at line 84.
+- Corrected this third settings-screen version reference to `INFINITYVersion.display` on the existing fix branch. Extracted the Runtime Manager navigation destination and app-launch closure into small members to reduce the large SwiftUI body expression's type-check burden without changing its launch/authentication behavior.
+- Expanded the regression test to cover `LCSettingsView.swift` as well as the runtime center and LiveBoard settings label.
+- The latest archive log's fatal diagnostics are confined to that Swift compile unit. The log also contains numerous existing warnings; they are not treated as fatal errors. No SideStore, LiveContainer, JIT, or Android runtime behavior was intentionally changed.
+- **Do not run Codemagic again yet.** PR #3 remains unmerged, and the new changes still require the PR regression workflow to pass. A full Xcode archive has not been verified from the corrected source.
+
+
+## 2026-11-20 — Latest Codemagic log review and missing version-provider correction
+
+- Reviewed the newest uploaded log set on `codemagic-logs`: build `6b0059f88f52ca2751295ad9`, Xcode 26.2, source branch `main`, source commit `17dfe9694146b8935f763569106b2ad79acd15a4`, exit code 65.
+- The complete build and archive logs contain one fatal compiler diagnostic: `LiveContainerSwiftUI/Views/LiveBoardHomeScreen.swift:565:77` cannot find `StrataVersion` in scope. The build was again run from `main`, so it did not contain the pending PR #3 source changes.
+- A deeper source audit found a second defect in the pending fix itself: it changed call sites to `INFINITYVersion.display`, but no `INFINITYVersion` declaration existed in the tracked source tree. Added `LiveContainerSwiftUI/Strata3/INFINITYVersion.swift`, whose display value comes from the built app bundle's `CFBundleShortVersionString` and `CFBundleVersion`, with a safe fallback. The `LiveContainerSwiftUI` Xcode filesystem-synchronized root group includes this source directory, so no manual PBXBuildFile entry is required.
+- Clarified the Runtime Manager heading to distinguish the Strata runtime from the INFINITY app version. Existing About UI already consumes the same shared version provider.
+- The previous PR #3 Linux CI attempt also had two independent harness problems: Swift setup action did not support the then-default Ubuntu 26.04 image, and seven source-contract assertions failed because the macOS iPhoneOS bridge smoke job had been replaced rather than retained. Corrected the workflow: pin the portable Swift parser type-check to Ubuntu 24.04; keep the Clang header syntax check on Ubuntu; restore the full iPhoneOS SDK Swift/C bridge smoke check as a manual macOS-only job. The existing bridge contract tests should now match the workflow again.
+- Added a regression assertion that the shared version provider exists and reads both bundle version keys. Updated workflow path filters for the new Swift source.
+- At the time of this note, the corrected PR workflow has been committed but its new CI run is pending. No new Codemagic build has been triggered. No IPA/archive success is claimed.
+- The Codemagic archive contains many pre-existing warnings, but only the single `StrataVersion` error above is a fatal diagnostic in this uploaded run. Review warnings separately after the clean compile checks; do not make unrelated behavioral changes to SideStore, LiveContainer launch, or JIT as part of this build fix.
+
+
+## 2026-11-20 — Corrected Codemagic preflight checks passed on Ubuntu
+
+- PR #3 head `e750aff1965e0eb637f80872ba03ac23ae557f46` passed GitHub Actions run `44757330972`:
+  - 144/144 Python source/APK regression tests passed.
+  - Linux Clang syntax check passed for the exported APK archive and Husk bridge headers.
+  - Swift 6.0.3 on Ubuntu 24.04 successfully type-checked `INFINITYVersion.swift`, the APK manifest parser, and the APK archive inspector using the test-only C declaration shim.
+  - The iPhoneOS-SDK Swift/C bridge job was skipped by design because it is manual macOS-only.
+- PR #5 head `403f24686e98555036e0d6649a442265e1b9bca8` passed the portable-core workflow `44757572229` and native test workflow `44757572387`. The Ubuntu 24.04 shared-source script passed; manual macOS verification was skipped.
+- Reviewed the complete latest Codemagic build and archive logs again: the only fatal compiler diagnostic is the old-main `StrataVersion` reference in `LiveBoardHomeScreen.swift:565`. The 283 warning diagnostics are non-fatal in that run; the `LCStorageManagementModel.swift:325` async-enumerator warning is explicitly a Swift 6-language-mode issue, while the app target is configured for Swift 5 language mode. Other warnings include existing selector/deprecation/macro warnings in guest hooks and ZSign; they are not changed as part of this compile fix.
+- No new Codemagic run was triggered. No full Xcode archive from the corrected PR head exists yet. Passing Ubuntu tests does not prove SwiftUI/iOS archive, signing, packaging, or device runtime behavior.
+
+
+## 2026-11-20 — Build-fix and cross-platform CI consolidated
+
+- Consolidated the shared Linux/macOS core validation work into PR #3 so the app compile fix and its test infrastructure can be reviewed and merged together. PR #5 is superseded; its portable validation script, Ubuntu/manual-macOS workflow, and compatibility documentation are now included in this branch.
+- The portable Swift checks explicitly use Swift 5 language mode to match the `LiveContainerSwiftUI` target's `SWIFT_VERSION = 5.0`; the compiler version remains Swift 6.0.3 on Ubuntu 24.04.
+- Added regression assertions that the extracted Runtime Manager launch helper still performs the hidden-app authentication gate and calls `app.runApp()`.
+- Latest PR #3 head `0c8a41c6883e698861885bd128bdd799281446ee` passed:
+  - Native/source/APK workflow `44758275762`: all 144 Python tests, Clang header check, and Swift 5-mode parser/version type-check passed.
+  - Cross-platform workflow `44758275844`: shared portable C/Swift script passed on Ubuntu 24.04.
+  - Routine macOS jobs were skipped intentionally; the iPhoneOS SDK bridge smoke job remains manual-only.
+- No Codemagic build was triggered. PR #3 remains open and unmerged; main still points to the old source until the PR is merged. Do not start another Codemagic build from main before the fix is merged or select the corrected PR branch explicitly.
