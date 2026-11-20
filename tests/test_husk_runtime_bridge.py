@@ -148,7 +148,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("L->relrsz % 8", loader)
         self.assertIn("chain_words", loader)
         self.assertIn("dynamic symbol table exceeds the mapped image", loader)
-        self.assertIn("symbol has an invalid or unterminated name", loader)
+        self.assertIn("has an invalid or unterminated name", loader)
         self.assertIn("relocation references symbol", loader)
         self.assertIn("if (!image_range_fits(L, r_offset, 8)) return false;", loader)
         self.assertIn("resolver_vaddr", loader)
@@ -288,7 +288,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("static int b_attr_setstack(guest_attr *a, void *base, size_t n)", pthread)
         self.assertIn("a->flags |= GATTR_USER_STACK", pthread)
         self.assertIn("pthread_attr_setstack(&a, attr->stack_base, stack)", pthread)
-        self.assertIn("use that exact range", pthread)
+        self.assertIn("exact range, never silently replace it with a host-owned stack", pthread)
         self.assertIn('TL_WRAP("pthread_attr_setstack", b_attr_setstack)', pthread)
         self.assertIn("if (stack_result) { pthread_attr_destroy(&a); return rc(stack_result); }", pthread)
 
@@ -455,8 +455,8 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "int wake_fd = iq_enqueue_locked(e);",
             "static void iq_wake(int fd)",
             "static pthread_mutex_t IQ_init_mu = PTHREAD_MUTEX_INITIALIZER;",
-            "if (!IQ.attached || !IQ.ready)",
-            "if (wake_fd >= 0) (void)!write(wake_fd, &c, 1);",
+            "if (!e || !IQ.attached || !IQ.ready)",
+            "if (fd >= 0) (void)!write(fd, &c, 1);",
             "if (!f) { pthread_mutex_unlock(&l->mu); return -1; }",
             "if (!IQ.attached) { pthread_mutex_unlock(&IQ.mu); return; }",
             "void *tl_bionic_input_queue_create(void)",
@@ -567,7 +567,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "if (copy) *copy = 1;",
             "if (mode != 2 && !jni_critical_array_copyback(access)) return;",
             "if (mode == 1) return; /* JNI_COMMIT copies back but retains the buffer. */",
-            "free(access->address);"
+            "free(access->address);",
             "static void jni_critical_array_accesses_detach(void)",
             "jni_critical_array_accesses_detach();"
         ):
@@ -584,7 +584,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "local_frame_adopt",
             "local_frame_remove",
             "return local_frame_adopt(new_object(cls, mid, 2, a, NULL))",
-            "jo o = tl_jni_new_string(utf);",
+            "jo o = tl_jni_new_string(decoded);",
             "jo a = tl_jni_new_prim_array(K, (uint32_t)len);",
             "static int32_t jni_PushLocalFrame",
             "static jo jni_PopLocalFrame",
@@ -634,7 +634,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "N.callbacks.onNativeWindowDestroyed",
             "N.callbacks.onStop",
             "N.callbacks.onDestroy",
-            "AInputQueue; callback withheld because no real queue is available"
+            "if (input_queue) N.callbacks.onInputQueueCreated(&N.na, input_queue)"
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, native)
@@ -690,7 +690,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             "validate_version_tables", "symbol_version_name",
             "lib_find_version", "lookup_for_version",
             "tl_ld_sym_version", "tl_ld_sym_deep_version",
-            "unresolved GNU version requirement"
+            "incomplete GNU version requirement"
         ):
             with self.subTest(marker=marker):
                 self.assertIn(marker, loader)
