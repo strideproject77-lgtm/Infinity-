@@ -154,7 +154,7 @@ void tl_jni_unref(jobj *o)
      * thread that performs the 1 -> 0 transition owns destruction. */
     uint32_t refs = __atomic_load_n(&o->refs, __ATOMIC_ACQUIRE);
     for (;;) {
-        if (refs == 0) return;
+        if (refs == 0 || refs == UINT32_MAX) return;
         if (__atomic_compare_exchange_n(&o->refs, &refs, refs - 1, true,
                                         __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE))
             break;
