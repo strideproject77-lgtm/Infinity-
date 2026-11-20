@@ -57,6 +57,8 @@ void tl_dvm_visit_active_call_roots(tl_dvm_root_visitor visitor, void *context);
 bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *context);
 /* Cooperative interpreter safepoint. begin blocks until other DVM mutators park. */
 bool tl_dvm_safepoint_begin(void);
+/* Bounded variant; false means another safepoint exists or mutators did not park in time. */
+bool tl_dvm_safepoint_begin_timeout(uint32_t timeout_ms);
 void tl_dvm_safepoint_end(void);
 /* Valid only between successful begin/end on the owning thread. */
 bool tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *context);
