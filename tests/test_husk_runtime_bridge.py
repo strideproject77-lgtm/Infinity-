@@ -439,6 +439,9 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("N.callbacks.onInputQueueDestroyed(&N.na, input_queue)", activity)
         self.assertNotIn("callback withheld because no real queue is available", activity)
         for marker in (
+            "static int iq_enqueue_locked(tl_ievent *e)",
+            "int wake_fd = iq_enqueue_locked(e);",
+            "static void iq_wake(int fd)",
             "static pthread_mutex_t IQ_init_mu = PTHREAD_MUTEX_INITIALIZER;",
             "if (!IQ.attached || !IQ.ready)",
             "if (wake_fd >= 0) (void)!write(wake_fd, &c, 1);",
