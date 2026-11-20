@@ -754,6 +754,15 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("return tl_dvm_safepoint_begin_timeout(5000);", dvm)
         self.assertIn("bool tl_dvm_safepoint_begin_timeout(uint32_t timeout_ms);", header)
 
+    def test_jni_pop_local_frame_validates_native_return_pointer(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        start = jni.index("static jo jni_PopLocalFrame(void *env, jo r)")
+        end = jni.index("\nbool tl_jni_native_frame_enter", start)
+        pop_frame = jni[start:end]
+        self.assertIn("if (r && !tl_jni_heap_contains(r))", pop_frame)
+        self.assertLess(pop_frame.index("tl_jni_heap_contains(r)"), pop_frame.index("tl_jni_ref(r)"))
+        self.assertIn("rejected a non-heap result pointer", pop_frame)
+
     def test_opaque_jni_tokens_use_monotonic_ids_not_handle_addresses(self):
         refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
         self.assertIn("uintptr_t token_id;", refs)
@@ -770,10 +779,12 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("void *tl_jni_refs_export_token(tl_jni_ref_handle *handle);", header)
         self.assertIn("jobj *tl_jni_refs_acquire_token(const void *token);", header)
         self.assertIn("tl_jni_ref_kind tl_jni_refs_token_kind(const void *token);", header)
-        self.assertIn("return tl_jni_refs_acquire((tl_jni_ref_handle *)token);", refs)
-        self.assertIn("return tl_jni_refs_get_kind((tl_jni_ref_handle *)token);", refs)
-        self.assertIn("it is never\\n     * dereferenced", refs)
-        self.assertIn("void *token = h && h->alive ? (void *)h : NULL;", refs)
+        self.assertIn("static tl_jni_ref_handle *find_token_locked(const void *token)", refs)
+        self.assertIn("jobj *tl_jni_refs_acquire_token(const void *token)", refs)
+        self.assertIn("tl_jni_ref_kind tl_jni_refs_token_kind(const void *token)", refs)
+        self.assertIn("if (h->token_id == id) return h;", refs)
+        self.assertIn("(void *)(uintptr_t)h->token_id", refs)
+        self.assertNotIn("(void *)h : NULL;", refs)
 
     def test_dvm_root_snapshot_fails_closed_for_unparked_or_unframed_mutators(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
