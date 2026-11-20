@@ -132,7 +132,7 @@ def parse_manifest_facts(badging: str, manifest_xmltree: str) -> dict[str, str |
         "compile_sdk": capture(r"compileSdkVersion='([^']+)'", badging),
         "launch_activity": capture(r"^launchable-activity: name='([^']+)'", badging),
         "android_support_version": capture(
-            r'android\.support\.VERSION[^\n]*\n\s*A: android:value[^\n]*="([^"]+)"',
+            r'android\.support\.VERSION.*?\n\s*A: android:value.*?="([^"]+)"',
             manifest_xmltree,
         ),
     }
@@ -153,208 +153,6 @@ def dependency_class_descriptors(dex_payloads: dict[str, bytes]) -> dict[str, se
             )
     return result
 
-
-
-def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
-    """Extract app/support class identity and Android framework calls from DEX class blocks."""
-    descriptors = sorted(set(re.findall(
-        r"Class descriptor\s*:\s*'([^']+)'", disassembly
-    )))
-    class_blocks = re.split(r"(?=^Class #\d+)", disassembly, flags=re.MULTILINE)
-    app_classes = []
-    main_superclass = None
-    support_superclasses = {}
-    app_method_refs = set()
-    support_method_refs = set()
-    for block in class_blocks:
-        descriptor_match = re.search(
-            r"Class descriptor\s*:\s*'([^']+)'", block
-        )
-        if descriptor_match is None:
-            continue
-        descriptor = descriptor_match.group(1)
-        superclass_match = re.search(
-            r"Superclass\s*:\s*'([^']+)'", block
-        )
-        superclass = superclass_match.group(1) if superclass_match else None
-        if descriptor.startswith("Lcom/tpcstld/twozerogame/"):
-            app_classes.append(descriptor)
-            if descriptor == "Lcom/tpcstld/twozerogame/MainActivity;":
-                main_superclass = superclass
-            target_support_classes = (
-                "Landroid/support/v7/app/AppCompatActivity;",
-                "Landroid/support/v4/app/FragmentActivity;",
-                "Landroid/support/v4/app/SupportActivity;",
-            )
-        elif descriptor.startswith("Landroid/support/"):
-            if descriptor in (
-                "Landroid/support/v7/app/AppCompatActivity;",
-                "Landroid/support/v4/app/FragmentActivity;",
-                "Landroid/support/v4/app/SupportActivity;",
-            ):
-                support_superclasses[descriptor] = superclass
-            target_support_classes = ()
-        else:
-            continue
-        refs = app_method_refs if descriptor.startswith("Lcom/tpcstld/twozerogame/") else support_method_refs
-        for owner, method in re.findall(
-            r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*:\s*\(",
-            block,
-        ):
-            if owner.startswith("Landroid/") and not owner.startswith(("Landroid/support/", "Landroid/arch/")):
-                refs.add(f"{owner}->{method}")
-    return {
-        "class_descriptor_count": len(descriptors),
-        "app_class_descriptors": sorted(set(app_classes)),
-        "main_activity_superclass": main_superclass,
-        "support_superclasses": support_superclasses,
-        "android_framework_method_ref_count": len(app_method_refs),
-        "android_framework_method_refs": sorted(app_method_refs),
-        "support_framework_method_ref_count": len(support_method_refs),
-        "support_framework_method_refs": sorted(support_method_refs),
-    }
-
-
-def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict[str, Any]:
-    """Check Android framework method refs against Husk sources and inherited APIs."""
-    source_roots = (
-        repo_root / "Vendor/Husk/src/java-framework/src",
-        repo_root / "Vendor/Husk/src/java-framework/gen-src",
-        repo_root / "Vendor/Husk/src/java-framework/stubs",
-    )
-    source_cache: dict[str, tuple[str, str, dict[str, str], list[str]] | None] = {}
-
-    def source_exists(qualified_name: str) -> bool:
-        relative = qualified_name.replace(".", "/") + ".java"
-        return any((root / relative).is_file() for root in source_roots)
-
-    def load_source(descriptor: str):
-        if descriptor in source_cache:
-            return source_cache[descriptor]
-        relative = descriptor[1:-1].split("$")[0] + ".java"
-        for root in source_roots:
-            path = root / relative
-            if path.is_file():
-                source = path.read_text(encoding="utf-8", errors="replace")
-                package_match = re.search(r"^\s*package\s+([\w.]+)\s*;", source, re.MULTILINE)
-                package = package_match.group(1) if package_match else ""
-                import_names = re.findall(
-                    r"^\s*import\s+(?:static\s+)?([\w.$*]+)\s*;",
-                    source,
-                    re.MULTILINE,
-                )
-                imports = {
-                    name.split(".")[-1]: name
-                    for name in import_names if not name.endswith(".*")
-                }
-                wildcard_imports = [
-                    name[:-2] for name in import_names if name.endswith(".*")
-                ]
-                result = (source, package, imports, wildcard_imports)
-                source_cache[descriptor] = result
-                return result
-        source_cache[descriptor] = None
-        return None
-
-    def resolve_type(type_name: str, package: str, imports: dict[str, str],
-                     wildcard_imports: list[str]) -> str | None:
-        type_name = re.sub(r"<.*>", "", type_name).strip()
-        if not type_name:
-            return None
-        if type_name in imports:
-            qualified = imports[type_name]
-        elif type_name.startswith(("android.", "java.", "javax.", "dalvik.", "org.")):
-            qualified = type_name
-        elif "." in type_name:
-            qualified = type_name
-        else:
-            candidates = ([package + "." + type_name] if package else []) + [
-                prefix + "." + type_name for prefix in wildcard_imports
-            ]
-            qualified = next((candidate for candidate in candidates
-                              if source_exists(candidate)), None)
-            if qualified is None and type_name in {
-                "Object", "Thread", "Throwable", "Enum", "String",
-                "RuntimeException", "AutoCloseable", "Cloneable",
-            }:
-                qualified = "java.lang." + type_name
-            if qualified is None:
-                return None
-        return "L" + qualified.replace(".", "/") + ";"
-
-    def parent_descriptors(descriptor: str, source: str, package: str,
-                           imports: dict[str, str],
-                           wildcard_imports: list[str]) -> list[str]:
-        simple_name = descriptor[1:-1].split("/")[-1].split("$")[-1]
-        declaration = re.search(
-            r"\b(?:class|interface|enum)\s+" + re.escape(simple_name)
-            + r"\b(?:\s*<[^>{}]*>)?\s*([^{]+)",
-            source,
-        )
-        if declaration is None:
-            return []
-        header = declaration.group(1)
-        parent_names = []
-        for clause in re.finditer(
-            r"\b(?:extends|implements)\s+(.+?)(?=\b(?:extends|implements)\b|$)",
-            header,
-        ):
-            parent_names.extend(item.strip() for item in clause.group(1).split(","))
-        if re.search(r"\benum\s+" + re.escape(simple_name) + r"\b", declaration.group(0)):
-            parent_names.append("java.lang.Enum")
-        resolved = []
-        for name in parent_names:
-            parent = resolve_type(name, package, imports, wildcard_imports)
-            if parent and parent not in resolved:
-                resolved.append(parent)
-        return resolved
-
-    missing_methods = []
-    missing_owners = set()
-    checked = 0
-    for reference in sorted(set(method_refs)):
-        if "->" not in reference:
-            continue
-        owner, method = reference.split("->", 1)
-        # android.arch.lifecycle is bundled in this APK as a library, not supplied by the platform.
-        if owner.startswith("Landroid/arch/"):
-            continue
-        checked += 1
-        pending = [owner]
-        visited = set()
-        found = False
-        owner_source_missing = False
-        while pending and len(visited) < 32:
-            current = pending.pop()
-            if current in visited:
-                continue
-            visited.add(current)
-            if current.startswith("Ljava/lang/"):
-                found = True
-                break
-            loaded = load_source(current)
-            if loaded is None:
-                if current == owner:
-                    owner_source_missing = True
-                continue
-            source, package, imports, wildcard_imports = loaded
-            if re.search(r"\b" + re.escape(method) + r"\s*\(", source):
-                found = True
-                break
-            pending.extend(
-                parent_descriptors(current, source, package, imports, wildcard_imports)
-            )
-        if owner_source_missing:
-            missing_owners.add(owner)
-        if not found:
-            missing_methods.append(reference)
-    return {
-        "checked_method_ref_count": checked,
-        "missing_owner_classes": sorted(missing_owners),
-        "missing_owner_class_count": len(missing_owners),
-        "unresolved_method_refs": missing_methods,
-        "unresolved_method_ref_count": len(missing_methods),
-    }
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -391,24 +189,13 @@ def main() -> int:
 
     dex_payloads = inventory.pop("dex_payloads")
     dependency_sets = dependency_class_descriptors(dex_payloads)
-    dex_disassembly_facts = {}
     for dex_name, payload in dex_payloads.items():
         safe_name = dex_name.replace("/", "_")
         extracted = output / safe_name
         extracted.write_bytes(payload)
-        disassembly = run_tool(
-            [args.dexdump, "-d", str(extracted)],
-            output / f"{safe_name}.disassembly.txt",
-        )
-        dex_disassembly_facts[dex_name] = parse_dex_disassembly(disassembly)
+        run_tool([args.dexdump, "-d", str(extracted)],
+                 output / f"{safe_name}.disassembly.txt")
 
-    all_framework_method_refs = sorted({
-        *next(iter(dex_disassembly_facts.values()))["android_framework_method_refs"],
-        *next(iter(dex_disassembly_facts.values()))["support_framework_method_refs"],
-    })
-    framework_api_audit = audit_framework_api_methods(
-        all_framework_method_refs, Path(__file__).resolve().parents[1]
-    )
     apk_digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     report = {
         "source_release": APK_RELEASE_URL,
@@ -427,8 +214,6 @@ def main() -> int:
         "dependency_class_descriptor_counts": {
             name: len(values) for name, values in dependency_sets.items()
         },
-        "dex_disassembly_facts": dex_disassembly_facts,
-        "framework_api_audit": framework_api_audit,
         "dex_disassembly_files": [
             f"{name.replace('/', '_')}.disassembly.txt"
             for name in inventory["dex_files"]
@@ -465,10 +250,6 @@ def main() -> int:
         f"- Android Support class descriptors: {len(dependency_sets['android_support'])}",
         f"- AndroidX class descriptors: {len(dependency_sets['androidx'])}",
         f"- Google Play Services class descriptors: {len(dependency_sets['google_play_services'])}",
-        f"- MainActivity superclass: {next(iter(dex_disassembly_facts.values())).get('main_activity_superclass')}",
-        f"- Android framework method references: {sum(v['android_framework_method_ref_count'] for v in dex_disassembly_facts.values())}",
-        f"- DEX SHA-1 signature valid: {all(v['sha1_signature_valid'] for v in inventory['dex_headers'].values())}",
-        f"- Framework API refs not resolved from Husk Java sources/superclasses: {framework_api_audit['unresolved_method_ref_count']} of {framework_api_audit['checked_method_ref_count']}",
         "",
         "## DEX header counts",
         "",

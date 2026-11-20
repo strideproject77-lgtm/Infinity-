@@ -9,10 +9,8 @@ from scripts.inspect_2048_apk import (
     EXPECTED_PACKAGE,
     APK_RELEASE_URL,
     archive_inventory,
-    audit_framework_api_methods,
     dependency_class_descriptors,
     parse_dex_header,
-    parse_dex_disassembly,
     parse_manifest_facts,
 )
 
@@ -87,87 +85,6 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
             self.assertIn("resources.arsc", result["resource_entries"])
             self.assertEqual(result["native_libraries"], ["lib/arm64-v8a/libexample.so"])
             self.assertEqual(result["dex_headers"]["classes2.dex"]["version"], "035")
-
-    def test_dex_disassembly_reports_main_activity_and_framework_calls(self):
-        result = parse_dex_disassembly(
-            "Class #0\n"
-            "  Class descriptor  : 'Lcom/tpcstld/twozerogame/MainActivity;'\n"
-            "  Superclass        : 'Landroid/support/v7/app/AppCompatActivity;'\n"
-            "  Landroid/view/View;.invalidate:()V\n"
-            "  Landroid/content/SharedPreferences;.getInt:(Ljava/lang/String;I)I\n"
-            "  Landroid/graphics/Bitmap$Config;->ARGB_8888:I\n"
-            "Class #1\n"
-            "  Class descriptor  : 'Landroid/support/v7/app/AppCompatActivity;'\n"
-            "  Superclass        : 'Landroid/app/Activity;'\n"
-            "  Landroid/app/Activity;.finish:()V\n"
-            "Class #2\n"
-            "  Class descriptor  : 'Landroid/support/v4/app/FragmentActivity;'\n"
-            "  Superclass        : 'Landroid/support/v4/app/SupportActivity;'\n"
-            "  Landroid/app/Activity;.onCreate:(Landroid/os/Bundle;)V\n"
-        )
-        self.assertEqual(
-            result["main_activity_superclass"],
-            "Landroid/support/v7/app/AppCompatActivity;",
-        )
-        self.assertEqual(result["class_descriptor_count"], 3)
-        self.assertEqual(result["app_class_descriptors"], ["Lcom/tpcstld/twozerogame/MainActivity;"])
-        self.assertIn("Landroid/view/View;->invalidate", result["android_framework_method_refs"])
-        self.assertNotIn("Landroid/graphics/Bitmap$Config;->ARGB_8888", result["android_framework_method_refs"])
-        self.assertIn(
-            "Landroid/app/Activity;->onCreate",
-            result["support_framework_method_refs"],
-        )
-        self.assertEqual(
-            result["support_superclasses"]["Landroid/support/v4/app/FragmentActivity;"],
-            "Landroid/support/v4/app/SupportActivity;",
-        )
-        self.assertIn(
-            "Landroid/content/SharedPreferences;->getInt",
-            result["android_framework_method_refs"],
-        )
-
-    def test_framework_api_audit_resolves_inherited_methods_and_reports_gaps(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            framework = root / "Vendor/Husk/src/java-framework/src/android"
-            (framework / "content").mkdir(parents=True)
-            (framework / "app").mkdir(parents=True)
-            (framework / "view").mkdir(parents=True)
-            (framework / "content/Context.java").write_text(
-                "package android.content;\npublic class Context { "
-                "public Object getResources() { return null; } }",
-                encoding="utf-8",
-            )
-            (framework / "view/ContextThemeWrapper.java").write_text(
-                "package android.view;\nimport android.content.Context; "
-                "public class ContextThemeWrapper extends Context {}",
-                encoding="utf-8",
-            )
-            (framework / "app/Activity.java").write_text(
-                "package android.app;\nimport android.view.ContextThemeWrapper; "
-                "public class Activity extends ContextThemeWrapper { "
-                "public void onCreate() {} }",
-                encoding="utf-8",
-            )
-            (framework / "view/View.java").write_text(
-                "package android.view; public class View { "
-                "public void invalidate() {} }",
-                encoding="utf-8",
-            )
-            result = audit_framework_api_methods(
-                [
-                    "Landroid/app/Activity;->getResources",
-                    "Landroid/app/Activity;->onCreate",
-                    "Landroid/view/View;->missing",
-                ],
-                root,
-            )
-        self.assertEqual(result["checked_method_ref_count"], 3)
-        self.assertEqual(
-            result["unresolved_method_refs"],
-            ["Landroid/view/View;->missing"],
-        )
-        self.assertEqual(result["missing_owner_class_count"], 0)
 
     def test_manifest_facts_identify_legacy_support_target_and_launcher(self):
         facts = parse_manifest_facts(

@@ -32,10 +32,10 @@ jobs:
         uses: android-actions/setup-android@v3
         with:
           packages: "build-tools;35.0.0"
-      - name: Run focused APK forensic regression tests
+      - name: Run complete Python source regression suite
         run: |
           python -m py_compile scripts/inspect_2048_apk.py
-          python -m unittest discover -s tests -p "test_2048_apk_forensics.py" -v
+          python -m unittest discover -s tests -p "test_*.py" -v
       - name: Download the pinned upstream distributable
         run: |
           mkdir -p "$RUNNER_TEMP/2048-apk" "$RUNNER_TEMP/2048-report"
@@ -50,10 +50,6 @@ jobs:
             --output "$RUNNER_TEMP/2048-report" \
             --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
             --dexdump "$ANDROID_HOME/build-tools/35.0.0/dexdump"
-      - name: Print forensic report summary
-        run: |
-          cat "$RUNNER_TEMP/2048-report/REPORT.md"
-          python -c 'import json,os,pathlib; r=json.loads((pathlib.Path(os.environ["RUNNER_TEMP"])/"2048-report/report.json").read_text()); print("Manifest facts:", {k:r[k] for k in ("min_sdk","target_sdk","compile_sdk","launch_activity","android_support_version")}); print("DEX inventory:", {k: {x:v[x] for x in ("class_defs_size","method_ids_size","field_ids_size")} for k,v in r["dex_headers"].items()}); print("DEX disassembly facts:", {k: {x:v[x] for x in ("class_descriptor_count","main_activity_superclass","support_superclasses","android_framework_method_ref_count","support_framework_method_ref_count")} for k,v in r["dex_disassembly_facts"].items()}); print("App framework method refs:", *next(iter(r["dex_disassembly_facts"].values()))["android_framework_method_refs"], sep="\\n"); print("Support framework method refs (first 160):", *next(iter(r["dex_disassembly_facts"].values()))["support_framework_method_refs"][:160], sep="\\n"); print("Dependency class descriptor counts:", r["dependency_class_descriptor_counts"]); print("Framework API audit:", {k:r["framework_api_audit"][k] for k in ("checked_method_ref_count","missing_owner_class_count","unresolved_method_ref_count")}); print("Unresolved framework API refs (first 120):", *r["framework_api_audit"]["unresolved_method_refs"][:120], sep="\\n")'
       - name: Publish forensic report
         uses: actions/upload-artifact@v4
         with:
