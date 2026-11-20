@@ -2850,6 +2850,43 @@ bool tl_dvm_load_natives(const char *libdir)
     return ok;
 }
 
+/* DEX class static fields are roots independently of the active Java call stack.
+ * This visitor is called only at a collector safepoint, when class linking/drop
+ * and static-field mutation are quiescent. */
+typedef struct dvm_static_root_walk {
+    tl_dvm_root_visitor visitor;
+    void *context;
+} dvm_static_root_walk;
+
+static _Thread_local dvm_static_root_walk *t_static_root_walk;
+
+static void visit_class_static_roots(tl_jclass *jc)
+{
+    dvm_static_root_walk *walk = t_static_root_walk;
+    if (!walk || !walk->visitor || !jc || !jc->dvm || !jc->statics || jc->nstatics <= 0)
+        return;
+
+    dvm_class *c = jc->dvm;
+    for (int i = 0; i < c->nsf; i++) {
+        const char *type = c->sf[i].type;
+        if (!type || (type[0] != 'L' && type[0] != '[')) continue;
+        uint32_t slot = c->sf[i].slot;
+        if (slot >= (uint32_t)jc->nstatics) continue;
+        jobj *object = (jobj *)jc->statics[slot].l;
+        if (object) walk->visitor(object, walk->context);
+    }
+}
+
+void tl_dvm_visit_static_roots(tl_dvm_root_visitor visitor, void *context)
+{
+    if (!visitor) return;
+    dvm_static_root_walk walk = { .visitor = visitor, .context = context };
+    dvm_static_root_walk *previous = t_static_root_walk;
+    t_static_root_walk = &walk;
+    tl_jni_each_declared(visit_class_static_roots);
+    t_static_root_walk = previous;
+}
+
 bool tl_dvm_call_static(const char *cls, const char *name, const char *sig, const jvalue *args, jvalue *ret)
 {
     tl_jclass *jc = dvm_class_named(cls);
