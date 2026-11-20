@@ -693,6 +693,17 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn(".receiver = (m->flags & 8) ? NULL : self", dvm)
         self.assertIn("t_call_root_frames = root_frame.previous;", dvm)
 
+    def test_dex_root_callbacks_run_after_registry_lock_is_released(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        start = dvm.index("static void visit_dex_runtime_roots(")
+        end = dvm.index("\nvoid tl_dvm_visit_static_roots", start)
+        walker = dvm[start:end]
+        unlock = walker.index("pthread_mutex_unlock(&g_lock);")
+        callback = walker.index("walk->visitor(")
+        self.assertLess(unlock, callback)
+        self.assertIn("dvm_dex *snapshot[256];", walker)
+        self.assertIn("__atomic_load_n(&dex->scache[n], __ATOMIC_ACQUIRE)", walker)
+
     def test_dvm_visits_runtime_owned_class_proxy_and_dex_roots(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         self.assertIn("if (jc->mirror) walk->visitor(jc->mirror, walk->context);", dvm)
