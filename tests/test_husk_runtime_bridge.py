@@ -717,6 +717,32 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("tl_jni_refs_visit_strong_roots(visitor, context)", composer)
         self.assertIn("requires external all-mutator safepoint", header.lower())
 
+    def test_jni_heap_registry_tracks_allocations_and_unlinks_reclaimed_objects(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("static jobj *g_heap_objects;", jni)
+        self.assertIn("heap_register(o);", jni)
+        self.assertIn("heap_unregister(o);", jni)
+        self.assertIn("bool tl_jni_visit_heap_objects(", jni)
+
+    def test_jni_object_graph_walker_uses_reference_descriptors_only(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        start = jni.index("bool tl_jni_visit_object_references(")
+        end = jni.index("\nvoid tl_jni_set_field", start)
+        walker = jni[start:end]
+        self.assertIn("object->kind == TL_K_OBJ_ARRAY", walker)
+        self.assertIn("field->sig[0] != 'L' && field->sig[0] != '['", walker)
+        self.assertIn("field->index >= object->nfields", walker)
+        self.assertIn("cls = cls->super", walker)
+
+    def test_active_call_root_frame_is_linked_before_optional_debug_callbacks(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        start = dvm.index("bool dvm_call(dvm_method")
+        end = dvm.index("\nstatic bool dvm_call_inner", start)
+        body = dvm[start:end]
+        self.assertLess(body.index("t_call_root_frames = &root_frame;"),
+                        body.index("static const char *watch;"))
+        self.assertIn("t_call_root_frames = root_frame.previous;", body)
+
     def test_dex_root_callbacks_run_after_registry_lock_is_released(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         start = dvm.index("static void visit_dex_runtime_roots(")
