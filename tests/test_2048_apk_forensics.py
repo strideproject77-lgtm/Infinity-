@@ -16,15 +16,24 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def make_dex(version=b"035") -> bytes:
-    data = bytearray(DEX_HEADER_SIZE)
+    import hashlib
+    import zlib
+
+    data = bytearray(512)
     data[:8] = b"dex\n" + version + b"\0"
-    struct.pack_into("<III", data, 32, DEX_HEADER_SIZE, DEX_HEADER_SIZE, 0x12345678)
-    struct.pack_into("<I", data, 56, 3)   # string_ids_size
-    struct.pack_into("<I", data, 64, 2)   # type_ids_size
-    struct.pack_into("<I", data, 72, 1)   # proto_ids_size
-    struct.pack_into("<I", data, 80, 4)   # field_ids_size
-    struct.pack_into("<I", data, 88, 5)   # method_ids_size
-    struct.pack_into("<I", data, 96, 2)   # class_defs_size
+    struct.pack_into("<III", data, 32, len(data), DEX_HEADER_SIZE, 0x12345678)
+    sections = (
+        (56, 60, 3, 112),
+        (64, 68, 2, 124),
+        (72, 76, 1, 132),
+        (80, 84, 4, 144),
+        (88, 92, 5, 176),
+        (96, 100, 2, 216),
+    )
+    for size_at, offset_at, count, offset in sections:
+        struct.pack_into("<II", data, size_at, count, offset)
+    data[12:32] = hashlib.sha1(data[32:]).digest()
+    struct.pack_into("<I", data, 8, zlib.adler32(data[12:]) & 0xFFFFFFFF)
     return bytes(data)
 
 
@@ -43,6 +52,10 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
         struct.pack_into("<I", data, 32, DEX_HEADER_SIZE + 1)
         with self.assertRaisesRegex(ValueError, "file_size mismatch"):
             parse_dex_header(bytes(data))
+        data = bytearray(make_dex())
+        data[12] ^= 0x01
+        with self.assertRaisesRegex(ValueError, "SHA-1 signature mismatch"):
+            parse_dex_header(bytes(data))
 
     def test_archive_inventory_finds_multidex_resources_assets_and_native_libs(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -51,12 +64,13 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
                 archive.writestr("AndroidManifest.xml", b"binary manifest fixture")
                 archive.writestr("classes.dex", make_dex())
                 archive.writestr("classes2.dex", make_dex())
+                archive.writestr("classes10.dex", make_dex())
                 archive.writestr("resources.arsc", b"resources")
                 archive.writestr("assets/fonts/ClearSans.ttf", b"font")
                 archive.writestr("res/drawable/icon.png", b"icon")
                 archive.writestr("lib/arm64-v8a/libexample.so", b"native")
             result = archive_inventory(apk)
-            self.assertEqual(result["dex_files"], ["classes.dex", "classes2.dex"])
+            self.assertEqual(result["dex_files"], ["classes.dex", "classes2.dex", "classes10.dex"])
             self.assertIn("assets/fonts/ClearSans.ttf", result["resource_entries"])
             self.assertIn("resources.arsc", result["resource_entries"])
             self.assertEqual(result["native_libraries"], ["lib/arm64-v8a/libexample.so"])
