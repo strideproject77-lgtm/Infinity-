@@ -236,9 +236,8 @@ def audit_framework_api_methods(method_refs: list[str], repo_root: Path) -> dict
                 imports = {
                     name.split(".")[-1]: name
                     for name in re.findall(
-                        r"^\s*import\s+(?:static\s+)?([\w.$]+)\s*;",
+                        r"\bimport\s+(?:static\s+)?([\w.$]+)\s*;",
                         source,
-                        re.MULTILINE,
                     )
                 }
                 result = (source, package, imports)
