@@ -30,8 +30,8 @@ jobs:
           python-version: "3.12"
       - name: Install Android SDK build-tools
         uses: android-actions/setup-android@v3
-      - name: Install AAPT and DEX inspection tools
-        run: sdkmanager "build-tools;35.0.0"
+        with:
+          packages: "build-tools;35.0.0"
       - name: Download the pinned upstream distributable
         run: |
           mkdir -p "$RUNNER_TEMP/2048-apk" "$RUNNER_TEMP/2048-report"
