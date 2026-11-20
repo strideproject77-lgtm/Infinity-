@@ -234,32 +234,38 @@ bool tl_jni_refs_visit_strong_roots(tl_jni_refs_root_visitor visitor, void *cont
 {
     if (!visitor) return false;
 
-    /* Snapshot under the registry mutex, but never call collector code while
-     * holding it. A stop-the-world caller guarantees handles stay alive until
-     * the snapshot has been consumed. */
-    size_t count = 0;
+    /* Build a complete snapshot under one lock acquisition so concurrent
+     * handle creation/deletion cannot make a two-pass count stale. Collector
+     * callbacks are always invoked after releasing the registry mutex. */
+    jobj **snapshot = NULL;
+    size_t count = 0, capacity = 0;
     pthread_mutex_lock(&g_refs_lock);
     for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
         bool strong = h->kind != TL_JNI_REF_WEAK_GLOBAL || h->weak_retained;
-        if (h->alive && h->object && strong) count++;
+        if (!h->alive || !h->object || !strong) continue;
+        if (count == capacity) {
+            size_t next_capacity = capacity ? capacity * 2 : 16;
+            if (next_capacity < capacity || next_capacity > SIZE_MAX / sizeof(*snapshot)) {
+                pthread_mutex_unlock(&g_refs_lock);
+                free(snapshot);
+                return false;
+            }
+            jobj **grown = realloc(snapshot, next_capacity * sizeof(*snapshot));
+            if (!grown) {
+                pthread_mutex_unlock(&g_refs_lock);
+                free(snapshot);
+                return false;
+            }
+            snapshot = grown;
+            capacity = next_capacity;
+        }
+        snapshot[count++] = h->object;
     }
     pthread_mutex_unlock(&g_refs_lock);
 
-    if (count > SIZE_MAX / sizeof(jobj *)) return false;
-    jobj **snapshot = count ? malloc(count * sizeof(*snapshot)) : NULL;
-    if (count && !snapshot) return false;
-
-    pthread_mutex_lock(&g_refs_lock);
-    size_t used = 0;
-    for (tl_jni_ref_handle *h = g_refs; h && used < count; h = h->next) {
-        bool strong = h->kind != TL_JNI_REF_WEAK_GLOBAL || h->weak_retained;
-        if (h->alive && h->object && strong) snapshot[used++] = h->object;
-    }
-    pthread_mutex_unlock(&g_refs_lock);
-
-    for (size_t i = 0; i < used; i++) visitor(snapshot[i], context);
+    for (size_t i = 0; i < count; i++) visitor(snapshot[i], context);
     free(snapshot);
-    return used == count;
+    return true;
 }
 
 void tl_jni_refs_process_weak(tl_jni_refs_is_marked is_marked, void *context)
