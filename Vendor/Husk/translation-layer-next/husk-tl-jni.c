@@ -13,6 +13,7 @@
 #include "husk-tl-bionic.h"
 #include "husk-tl-dexindex.h"
 #include "husk-tl-va.h"
+#include "husk-tl-jni-refs.h"
 
 /* ---------------------------------------------------------------- types */
 
@@ -108,9 +109,17 @@ static bool local_frame_add_owned(jobj *o)
 static jo local_frame_adopt(jobj *o)
 {
     if (!o) return NULL;
-    if (!local_frame_add_owned(o)) {
+    /*
+     * Keep the typed-reference registry as a shadow root set while the legacy
+     * JNI ABI still carries raw jobj pointers. The opaque token is deliberately
+     * not exposed to guest code yet; it gives the collector a complete registry
+     * view of JNI-created local roots without changing the 233-slot ABI.
+     */
+    tl_jni_ref_handle *root = tl_jni_refs_new_local(o);
+    if (!root || !local_frame_add_owned(o)) {
+        if (root) tl_jni_refs_delete(root, TL_JNI_REF_LOCAL);
         tl_jni_unref(o);
-        tl_jni_throw("java/lang/OutOfMemoryError", "recording JNI return reference");
+        tl_jni_throw("java/lang/OutOfMemoryError", "recording JNI local reference root");
         return NULL;
     }
     return o;
@@ -141,6 +150,8 @@ static void local_frames_detach(void)
         local_frame_release(t_local_frame);
         t_local_frame = parent;
     }
+    /* Release all registry-backed shadow local roots owned by this thread. */
+    tl_jni_refs_detach_thread();
 }
 
 void tl_jni_unref(jobj *o)
@@ -864,6 +875,11 @@ static int32_t jni_PushLocalFrame(void *env, int32_t cap)
         }
         frame->capacity = (size_t)cap;
     }
+    if (!tl_jni_refs_push_local_frame((size_t)cap)) {
+        local_frame_release(frame);
+        tl_jni_throw("java/lang/OutOfMemoryError", "registering typed JNI local frame");
+        return -1;
+    }
     t_local_frame = frame;
     return 0;
 }
@@ -876,9 +892,9 @@ static jo jni_PopLocalFrame(void *env, jo r)
     jobj *preserved = r ? tl_jni_ref(r) : NULL;
     t_local_frame = parent;
     local_frame_release(frame);
-    if (preserved && !local_frame_add_owned(preserved)) {
-        tl_jni_unref(preserved);
-        tl_jni_throw("java/lang/OutOfMemoryError", "preserving JNI local reference across PopLocalFrame");
+    (void)tl_jni_refs_pop_local_frame(NULL);
+    if (preserved && !local_frame_adopt(preserved)) {
+        /* local_frame_adopt owns and releases preserved on failure. */
         return NULL;
     }
     return preserved;
