@@ -154,6 +154,41 @@ def dependency_class_descriptors(dex_payloads: dict[str, bytes]) -> dict[str, se
     return result
 
 
+
+def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
+    """Extract app class identity and Android framework method references from dexdump."""
+    descriptors = sorted(set(re.findall(
+        r"Class descriptor\\s*:\\s*'([^']+)'", disassembly
+    )))
+    class_blocks = re.split(r"(?=^Class #\\d+)", disassembly, flags=re.MULTILINE)
+    main_block = next(
+        (block for block in class_blocks
+         if "Lcom/tpcstld/twozerogame/MainActivity;" in block),
+        "",
+    )
+    superclass_match = re.search(
+        r"Superclass\\s*:\\s*'([^']+)'", main_block
+    )
+    method_refs = set()
+    for owner, method in re.findall(
+        r"(L[^;\\s]+;)(?:->|\\.)([A-Za-z_$][A-Za-z0-9_$]*)\\s*(?::|\\()",
+        disassembly,
+    ):
+        if owner.startswith("Landroid/") and not owner.startswith("Landroid/support/"):
+            method_refs.add(f"{owner}->{method}")
+    app_classes = [
+        descriptor for descriptor in descriptors
+        if descriptor.startswith("Lcom/tpcstld/twozerogame/")
+    ]
+    return {
+        "class_descriptor_count": len(descriptors),
+        "app_class_descriptors": app_classes,
+        "main_activity_superclass": superclass_match.group(1) if superclass_match else None,
+        "android_framework_method_ref_count": len(method_refs),
+        "android_framework_method_refs": sorted(method_refs),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("apk", type=Path)
@@ -189,12 +224,16 @@ def main() -> int:
 
     dex_payloads = inventory.pop("dex_payloads")
     dependency_sets = dependency_class_descriptors(dex_payloads)
+    dex_disassembly_facts = {}
     for dex_name, payload in dex_payloads.items():
         safe_name = dex_name.replace("/", "_")
         extracted = output / safe_name
         extracted.write_bytes(payload)
-        run_tool([args.dexdump, "-d", str(extracted)],
-                 output / f"{safe_name}.disassembly.txt")
+        disassembly = run_tool(
+            [args.dexdump, "-d", str(extracted)],
+            output / f"{safe_name}.disassembly.txt",
+        )
+        dex_disassembly_facts[dex_name] = parse_dex_disassembly(disassembly)
 
     apk_digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     report = {
@@ -214,6 +253,7 @@ def main() -> int:
         "dependency_class_descriptor_counts": {
             name: len(values) for name, values in dependency_sets.items()
         },
+        "dex_disassembly_facts": dex_disassembly_facts,
         "dex_disassembly_files": [
             f"{name.replace('/', '_')}.disassembly.txt"
             for name in inventory["dex_files"]
@@ -250,6 +290,9 @@ def main() -> int:
         f"- Android Support class descriptors: {len(dependency_sets['android_support'])}",
         f"- AndroidX class descriptors: {len(dependency_sets['androidx'])}",
         f"- Google Play Services class descriptors: {len(dependency_sets['google_play_services'])}",
+        f"- MainActivity superclass: {next(iter(dex_disassembly_facts.values())).get('main_activity_superclass')}",
+        f"- Android framework method references: {sum(v['android_framework_method_ref_count'] for v in dex_disassembly_facts.values())}",
+        f"- DEX SHA-1 signature valid: {all(v['sha1_signature_valid'] for v in inventory['dex_headers'].values())}",
         "",
         "## DEX header counts",
         "",

@@ -1,3 +1,17 @@
+## 2026-11-20 — 2048 exact distributable APK audit pinned on main
+
+- User-directed workflow: all current implementation work is on `main`; do not create branches or pull requests until the Version 1.0 testing phase.
+- Added the pinned tpcstld 2048 v1.3.3 forensic inspector, regression tests and GitHub Actions workflow directly to main. APK SHA-256: `caed84eb0556cb5745da3cfaab8587244fc0122b49fe3df80d0caea3908f1f39`.
+- Exact package facts from AAPT: `com.tpcstld.twozerogame`, version code 1007/version 1.3.3, launcher `com.tpcstld.twozerogame.MainActivity`, min SDK 14, target/compile SDK 28, Android Support Library 26.1.0.
+- Exact archive facts: one `classes.dex` (DEX 035; 3,711 class definitions; 29,157 method IDs; 15,845 field IDs), 492 resource entries, no native libraries. DEX descriptor scan: 1,452 Android Support descriptors, zero AndroidX descriptors, 2,106 Google Play Services descriptors.
+- DEX SHA-1 signature does not match the header; Adler-32 passes and `dexdump` successfully disassembles it. Treat this as an unresolved integrity/verifier question.
+- The APK is an older Support Library build; prior AndroidX assumptions were incorrect for this pinned artifact. Local gameplay must not depend on Google Play Services sign-in/cloud APIs.
+- Initial forensic regression exposed and fixed the Android Support manifest version parser. Main Linux regression run [44717483863](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44717483863) passed after the fix; forensic run [44717483911](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44717483911) completed successfully.
+- Static inspection only. No APK launch, ART/Dalvik verification, rendering, swipe, save/load, IPA build, or device test. Do not claim 2048 compatibility yet. SideStore untouched.
+- Next: parse the actual DEX disassembly to capture MainActivity's superclass and referenced Android framework methods, then map those references against Husk's real framework and DVM opcode implementations.
+
+---
+
 ## 2026-11-20 — Codemagic test IPA artifact made directly accessible
 
 - Added `LiveContainer.ipa` as a direct Codemagic artifact in addition to the existing ZIP bundles. After a successful Codemagic run, the primary test IPA can be downloaded directly without extracting the ZIP first.

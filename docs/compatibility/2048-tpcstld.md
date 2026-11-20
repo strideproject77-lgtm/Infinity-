@@ -12,7 +12,7 @@ Status: **source audit in progress; not yet launch-verified**
 - Main rendering path: `MainView extends View`, Android `Canvas`, `Paint`, `BitmapDrawable`, and a bundled ClearSans font.
 - Input path: `InputListener implements View.OnTouchListener` and interprets `MotionEvent` swipes.
 - Local persistence: default `SharedPreferences`, including board state, undo state, score, and high score.
-- The upstream Gradle project declares min SDK 21 and target SDK 35. It also declares AndroidX AppCompat and Google Play Games dependencies.
+- The pinned distributable APK (`1.3.3`, version code `1007`) reports min SDK 14, target SDK 28 and compile SDK 28. Its manifest reports Android Support Library `26.1.0`; the APK DEX contains 1,452 `android.support.*` class descriptors, zero AndroidX descriptors and 2,106 Google Play Services descriptors. The APK contains one DEX file (3,711 class definitions), 492 resource entries and no native `.so` libraries. These exact APK facts take precedence over assumptions from the current upstream source tree.
 - Infinity's APK engine detector already classifies a DEX-bearing APK with no recognized native engine library as `java`; the launch view routes that selection to Husk's Java backend and requires the Java runtime bundle.
 
 ## Infinity/Husk framework surfaces already present in source
@@ -35,10 +35,11 @@ The source-level regression contract is `tests/test_2048_compatibility_contract.
 ## Remaining blockers before claiming full support
 
 1. Inspect the exact distributable APK's manifest, DEX files, resources, and dependency contents. The upstream source tree is not a substitute for the exact APK under test.
-2. Verify DEX opcodes and class verification for the app's compiled code and bundled AndroidX dependencies.
-3. Audit the AndroidX AppCompat/Core code paths reached by `AppCompatActivity` and `ResourcesCompat`.
-4. Treat Google Play Games sign-in/cloud snapshots as an optional integration. No Play Games service implementation is claimed; local gameplay and local save must remain independent of cloud sign-in.
-5. Run a real APK launch and test swipe input, draw/animation, undo, restart, high-score persistence, pause/resume, and rotation/portrait behavior after the broader Husk runtime gate is ready.
+2. Verify DEX class hierarchy, instruction/opcode coverage and verifier behavior for the exact compiled app. The forensic report records the `MainActivity` superclass and Android framework method references from `dexdump`.
+3. Audit Android Support Library 26.1.0 (not AndroidX) paths reached by the app, then compare every referenced Android framework method with Husk's actual framework implementations.
+4. Treat Google Play Services sign-in/cloud snapshots as optional. The APK includes many GMS classes, but local gameplay and local save must work without a Play Games service backend.
+5. Investigate the DEX header's SHA-1 signature mismatch (Adler-32 checksum passes and `dexdump` can disassemble it); do not assume it is harmless or fatal until checked against ART/Dalvik verifier behavior.
+6. Run a real APK launch and test swipe input, draw/animation, undo, restart, high-score persistence, pause/resume, and portrait behavior after the broader Husk runtime gate is ready.
 
 ## Scope guard
 

@@ -11,6 +11,7 @@ from scripts.inspect_2048_apk import (
     archive_inventory,
     dependency_class_descriptors,
     parse_dex_header,
+    parse_dex_disassembly,
     parse_manifest_facts,
 )
 
@@ -85,6 +86,25 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
             self.assertIn("resources.arsc", result["resource_entries"])
             self.assertEqual(result["native_libraries"], ["lib/arm64-v8a/libexample.so"])
             self.assertEqual(result["dex_headers"]["classes2.dex"]["version"], "035")
+
+    def test_dex_disassembly_reports_main_activity_and_framework_calls(self):
+        result = parse_dex_disassembly(
+            "Class #0\\n"
+            "  Class descriptor  : 'Lcom/tpcstld/twozerogame/MainActivity;'\\n"
+            "  Superclass        : 'Landroid/support/v7/app/AppCompatActivity;'\\n"
+            "  Landroid/view/View;.invalidate:()V\\n"
+            "  Landroid/content/SharedPreferences;.getInt:(Ljava/lang/String;I)I\\n"
+        )
+        self.assertEqual(
+            result["main_activity_superclass"],
+            "Landroid/support/v7/app/AppCompatActivity;",
+        )
+        self.assertEqual(result["class_descriptor_count"], 1)
+        self.assertIn("Landroid/view/View;->invalidate", result["android_framework_method_refs"])
+        self.assertIn(
+            "Landroid/content/SharedPreferences;->getInt",
+            result["android_framework_method_refs"],
+        )
 
     def test_manifest_facts_identify_legacy_support_target_and_launcher(self):
         facts = parse_manifest_facts(
