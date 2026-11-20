@@ -1357,3 +1357,20 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Follow-up assertion completion: added explicit source-contract markers for null-safe event type/source/device/action/flags/meta/button getters (`f40cd8f095660d6dd4605f2b0a4c41912d9a6514`).
 - Static source audit after this follow-up found all seven targeted NDK accessor safety markers present in the implementation. The test file contains the matching source assertions; these tests were not executed.
 - JNI handle work remains blocked on a full boundary inventory and coordinated conversion of every object-bearing JNI slot; no unsafe partial pointer-wrapper change was made.
+
+## 2026-11-20 — JNI weak-global ABI slot correction
+
+### Implemented on main
+- Corrected JNI function-table entries 226 and 227 to expose `NewWeakGlobalRef` and `DeleteWeakGlobalRef` instead of incorrectly aliasing the strong-global functions.
+- Added explicit weak-global entry points. Because this runtime currently has no tracing collector or distinct opaque reference-handle layer, the safe fallback retains weak references strongly to prevent dangling pointers. This is deliberately documented as a lifetime fallback, not ART weak-reference/GC semantics.
+- Added source-contract assertions ensuring slots 226/227 point to the weak-global functions and are not aliased to strong-global functions.
+
+### Commits
+- JNI weak-global ABI correction and safe fallback: `4d9ebdb0aed99da0fa1d78b1309d30dd545d6778`
+- Correct insertion boundary: `3eb6fc167494c26438bbdc91275fe23e16620c21`
+- Source-contract coverage: `37efb74b9f48861007121fcf3ced9c76c93b28cd`
+
+### Remaining JNI blocker / status
+- Overall Husk source integration remains **99%**. This fixes previously aliased JNI ABI slots but does not complete distinct local/global/weak-global opaque handles, accurate `GetObjectRefType`, or weak-reference collection semantics.
+- A correct handle conversion must cover every JNI object argument/return, native method entry/return, object arrays, fields, exceptions and frame ownership together. Do not claim 100% until that conversion is complete and source-audited.
+- No tests, compiler, workflow, IPA build/export, signing or device testing was performed. Once source integration reaches 100%, perform one consolidated validation/test pass as requested.
