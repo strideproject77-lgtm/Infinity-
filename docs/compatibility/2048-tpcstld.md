@@ -13,6 +13,7 @@ Status: **source audit in progress; not yet launch-verified**
 - Input path: `InputListener implements View.OnTouchListener` and interprets `MotionEvent` swipes.
 - Local persistence: default `SharedPreferences`, including board state, undo state, score, and high score.
 - The upstream Gradle project declares min SDK 21 and target SDK 35. It also declares AndroidX AppCompat and Google Play Games dependencies.
+- Infinity's APK engine detector already classifies a DEX-bearing APK with no recognized native engine library as `java`; the launch view routes that selection to Husk's Java backend and requires the Java runtime bundle.
 
 ## Infinity/Husk framework surfaces already present in source
 
