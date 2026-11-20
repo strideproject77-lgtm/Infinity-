@@ -1,3 +1,12 @@
+## Husk JNI reference-count overflow/underflow hardening — 2026-11-20
+
+- Replaced the unchecked atomic increment in `tl_jni_ref` with a compare/exchange loop. Reference counts now saturate at `UINT32_MAX` instead of wrapping to zero and making a live object appear destructible.
+- Replaced the unchecked decrement in `tl_jni_unref` with a compare/exchange loop. A duplicate release at zero is ignored, and only the thread that performs the 1 → 0 transition proceeds to destruction.
+- The saturated value is treated as pinned by `tl_jni_unref`; this intentionally prefers a bounded leak in the practically unreachable saturation case over premature destruction/use-after-free.
+- Source commits: `7842260e8e1e7bfac83dd761f8feed71a584f1b9` and `cc603d404b19402043556c86062aeabef48fa150`.
+- This hardens the existing object lifetime counter only. It does not add distinct JNI local/global/weak handles, tracing GC, or ART-compatible weak-reference semantics.
+- No tests, compilation, GitHub Actions, IPA build, or device execution were run, per the integration-first plan.
+
 ## Husk JNI local-reference ownership hardening — 2026-11-20
 
 - Updated `jni_DeleteLocalRef` so it decrements an object's reference count only when that pointer is actually present in one of the current thread's tracked local frames.
