@@ -60,6 +60,9 @@ bool tl_dvm_safepoint_begin(void);
 void tl_dvm_safepoint_end(void);
 /* Valid only between successful begin/end on the owning thread. */
 bool tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *context);
+/* Run a complete conservative mark traversal at a cooperative DVM safepoint.
+ * This reports reachable objects but deliberately does not sweep/reclaim them. */
+bool tl_dvm_trace_heap(tl_dvm_root_visitor on_mark, void *user_context, size_t *marked_count);
 void tl_dvm_set_trace(int level);       /* 1: classes and natives; 2: every invoke */
 
 #ifdef __cplusplus
