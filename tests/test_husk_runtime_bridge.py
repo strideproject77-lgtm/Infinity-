@@ -684,6 +684,15 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("static int32_t jni_Throw(void *env, jo t) { (void)env; pending_set(t); return 0; }", jni)
         self.assertIn("pending_set(NULL);", jni)
 
+    def test_dvm_exposes_object_valued_class_statics_as_gc_roots(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
+        self.assertIn("void tl_dvm_visit_static_roots(tl_dvm_root_visitor visitor, void *context);", header)
+        self.assertIn("tl_jni_each_declared(visit_class_static_roots);", dvm)
+        self.assertIn("type[0] != 'L' && type[0] != '['", dvm)
+        self.assertIn("jc->statics[slot].l", dvm)
+        self.assertIn("slot >= (uint32_t)jc->nstatics", dvm)
+
     def test_nativeactivity_has_joinable_teardown_and_never_fakes_input_queue(self):
         native = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.h")
