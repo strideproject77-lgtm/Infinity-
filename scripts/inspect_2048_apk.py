@@ -195,10 +195,6 @@ def main() -> int:
         extracted.write_bytes(payload)
         run_tool([args.dexdump, "-d", str(extracted)],
                  output / f"{safe_name}.disassembly.txt")
-        for match in re.findall(
-            rb"L(?:androidx|com/google/android/gms)/[A-Za-z0-9_/$]+;", payload
-        ):
-            dependency_refs.add(match.decode("ascii", errors="replace"))
 
     apk_digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     report = {
