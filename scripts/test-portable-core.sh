@@ -26,6 +26,7 @@ printf '%s\n' \
 
 echo "==> Type-checking Foundation-only Swift APK parsers"
 swiftc -typecheck \
+  tests/fixtures/INFINITYAPKArchiveLinuxShim.swift \
   LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift \
   LiveContainerSwiftUI/Strata3/INFINITYAPKInspection.swift
 
