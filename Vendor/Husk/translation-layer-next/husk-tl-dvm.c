@@ -3313,7 +3313,10 @@ typedef struct dvm_sweep_state {
 static void dvm_sweep_unmarked_object(jobj *object, void *context)
 {
     dvm_sweep_state *sweep = context;
-    if (!sweep || !object || object->kind == TL_K_CLASS) return;
+    /* The heap visitor snapshots raw addresses before invoking callbacks. A
+     * prior native destructor may have removed a later snapshot entry. */
+    if (!sweep || !object || !tl_jni_heap_contains(object)) return;
+    if (object->kind == TL_K_CLASS) return;
     if (!dvm_mark_state_contains(sweep->marks, object) &&
         tl_jni_destroy_unreachable_object(object))
         sweep->reclaimed++;
