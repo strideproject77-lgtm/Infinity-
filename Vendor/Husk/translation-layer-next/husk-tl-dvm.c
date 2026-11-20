@@ -3253,23 +3253,29 @@ static void dvm_mark_root(jobj *object, void *context)
     dvm_mark_add((dvm_mark_state *)context, object);
 }
 
+static bool tl_dvm_mark_heap_state_at_safepoint(dvm_mark_state *state)
+{
+    if (!state) return false;
+    bool roots_ok = true;
+    tl_dvm_visit_static_roots(dvm_mark_root, state);
+    if (!state->failed) {
+        if (!tl_dvm_visit_all_active_call_roots(dvm_mark_root, state)) roots_ok = false;
+        if (roots_ok && !state->failed &&
+            !tl_jni_refs_visit_strong_roots(dvm_mark_root, state)) roots_ok = false;
+    } else roots_ok = false;
+    while (roots_ok && !state->failed && state->scan_index < state->queue_count) {
+        jobj *object = state->queue[state->scan_index++];
+        if (!tl_jni_visit_object_references(object, dvm_mark_root, state)) roots_ok = false;
+    }
+    return roots_ok && !state->failed;
+}
+
 static bool tl_dvm_trace_heap_at_safepoint(tl_dvm_root_visitor on_mark,
                                             void *user_context,
                                             size_t *marked_count)
 {
     dvm_mark_state state = { .on_mark = on_mark, .user_context = user_context };
-    bool roots_ok = true;
-    tl_dvm_visit_static_roots(dvm_mark_root, &state);
-    if (!state.failed) {
-        if (!tl_dvm_visit_all_active_call_roots(dvm_mark_root, &state)) roots_ok = false;
-        if (roots_ok && !state.failed &&
-            !tl_jni_refs_visit_strong_roots(dvm_mark_root, &state)) roots_ok = false;
-    } else roots_ok = false;
-    while (roots_ok && !state.failed && state.scan_index < state.queue_count) {
-        jobj *object = state.queue[state.scan_index++];
-        if (!tl_jni_visit_object_references(object, dvm_mark_root, &state)) roots_ok = false;
-    }
-    bool complete = roots_ok && !state.failed;
+    bool complete = tl_dvm_mark_heap_state_at_safepoint(&state);
     if (marked_count) *marked_count = complete ? state.queue_count : 0;
     free(state.queue);
     free(state.slots);
@@ -3284,6 +3290,59 @@ bool tl_dvm_trace_heap(tl_dvm_root_visitor on_mark, void *user_context,
     if (marked_count) *marked_count = 0;
     if (!tl_dvm_safepoint_begin()) return false;
     bool complete = tl_dvm_trace_heap_at_safepoint(on_mark, user_context, marked_count);
+    tl_dvm_safepoint_end();
+    return complete;
+}
+
+static bool dvm_mark_state_contains(const dvm_mark_state *state, const jobj *object)
+{
+    if (!state || !object || !state->slot_capacity) return false;
+    size_t at = dvm_mark_hash(object) & (state->slot_capacity - 1);
+    while (state->slots[at]) {
+        if (state->slots[at] == object) return true;
+        at = (at + 1) & (state->slot_capacity - 1);
+    }
+    return false;
+}
+
+typedef struct dvm_sweep_state {
+    const dvm_mark_state *marks;
+    size_t reclaimed;
+} dvm_sweep_state;
+
+static void dvm_sweep_unmarked_object(jobj *object, void *context)
+{
+    dvm_sweep_state *sweep = context;
+    if (!sweep || !object || object->kind == TL_K_CLASS) return;
+    if (!dvm_mark_state_contains(sweep->marks, object) &&
+        tl_jni_destroy_unreachable_object(object))
+        sweep->reclaimed++;
+}
+
+/*
+ * Full mark/sweep is deliberately fail-closed: it only reclaims objects after
+ * every DVM mutator has parked and the complete root graph was traversed.
+ * JNI weak globals remain strong roots for now because the legacy JNI ABI
+ * returns raw jobj pointers and cannot yet expose a cleared weak handle as NULL.
+ */
+bool tl_dvm_collect_heap(size_t *reclaimed_count, size_t *reachable_count)
+{
+    if (reclaimed_count) *reclaimed_count = 0;
+    if (reachable_count) *reachable_count = 0;
+    if (!tl_dvm_safepoint_begin()) return false;
+
+    dvm_mark_state marks = {0};
+    bool complete = tl_dvm_mark_heap_state_at_safepoint(&marks);
+    dvm_sweep_state sweep = { .marks = &marks, .reclaimed = 0 };
+    if (complete && !tl_jni_visit_heap_objects(dvm_sweep_unmarked_object, &sweep))
+        complete = false;
+
+    if (complete) {
+        if (reclaimed_count) *reclaimed_count = sweep.reclaimed;
+        if (reachable_count) *reachable_count = marks.queue_count;
+    }
+    free(marks.queue);
+    free(marks.slots);
     tl_dvm_safepoint_end();
     return complete;
 }
