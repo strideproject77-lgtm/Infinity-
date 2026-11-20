@@ -48,6 +48,8 @@ on:
       - "tests/test_infinity_apk_archive.py"
       - "tests/test_husk_import_pipeline.py"
       - "tests/test_husk_runtime_bridge.py"
+      - "tests/test_2048_compatibility_contract.py"
+      - "docs/compatibility/2048-tpcstld.md"
       - "tests/test_husk_jitless.py"
       - "tests/test_runtime_assets_builder.py"
       - ".github/workflows/infinity-tests.yml"
