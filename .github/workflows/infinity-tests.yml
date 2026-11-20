@@ -102,10 +102,14 @@ jobs:
               _ = infinity_husk_prepare_java(nil, 1.0, nil, nil, nil, nil, false)
           }
           SWIFT
+          cat > /tmp/INFINITYHuskBridgeSmoke.h <<HEADER
+          #include "${GITHUB_WORKSPACE}/LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"
+          #include "${GITHUB_WORKSPACE}/LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h"
+          HEADER
           swiftc -typecheck \
             -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
             -target arm64-apple-ios15.0 \
-            -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
+            -import-objc-header /tmp/INFINITYHuskBridgeSmoke.h \
             LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift \
             LiveContainerSwiftUI/Strata3/INFINITYHuskNativeLog.swift \
             LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift \
@@ -116,7 +120,7 @@ jobs:
           swiftc -typecheck \
             -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
             -target arm64-apple-ios15.0 \
-            -import-objc-header LiveContainerSwiftUI/Strata3/INFINITYHuskRuntimeBridge.h \
+            -import-objc-header /tmp/INFINITYHuskBridgeSmoke.h \
             LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift
 
   swift-typecheck:

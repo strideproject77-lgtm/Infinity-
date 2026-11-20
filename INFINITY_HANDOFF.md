@@ -1938,3 +1938,11 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - The Swift bridge smoke job correctly switched to the iPhoneOS SDK, then exposed missing source inputs in its own compile command: `INFINITYHuskRuntime.swift` references the installed-app/store model and native logger, but the smoke invocation had not included those source files.
 - Added `INFINITYHuskNativeLog.swift`, `INFINITYAPKStore.swift`, `INFINITYAPKInspection.swift`, and `INFINITYAPKManifest.swift` to the bridge smoke type-check invocation, and added a source-contract test to prevent these dependencies from being omitted again.
 - This is a validation-target completeness correction, not a runtime implementation percentage increase. The Swift bridge workflow needs one final consolidated rerun to verify the complete source set. No IPA/APK build, no device test, and SideStore untouched.
+
+
+## 2026-11-20 — Swift smoke bridge now mirrors required C headers
+
+- The follow-up Swift bridge check on commit `4ae4c909751640e4c92e7b64f1c6bd6d5a04c84b` confirmed the additional Swift dependencies were found, but type-checking then exposed two unresolved C symbols from `INFINITYAPKArchive.h`.
+- The actual app bridging header imports both `INFINITYAPKArchive.h` and the INFINITY Husk runtime bridge. The isolated smoke check had only imported the Husk header. Updated the workflow to generate a temporary narrow combined header with those same two relevant C API headers, then use it for both smoke type-check invocations.
+- Added a regression assertion that both headers are present in the smoke bridge. This aligns the isolated check with the actual app C API boundary without importing unrelated app/SideStore headers.
+- Final validation is pending. No IPA/APK build, device test, or SideStore changes.

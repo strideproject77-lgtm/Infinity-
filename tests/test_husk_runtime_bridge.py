@@ -84,6 +84,13 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(symbol=symbol):
                 self.assertIn(symbol, jni)
 
+    def test_swift_bridge_smoke_imports_both_c_api_headers(self):
+        workflow = self.read(".github/workflows/infinity-tests.yml")
+        bridge_job = workflow.split("husk-bridge-header-check:", 1)[1].split("swift-typecheck:", 1)[0]
+        self.assertIn("INFINITYAPKArchive.h", bridge_job)
+        self.assertIn("INFINITYHuskRuntimeBridge.h", bridge_job)
+        self.assertIn("-import-objc-header /tmp/INFINITYHuskBridgeSmoke.h", bridge_job)
+
     def test_swift_bridge_smoke_compiles_its_runtime_dependencies(self):
         workflow = self.read(".github/workflows/infinity-tests.yml")
         bridge_job = workflow.split("husk-bridge-header-check:", 1)[1].split("swift-typecheck:", 1)[0]
