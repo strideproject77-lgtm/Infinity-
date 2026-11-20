@@ -1681,3 +1681,22 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Commit: f983ffa0f9da8be2a5ee45f0a35cdd0eff4fc5ae
 
 - Atomic JNI root snapshot regression update: 22a50e388c6f8c5653bd702fb21c20f1a00f41f5
+
+
+## 2026-11-20 — Heap ownership registry and typed object-edge traversal
+
+### Implemented on main
+- Added a process-wide JNI heap-allocation registry. Every object created through the central `obj_alloc()` path is registered; objects reclaimed by the existing non-DVM refcount path are unregistered before destruction.
+- Added a safepoint-only heap snapshot visitor. It snapshots allocation pointers under the heap mutex, then invokes caller callbacks after releasing the mutex. Allocation/overflow failures are reported as false.
+- Added descriptor-aware object graph edge enumeration: object arrays expose their elements; instance slots are visited only when declared JNI field descriptors begin with `L` or `[`. Primitive fields are never treated as pointers, detached pseudo-fields are skipped, bounds are checked, and inherited class metadata is traversed.
+- Moved active DVM call-frame root registration ahead of optional `TL_DVM_CALLS` diagnostics, so debug-triggered nested calls no longer run outside the outer invocation's root chain.
+- Added source-contract tests for allocation registration/unregistration, descriptor-filtered graph traversal, and earlier call-frame registration.
+
+### Explicit limits
+- The heap registry is an allocation inventory, not a mark/sweep collector. It does not itself determine reachability or reclaim DVM objects. The graph walker is a primitive for a future collector and must run only while all mutators are externally stopped.
+- The active-call root chain remains thread-local; no all-thread registration/parking handshake is installed. Interpreter local registers still lack verifier-derived reference maps. A complete safe collector therefore remains unavailable.
+- JNI instance field metadata coverage depends on fields having been registered in the class metadata. Unresolved/unregistered field slots are deliberately not guessed by scanning raw jvalue memory.
+- Weak globals remain strongly retained. No weak clearing, heap sweeping, or reclamation was enabled.
+- Tests added but not executed. No build/workflow/IPA/device test. SideStore untouched.
+- Integration estimate remains **99.90%**; this batch adds real heap inventory and graph traversal infrastructure but does not close the stop-the-world, verifier-map, or collector gaps.
+- Next: complete all-mutator safepoint coordination and verified DEX register maps, then wire a mark phase and only later safe sweep/finalization.
