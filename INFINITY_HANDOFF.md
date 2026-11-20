@@ -1868,3 +1868,12 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Not yet run through GitHub CI; keep the planned single consolidated validation run for the integration checkpoint.
 - This hardens one GC root-completeness boundary but does not complete JNI opaque-handle ABI migration, native pointer marshaling, or collector sweep. Weak-global clearing remains disabled; no reclamation activation.
 - No IPA/APK build or device test. SideStore untouched.
+
+## 2026-11-20 — Opaque JNI token adapter foundation
+
+- Added registry-owned opaque-token export, acquire, and kind-query APIs in `husk-tl-jni-refs.h/.c`.
+- Tokens are compared against the registry and never dereferenced as `jobj *`; deleted/stale tokens resolve to no object. Acquiring a valid token returns a temporary strong object reference that callers must release with `tl_jni_unref()`.
+- Added source-contract coverage for the token adapter API.
+- Commits: `20949583750ea61d16407032c5861b31804dce59`, `7060dc3523ff9057e483fd25237ad070e00e8124`, `dd8d7adb199fc8df662b10148981557c0a3475f4`.
+- Important limitation: this is the registry adapter foundation only. The 233-slot JNI function table and DVM/native argument-return paths still use raw `jobj *`; they have NOT yet been switched to exported tokens. Do not claim JNI ABI migration complete and do not enable weak clearing or GC sweep.
+- No tests/compilation run; preserve the single consolidated GitHub validation plan. No IPA/APK build or device test. SideStore untouched.
