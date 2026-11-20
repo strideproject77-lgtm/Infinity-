@@ -1219,6 +1219,144 @@ typedef struct dvm_call_root_frame {
 
 static _Thread_local dvm_call_root_frame *t_call_root_frames;
 
+typedef struct dvm_mutator_record {
+    struct dvm_mutator_record *next;
+    pthread_t thread;
+    dvm_call_root_frame *frames;
+    unsigned depth;
+    bool parked;
+} dvm_mutator_record;
+
+static pthread_mutex_t g_safepoint_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t g_safepoint_cv = PTHREAD_COND_INITIALIZER;
+static dvm_mutator_record *g_mutators;
+static bool g_safepoint_requested;
+static pthread_t g_safepoint_owner;
+static _Thread_local dvm_mutator_record t_mutator;
+static _Thread_local bool t_mutator_registered;
+
+static void dvm_mutator_enter(void)
+{
+    if (t_mutator_registered) { t_mutator.depth++; return; }
+    memset(&t_mutator, 0, sizeof(t_mutator));
+    t_mutator.thread = pthread_self();
+    t_mutator.depth = 1;
+    pthread_mutex_lock(&g_safepoint_lock);
+    t_mutator.next = g_mutators;
+    g_mutators = &t_mutator;
+    t_mutator_registered = true;
+    pthread_mutex_unlock(&g_safepoint_lock);
+}
+
+static void dvm_mutator_leave(void)
+{
+    if (!t_mutator_registered || !t_mutator.depth) return;
+    if (--t_mutator.depth) return;
+    pthread_mutex_lock(&g_safepoint_lock);
+    dvm_mutator_record **link = &g_mutators;
+    while (*link && *link != &t_mutator) link = &(*link)->next;
+    if (*link == &t_mutator) *link = t_mutator.next;
+    t_mutator.frames = NULL;
+    t_mutator.parked = false;
+    t_mutator_registered = false;
+    pthread_cond_broadcast(&g_safepoint_cv);
+    pthread_mutex_unlock(&g_safepoint_lock);
+}
+
+static void dvm_safepoint_poll(void)
+{
+    if (!t_mutator_registered) return;
+    pthread_mutex_lock(&g_safepoint_lock);
+    while (g_safepoint_requested &&
+           !pthread_equal(g_safepoint_owner, pthread_self())) {
+        t_mutator.parked = true;
+        pthread_cond_broadcast(&g_safepoint_cv);
+        pthread_cond_wait(&g_safepoint_cv, &g_safepoint_lock);
+    }
+    t_mutator.parked = false;
+    pthread_mutex_unlock(&g_safepoint_lock);
+}
+
+bool tl_dvm_safepoint_begin(void)
+{
+    pthread_mutex_lock(&g_safepoint_lock);
+    if (g_safepoint_requested) {
+        pthread_mutex_unlock(&g_safepoint_lock);
+        return false;
+    }
+    g_safepoint_requested = true;
+    g_safepoint_owner = pthread_self();
+    pthread_cond_broadcast(&g_safepoint_cv);
+    for (;;) {
+        bool all_parked = true;
+        for (dvm_mutator_record *m = g_mutators; m; m = m->next) {
+            if (pthread_equal(m->thread, g_safepoint_owner)) continue;
+            if (!m->parked) { all_parked = false; break; }
+        }
+        if (all_parked) break;
+        pthread_cond_wait(&g_safepoint_cv, &g_safepoint_lock);
+    }
+    pthread_mutex_unlock(&g_safepoint_lock);
+    return true;
+}
+
+void tl_dvm_safepoint_end(void)
+{
+    pthread_mutex_lock(&g_safepoint_lock);
+    if (g_safepoint_requested &&
+        pthread_equal(g_safepoint_owner, pthread_self())) {
+        g_safepoint_requested = false;
+        memset(&g_safepoint_owner, 0, sizeof(g_safepoint_owner));
+        pthread_cond_broadcast(&g_safepoint_cv);
+    }
+    pthread_mutex_unlock(&g_safepoint_lock);
+}
+
+void tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *context)
+{
+    if (!visitor) return;
+    dvm_call_root_frame **frames = NULL;
+    size_t count = 0, capacity = 0;
+    pthread_mutex_lock(&g_safepoint_lock);
+    if (!g_safepoint_requested ||
+        !pthread_equal(g_safepoint_owner, pthread_self())) {
+        pthread_mutex_unlock(&g_safepoint_lock);
+        return;
+    }
+    for (dvm_mutator_record *m = g_mutators; m; m = m->next) {
+        if (!m->frames) continue;
+        if (count == capacity) {
+            size_t next = capacity ? capacity * 2 : 8;
+            if (next < capacity || next > SIZE_MAX / sizeof(*frames)) {
+                pthread_mutex_unlock(&g_safepoint_lock);
+                free(frames);
+                return;
+            }
+            dvm_call_root_frame **grown = realloc(frames, next * sizeof(*frames));
+            if (!grown) {
+                pthread_mutex_unlock(&g_safepoint_lock);
+                free(frames);
+                return;
+            }
+            frames = grown;
+            capacity = next;
+        }
+        frames[count++] = m->frames;
+    }
+    pthread_mutex_unlock(&g_safepoint_lock);
+    for (size_t i = 0; i < count; i++) {
+        for (dvm_call_root_frame *f = frames[i]; f; f = f->previous) {
+            if (f->receiver) visitor(f->receiver, context);
+            if (!f->params || !f->method || !f->method->shorty) continue;
+            for (int n = 0; n < f->method->nparams; n++)
+                if (f->method->shorty[n + 1] == 'L' && f->params[n].l)
+                    visitor(f->params[n].l, context);
+        }
+    }
+    free(frames);
+}
+
+
 void tl_dvm_visit_active_call_roots(tl_dvm_root_visitor visitor, void *context)
 {
     if (!visitor) return;
@@ -1264,6 +1402,8 @@ bool dvm_call(dvm_method *m, jobj *self, const jvalue *params, jvalue *ret)
         .params = params
     };
     t_call_root_frames = &root_frame;
+    dvm_mutator_enter();
+    t_mutator.frames = t_call_root_frames;
     static const char *watch;
     if (!watch) watch = getenv("TL_DVM_CALLS") ? getenv("TL_DVM_CALLS") : "";
     if (watch[0] && watch_hit(watch, m)) {
@@ -1289,6 +1429,8 @@ bool dvm_call(dvm_method *m, jobj *self, const jvalue *params, jvalue *ret)
     }
     bool ok = dvm_call_inner(m, self, params, ret);
     t_call_root_frames = root_frame.previous;
+    t_mutator.frames = t_call_root_frames;
+    dvm_mutator_leave();
     t_depth--;
     return ok;
 }
@@ -2007,6 +2149,7 @@ static bool interpret(dvm_method *m, uint64_t *regs, jvalue *ret)
     if ((m->flags & 0x20) /* synchronized */) dvm_monitor_enter((m->flags & 8) ? m->cls->jc->mirror : RL(regs, m->regs - m->ins));
 
 dispatch:;
+    dvm_safepoint_poll();
     uint16_t w = insns[pc];
     switch (w & 0xFF) {
     case 0x00: {                                                   /* nop, and the data payloads (skipped by size) */
@@ -2963,7 +3106,7 @@ bool tl_dvm_visit_current_thread_roots(tl_dvm_root_visitor visitor, void *contex
 {
     if (!visitor) return false;
     tl_dvm_visit_static_roots(visitor, context);
-    tl_dvm_visit_active_call_roots(visitor, context);
+    tl_dvm_visit_all_active_call_roots(visitor, context);
     return tl_jni_refs_visit_strong_roots(visitor, context);
 }
 
