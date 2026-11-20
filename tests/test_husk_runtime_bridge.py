@@ -752,6 +752,16 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("bool tl_dvm_safepoint_begin(void);", header)
         self.assertIn("void tl_dvm_safepoint_end(void);", header)
 
+    def test_dvm_active_registers_are_conservatively_checked_against_heap_registry(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.h")
+        self.assertIn("uint64_t *registers;", dvm)
+        self.assertIn("active->registers = regs;", dvm)
+        self.assertIn("tl_jni_heap_contains(candidate)", dvm)
+        self.assertIn("bool tl_jni_heap_contains(const void *candidate);", header)
+        self.assertIn("(const void *)o == candidate", jni)
+
     def test_dvm_all_thread_roots_require_owned_safepoint(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         start = dvm.index("void tl_dvm_visit_all_active_call_roots(")
