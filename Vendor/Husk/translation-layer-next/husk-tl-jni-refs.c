@@ -15,11 +15,13 @@ struct tl_jni_ref_handle {
     tl_jni_ref_kind kind;
     bool alive;
     bool weak_retained;
+    uintptr_t token_id;
 };
 
 static pthread_mutex_t g_refs_lock = PTHREAD_MUTEX_INITIALIZER;
 static tl_jni_ref_handle *g_refs;
 static bool g_weak_gc_enabled;
+static uintptr_t g_next_token_id = 1;
 static __thread uint32_t t_frame_depth;
 
 static tl_jni_ref_handle *find_locked(tl_jni_ref_handle *candidate)
@@ -61,6 +63,13 @@ static tl_jni_ref_handle *create_handle(jobj *object, tl_jni_ref_kind kind)
             h->weak_retained = true;
         }
     }
+    if (g_next_token_id == 0) {
+        pthread_mutex_unlock(&g_refs_lock);
+        if (h->object) tl_jni_unref(h->object);
+        free(h);
+        return NULL;
+    }
+    h->token_id = g_next_token_id++;
     h->next = g_refs;
     g_refs = h;
     pthread_mutex_unlock(&g_refs_lock);
@@ -156,26 +165,45 @@ jobj *tl_jni_refs_acquire(tl_jni_ref_handle *handle)
     return object;
 }
 
+static tl_jni_ref_handle *find_token_locked(const void *token)
+{
+    uintptr_t id = (uintptr_t)token;
+    if (!id) return NULL;
+    for (tl_jni_ref_handle *h = g_refs; h; h = h->next)
+        if (h->token_id == id) return h;
+    return NULL;
+}
+
 void *tl_jni_refs_export_token(tl_jni_ref_handle *handle)
 {
     if (!handle) return NULL;
     pthread_mutex_lock(&g_refs_lock);
     tl_jni_ref_handle *h = find_locked(handle);
-    void *token = h && h->alive ? (void *)h : NULL;
+    void *token = h && h->alive && local_owned_by_caller(h)
+        ? (void *)(uintptr_t)h->token_id : NULL;
     pthread_mutex_unlock(&g_refs_lock);
     return token;
 }
 
 jobj *tl_jni_refs_acquire_token(const void *token)
 {
-    /* A token is only compared against registry entries; it is never
-     * dereferenced. This also makes stale/deleted tokens fail closed. */
-    return tl_jni_refs_acquire((tl_jni_ref_handle *)token);
+    jobj *object = NULL;
+    pthread_mutex_lock(&g_refs_lock);
+    tl_jni_ref_handle *h = find_token_locked(token);
+    if (h && h->alive && local_owned_by_caller(h) && h->object)
+        object = tl_jni_ref(h->object);
+    pthread_mutex_unlock(&g_refs_lock);
+    return object;
 }
 
 tl_jni_ref_kind tl_jni_refs_token_kind(const void *token)
 {
-    return tl_jni_refs_get_kind((tl_jni_ref_handle *)token);
+    tl_jni_ref_kind kind = TL_JNI_REF_INVALID;
+    pthread_mutex_lock(&g_refs_lock);
+    tl_jni_ref_handle *h = find_token_locked(token);
+    if (h && h->alive && local_owned_by_caller(h)) kind = h->kind;
+    pthread_mutex_unlock(&g_refs_lock);
+    return kind;
 }
 
 tl_jni_ref_kind tl_jni_refs_get_kind(tl_jni_ref_handle *handle)
