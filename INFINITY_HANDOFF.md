@@ -2086,3 +2086,12 @@ These percentages are engineering estimates of implementation/wiring coverage, n
   - Cross-platform workflow `44758275844`: shared portable C/Swift script passed on Ubuntu 24.04.
   - Routine macOS jobs were skipped intentionally; the iPhoneOS SDK bridge smoke job remains manual-only.
 - No Codemagic build was triggered. PR #3 remains open and unmerged; main still points to the old source until the PR is merged. Do not start another Codemagic build from main before the fix is merged or select the corrected PR branch explicitly.
+
+
+## 2026-11-20 — Post-merge status correction
+
+- PR #3 was merged into `main` as merge commit `4ac7e7bbfe2ef4950fecda265289b2ff8ede3b35`. This supersedes the preceding note that the PR was still open and that `main` had not yet received the fixes.
+- The merged source now includes the shared `INFINITYVersion.display` provider, all corrected version call sites, the Runtime Manager SwiftUI body refactor, regression coverage, Ubuntu-first portable core script/workflow, and manual macOS/iPhoneOS-SDK validation jobs.
+- Post-merge main workflows passed: `44758704136` (Ubuntu-only regression suite), `44758703989` (144 Python tests, Linux Clang headers, Swift 5-mode parser/version type-check), and `44758704477` (Ubuntu 24.04 portable-core C/Swift checks). The macOS manual jobs were skipped by design.
+- No Codemagic build was triggered after the merge. The next Codemagic build, when the user's quota is available, must use this updated `main` commit or later; the earlier failed build `6b0059f88f52ca2751295ad9` used the old pre-fix commit.
+- The latest supplied Codemagic log had one fatal Swift compiler diagnostic; the known source error and the earlier SwiftUI type-check complexity issue have been corrected. No full Xcode archive from the merged commit has yet been verified, so do not claim IPA success or zero possible downstream build errors.
