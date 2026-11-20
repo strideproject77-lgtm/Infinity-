@@ -8,6 +8,7 @@ struct tl_jni_ref_handle {
     struct tl_jni_ref_handle *next;
     struct tl_jni_ref_handle *release_next;
     jobj *object;
+    jobj *release_object;
     pthread_t owner;
     uint32_t frame_depth;
     tl_jni_ref_kind kind;
@@ -31,14 +32,6 @@ static tl_jni_ref_handle *find_locked(tl_jni_ref_handle *candidate)
 static bool local_owned_by_caller(const tl_jni_ref_handle *h)
 {
     return h->kind != TL_JNI_REF_LOCAL || pthread_equal(h->owner, pthread_self());
-}
-
-static void unlink_locked(tl_jni_ref_handle *handle)
-{
-    tl_jni_ref_handle **cursor = &g_refs;
-    while (*cursor && *cursor != handle) cursor = &(*cursor)->next;
-    if (*cursor) *cursor = handle->next;
-    handle->next = NULL;
 }
 
 static tl_jni_ref_handle *create_handle(jobj *object, tl_jni_ref_kind kind)
@@ -96,20 +89,21 @@ tl_jni_ref_handle *tl_jni_refs_pop_local_frame(tl_jni_ref_handle *preserve)
         tl_jni_ref_handle *h = *cursor;
         if (h->alive && h->kind == TL_JNI_REF_LOCAL &&
             pthread_equal(h->owner, pthread_self()) && h->frame_depth == t_frame_depth) {
-            *cursor = h->next;
             h->alive = false;
+            h->release_object = h->object;
+            h->object = NULL;
             h->release_next = release;
             release = h;
-        } else {
-            cursor = &h->next;
         }
+        cursor = &h->next;
     }
     pthread_mutex_unlock(&g_refs_lock);
 
     while (release) {
         tl_jni_ref_handle *next = release->release_next;
-        if (release->object) tl_jni_unref(release->object);
-        free(release);
+        if (release->release_object) tl_jni_unref(release->release_object);
+        release->release_object = NULL;
+        release->release_next = NULL;
         release = next;
     }
     t_frame_depth--;
@@ -141,11 +135,10 @@ void tl_jni_refs_delete(tl_jni_ref_handle *handle, tl_jni_ref_kind expected_kind
     tl_jni_ref_handle *h = find_locked(handle);
     if (h && h->alive && (expected_kind == TL_JNI_REF_INVALID || h->kind == expected_kind) &&
         local_owned_by_caller(h)) {
-        unlink_locked(h);
         h->alive = false;
         if (h->kind != TL_JNI_REF_WEAK_GLOBAL || h->weak_retained) release = h->object;
         h->object = NULL;
-        free(h);
+        h->weak_retained = false;
     }
     pthread_mutex_unlock(&g_refs_lock);
     if (release) tl_jni_unref(release);
@@ -191,20 +184,21 @@ void tl_jni_refs_detach_thread(void)
     while (*cursor) {
         tl_jni_ref_handle *h = *cursor;
         if (h->alive && h->kind == TL_JNI_REF_LOCAL && pthread_equal(h->owner, pthread_self())) {
-            *cursor = h->next;
             h->alive = false;
+            h->release_object = h->object;
+            h->object = NULL;
             h->release_next = release;
             release = h;
-        } else {
-            cursor = &h->next;
         }
+        cursor = &h->next;
     }
     pthread_mutex_unlock(&g_refs_lock);
 
     while (release) {
         tl_jni_ref_handle *next = release->release_next;
-        if (release->object) tl_jni_unref(release->object);
-        free(release);
+        if (release->release_object) tl_jni_unref(release->release_object);
+        release->release_object = NULL;
+        release->release_next = NULL;
         release = next;
     }
     t_frame_depth = 0;
