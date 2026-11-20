@@ -70,6 +70,7 @@ class APKStoreContractTests(unittest.TestCase):
         center = self.read("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
         self.assertIn('sourceRoot.pathExtension.lowercased() == "zip"', store)
         self.assertIn("extractRuntimeAssetsArchive(from: sourceRoot, to: extractionRoot)", store)
+        self.assertIn(".runtime-import-\\(UUID().uuidString)", store)
         self.assertIn('entry.path.hasPrefix("java-runtime/")', store)
         self.assertIn('entry.path.hasPrefix("android-system/")', store)
         self.assertIn("maximumTotalBytes: UInt64 = 8 * 1024 * 1024 * 1024", store)

@@ -93,7 +93,7 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("pthread_mutex_unlock(&g_infinity_lifecycle_lock)", adapter)
         self.assertIn("bool infinity_husk_launch_engine(int engine,", adapter)
         self.assertIn("void infinity_husk_stop(void)", adapter)
-        self.assertIn("void infinity_husk_queue_split_package", adapter)
+        self.assertIn("bool infinity_husk_queue_split_package", adapter)
         self.assertIn("void infinity_husk_clear_split_packages", adapter)
 
     def test_swift_bridge_smoke_stubs_only_shared_document_path_contract(self):

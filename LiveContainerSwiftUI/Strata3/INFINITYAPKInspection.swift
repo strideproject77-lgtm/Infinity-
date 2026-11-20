@@ -168,15 +168,13 @@ struct INFINITYAPKInspection: Sendable {
                   cursor <= directoryEnd, recordLength <= directoryEnd - cursor else {
                 throw InspectionError.invalidEntry
             }
-            guard flags & 0x0001 == 0 else { throw InspectionError.encryptedEntry }
-
             let nameStart = cursor + 46
             let nameData = data.subdata(in: nameStart..<(nameStart + nameLength))
             guard let path = String(data: nameData, encoding: .utf8) else {
                 throw InspectionError.invalidEntry
             }
             let components = path.split(separator: "/", omittingEmptySubsequences: false)
-            let pathComponents = path.hasSuffix("/") ? components.dropLast() : components[...]
+            let pathComponents = components.dropLast(path.hasSuffix("/") ? 1 : 0)
             guard !path.hasPrefix("/"),
                   !path.contains("\\"),
                   !pathComponents.isEmpty,
