@@ -1858,3 +1858,13 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Result: **117 tests passed** (`Ran 117 tests ... OK`); all shell syntax and audit-script checks passed. No failures, so no test-fix rerun was needed.
 - This is host-side regression validation only. It does not replace the pending macOS/iPhoneOS SDK compile audit, and it does not prove runtime execution or full Husk integration.
 - No IPA/APK build, no device test, and SideStore untouched. Raw JNI ABI / native marshaling / collector sweep remain integration blockers; do not claim 100%.
+
+## 2026-11-20 — DVM root snapshot completeness hardening
+
+- Updated `tl_dvm_visit_all_active_call_roots()` to fail closed if any registered mutator is not parked (except the safepoint owner), or if its active depth and published root-frame pointer disagree.
+- Previously, the root walk silently skipped a mutator whose frame pointer was NULL. The new invariant prevents a collector from treating an incomplete mutator snapshot as a successful root enumeration.
+- Added source-contract coverage in `tests/test_husk_runtime_bridge.py` for both invariants.
+- Source commit: `6e2ec97efc9e308e06e616a1f42ffb03f2c7a461`; test commit: `6d034ccea4b4e7ad4251f82456a05232dde3f310`.
+- Not yet run through GitHub CI; keep the planned single consolidated validation run for the integration checkpoint.
+- This hardens one GC root-completeness boundary but does not complete JNI opaque-handle ABI migration, native pointer marshaling, or collector sweep. Weak-global clearing remains disabled; no reclamation activation.
+- No IPA/APK build or device test. SideStore untouched.
