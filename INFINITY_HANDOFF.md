@@ -2039,3 +2039,14 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Changes are on `fix/codemagic-strata-version-20261120`; main remains untouched. The source fix and regression test are committed, but a fresh CI run and Xcode/Codemagic archive are still required. Do not claim the IPA is built until the archive/sign/package stages pass.
 - The archive log also contains compiler warnings (including an undeclared-selector warning in `NSFileManager+GuestHooks.m`); they are not fatal diagnostics in this build. They should be reviewed separately, but changing unrelated hook behavior in an urgent archive fix would add risk.
 - No SideStore, LiveContainer launch, JIT, or APK runtime behavior was changed by this fix.
+
+
+## 2026-11-20 — Repeat Codemagic archive failure (unmerged fix branch)
+
+- Inspected the latest uploaded archive logs: build `6b0054808f52ca275129589e`, Xcode 26.2, source branch `main`, source commit `17dfe9694146b8935f763569106b2ad79acd15a4`, exit code 65.
+- This build still used the old `main` commit because PR #3 (`fix/codemagic-strata-version-20261120`) had not been merged. The earlier fixes in that PR therefore were not present in this Codemagic build.
+- The new archive log identifies `LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift:93` as another remaining `StrataVersion.display` reference. It also reports a Swift type-check-time failure for the enclosing `body` expression at line 84.
+- Corrected this third settings-screen version reference to `INFINITYVersion.display` on the existing fix branch. Extracted the Runtime Manager navigation destination and app-launch closure into small members to reduce the large SwiftUI body expression's type-check burden without changing its launch/authentication behavior.
+- Expanded the regression test to cover `LCSettingsView.swift` as well as the runtime center and LiveBoard settings label.
+- The latest archive log's fatal diagnostics are confined to that Swift compile unit. The log also contains numerous existing warnings; they are not treated as fatal errors. No SideStore, LiveContainer, JIT, or Android runtime behavior was intentionally changed.
+- **Do not run Codemagic again yet.** PR #3 remains unmerged, and the new changes still require the PR regression workflow to pass. A full Xcode archive has not been verified from the corrected source.
