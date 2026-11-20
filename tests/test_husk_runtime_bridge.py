@@ -675,6 +675,15 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("native_frame_root_arguments(m, self, params)", dvm)
         self.assertGreaterEqual(dvm.count("native_frame_root_arguments(m, self, params)"), 2)
 
+    def test_pending_jni_exception_is_kept_in_typed_strong_root_registry(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        self.assertIn("static __thread tl_jni_ref_handle *t_pending_root;", jni)
+        self.assertIn("tl_jni_refs_new_global(exception)", jni)
+        self.assertIn("tl_jni_refs_delete(previous, TL_JNI_REF_GLOBAL)", jni)
+        self.assertIn("void tl_jni_set_pending(jobj *e) { pending_set(e); }", jni)
+        self.assertIn("static int32_t jni_Throw(void *env, jo t) { (void)env; pending_set(t); return 0; }", jni)
+        self.assertIn("pending_set(NULL);", jni)
+
     def test_nativeactivity_has_joinable_teardown_and_never_fakes_input_queue(self):
         native = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-nativeactivity.h")
