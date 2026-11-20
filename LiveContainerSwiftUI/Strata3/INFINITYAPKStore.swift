@@ -89,6 +89,8 @@ enum INFINITYAPKStore {
         case invalidSplitPackage
         case tooManySplitPackages
         case runtimeAssetRollbackFailed(String)
+        case invalidRuntimeArchive
+        case runtimeArchiveTooLarge
 
         var errorDescription: String? {
             switch self {
@@ -513,6 +515,29 @@ enum INFINITYAPKStore {
         defer { if scoped { source.stopAccessingSecurityScopedResource() } }
 
         let sourceRoot = source.standardizedFileURL
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: sourceRoot.path, isDirectory: &isDirectory) else {
+            throw StoreError.missingRuntimeAssets
+        }
+        if !isDirectory.boolValue {
+            guard sourceRoot.pathExtension.lowercased() == "zip" else {
+                throw StoreError.invalidRuntimeArchive
+            }
+            try fileManager.createDirectory(at: runtimeRoot, withIntermediateDirectories: true)
+            let extractionRoot = runtimeRoot.appendingPathComponent(
+                ".runtime-import-\\(UUID().uuidString)", isDirectory: true
+            )
+            try fileManager.createDirectory(at: extractionRoot, withIntermediateDirectories: true)
+            do {
+                try extractRuntimeAssetsArchive(from: sourceRoot, to: extractionRoot)
+                try installRuntimeAssets(from: extractionRoot)
+                try? fileManager.removeItem(at: extractionRoot)
+            } catch {
+                try? fileManager.removeItem(at: extractionRoot)
+                throw error
+            }
+            return
+        }
         guard hasJavaRuntimeAssets(at: sourceRoot),
               hasAndroidSystemAssets(at: sourceRoot) else {
             throw StoreError.missingRuntimeAssets
@@ -584,6 +609,57 @@ enum INFINITYAPKStore {
                 try? fileManager.removeItem(at: backup)
             }
             throw error
+        }
+    }
+
+    /// Extracts only the known runtime payload paths from the official builder ZIP.
+    /// ZIP entry names are validated by INFINITYAPKInspection before any file is written.
+    private static func extractRuntimeAssetsArchive(from archive: URL, to destinationRoot: URL) throws {
+        let inspection: INFINITYAPKInspection
+        do {
+            inspection = try INFINITYAPKInspection.inspect(url: archive)
+        } catch {
+            throw StoreError.invalidRuntimeArchive
+        }
+        guard !inspection.entries.isEmpty else { throw StoreError.invalidRuntimeArchive }
+
+        let root = destinationRoot.standardizedFileURL
+        var totalBytes: UInt64 = 0
+        let maximumTotalBytes: UInt64 = 8 * 1024 * 1024 * 1024
+        let maximumEntryBytes: UInt64 = 1024 * 1024 * 1024
+
+        for entry in inspection.entries {
+            if entry.path == "runtime-assets-manifest.json" { continue }
+            let isRuntimePath = entry.path == "cacert.pem" ||
+                entry.path.hasPrefix("java-runtime/") ||
+                entry.path.hasPrefix("android-system/")
+            guard isRuntimePath else { throw StoreError.invalidRuntimeArchive }
+
+            let (nextTotal, overflow) = totalBytes.addingReportingOverflow(entry.uncompressedSize)
+            guard !overflow, nextTotal <= maximumTotalBytes,
+                  entry.uncompressedSize <= maximumEntryBytes else {
+                throw StoreError.runtimeArchiveTooLarge
+            }
+            totalBytes = nextTotal
+
+            let output = root.appendingPathComponent(entry.path).standardizedFileURL
+            guard output.path.hasPrefix(root.path + "/") else {
+                throw StoreError.invalidRuntimeArchive
+            }
+            try fileManager.createDirectory(at: output.deletingLastPathComponent(),
+                                            withIntermediateDirectories: true)
+            let status = archive.path.withCString { archivePath in
+                entry.path.withCString { entryName in
+                    output.path.withCString { outputPath in
+                        infinity_apk_extract_entry_to_file(archivePath, entryName, outputPath)
+                    }
+                }
+            }
+            guard status == 0 else { throw StoreError.invalidRuntimeArchive }
+        }
+
+        guard hasJavaRuntimeAssets(at: root), hasAndroidSystemAssets(at: root) else {
+            throw StoreError.missingRuntimeAssets
         }
     }
 

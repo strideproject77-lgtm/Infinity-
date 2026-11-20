@@ -65,6 +65,19 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn('pathComponents.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })', inspection)
         self.assertIn("flags & 0x2041 == 0", inspection)
 
+    def test_runtime_asset_import_accepts_builder_zip_with_strict_path_and_size_limits(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        center = self.read("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
+        self.assertIn('sourceRoot.pathExtension.lowercased() == "zip"', store)
+        self.assertIn("extractRuntimeAssetsArchive(from: sourceRoot, to: extractionRoot)", store)
+        self.assertIn('entry.path.hasPrefix("java-runtime/")', store)
+        self.assertIn('entry.path.hasPrefix("android-system/")', store)
+        self.assertIn("maximumTotalBytes: UInt64 = 8 * 1024 * 1024 * 1024", store)
+        self.assertIn("maximumEntryBytes: UInt64 = 1024 * 1024 * 1024", store)
+        self.assertIn("infinity_apk_extract_entry_to_file", store)
+        self.assertIn("allowedContentTypes: [.folder, .zip]", center)
+        self.assertIn("infinity-android-runtime-assets.zip", center)
+
     def test_unsigned_runtime_folder_dylibs_are_not_accepted_as_graphics_engines(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
         runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")

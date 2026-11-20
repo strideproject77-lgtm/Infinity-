@@ -126,7 +126,7 @@ struct StrataRuntimeCenter: View {
                     importingRuntimeAssets = true
                     runtimeAssetsStatus = nil
                 } label: {
-                    Label("Import prepared runtime data folder", systemImage: "shippingbox")
+                    Label("Import runtime data folder or ZIP", systemImage: "shippingbox")
                 }
                 .disabled(installingRuntimeAssets)
 
@@ -142,7 +142,7 @@ struct StrataRuntimeCenter: View {
                 if let runtimeAssetsStatus {
                     Text(runtimeAssetsStatus).font(.caption).foregroundStyle(.secondary)
                 }
-                Text("Select the unzipped INFINITY runtime-data folder containing java-runtime, android-system and cacert.pem. ANGLE and MoltenVK are separate native code and must be embedded and signed in the app bundle; copying a dylib into Files is not enough.")
+                Text("Select the prepared runtime-data folder or infinity-android-runtime-assets.zip containing java-runtime, android-system and cacert.pem. ANGLE and MoltenVK are separate native code and must be embedded and signed in the app bundle; copying a dylib into Files is not enough.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Management") {
@@ -211,7 +211,7 @@ struct StrataRuntimeCenter: View {
                 apkImportStatus = nil
             }
         }
-        .fileImporter(isPresented: $importingRuntimeAssets, allowedContentTypes: [.folder]) { result in
+        .fileImporter(isPresented: $importingRuntimeAssets, allowedContentTypes: [.folder, .zip]) { result in
             do {
                 let folder = try result.get()
                 installingRuntimeAssets = true
