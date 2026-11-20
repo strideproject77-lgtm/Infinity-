@@ -875,8 +875,10 @@ static void jni_DeleteLocalRef(void *env, jo o)
 {
     (void)env;
     if (!o) return;
-    (void)local_frame_remove(o);
-    tl_jni_unref(o);
+    /* Only release a reference owned by one of this thread's local frames.
+     * With the current pointer-handle ABI, an untracked pointer may be a global
+     * reference; decrementing it here could invalidate a still-live global. */
+    if (local_frame_remove(o)) tl_jni_unref(o);
 }
 static uint8_t jni_IsSameObject(void *env, jo a, jo b) { (void)env; return a == b; }
 static jo jni_NewLocalRef(void *env, jo o)
