@@ -1611,3 +1611,24 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
 - Overall Husk source integration estimate advances to **99.90%** for this discrete active-invocation-root subtask. This is an engineering integration estimate, not an APK compatibility score.
 - Next target: derive verifier-backed per-register reference maps and connect static, active-call, JNI typed-registry, and runtime roots under a real safepoint protocol before enabling collection.
+
+
+## 2026-11-20 — DVM runtime-owned root coverage expansion
+
+### Implemented on main
+- Extended the DVM root visitor to include class mirrors even for classes without static fields.
+- Added roots for proxy method metadata and checked-exception Class[] objects held by direct and virtual DVM methods.
+- Added runtime DEX roots for each loaded DEX file's class loader and interned-string cache.
+- Kept descriptor-filtered static-field scanning and bounds checks intact.
+- Added source-contract coverage for class mirrors, proxy metadata, DEX loaders, and interned strings.
+
+### Commits
+- Runtime-owned DVM roots: 8db295dca160896b8a50972d17ac70f00d652cf5
+- Source-contract regression coverage: 389b388dac8aaa08f5200f7c4d6fc1cf6a13cab9
+
+### Safety and remaining gaps
+- DEX root traversal runs under the DVM class/DEX lock; the visitor callback must remain a non-reentrant mark operation. The overall API still assumes a real external safepoint and does not itself stop mutator threads.
+- This is not a tracing collector and does not enable weak-global clearing. Live DEX register locals, complete object instance-field/array graph traversal, heap object enumeration/reclamation, and coordinated safepoints remain incomplete. Do not claim 100% integration or APK-wide compatibility.
+- Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
+- Overall integration estimate remains **99.90%**; this batch closes additional runtime-owned root categories but does not resolve the collector/ABI blockers required for 100%.
+- Next required work: implement the heap object registry and full mark traversal, then add a genuine stop-the-world protocol and verifier-backed register maps; only then can weak-global processing be safely enabled.
