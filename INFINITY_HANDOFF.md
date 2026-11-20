@@ -2028,3 +2028,14 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Replaced the invalid version reference with `INFINITYVersion.display` using Swift string interpolation. No runtime, SideStore, LiveContainer launch, or JIT behavior was changed.
 - Fix branch: `fix/codemagic-strata-version-20261120`; source commit: `798becbed03b4ee98b8ffc382c0fc7c16df0772e`.
 - Source review confirms the invalid symbol is gone. A new Xcode/Codemagic archive is still required to verify the compiler fix and expose any subsequent errors.
+
+
+## 2026-11-20 — Follow-up Codemagic archive diagnostic and regression fix
+
+- Inspected the newest uploaded Codemagic archive logs from build `6b0050808f52ca27512956ee` (Xcode 26.2, source commit `17dfe9694146b8935f763569106b2ad79acd15a4`, exit code 65).
+- The archive log contains one fatal Swift compiler diagnostic: `LiveContainerSwiftUI/Views/LiveBoardHomeScreen.swift:565` referenced undefined `StrataVersion.display` in the settings tab detail. The earlier Strata runtime-center label had the same stale symbol and was already corrected in the pending Codemagic fix branch.
+- Replaced the remaining settings-tab reference with the established `INFINITYVersion.display` symbol, which is already used by `StrataAboutView` and the Strata runtime-center label.
+- Added a source-contract regression test asserting that both Strata labels use `INFINITYVersion.display` and that neither contains `StrataVersion`.
+- Changes are on `fix/codemagic-strata-version-20261120`; main remains untouched. The source fix and regression test are committed, but a fresh CI run and Xcode/Codemagic archive are still required. Do not claim the IPA is built until the archive/sign/package stages pass.
+- The archive log also contains compiler warnings (including an undeclared-selector warning in `NSFileManager+GuestHooks.m`); they are not fatal diagnostics in this build. They should be reviewed separately, but changing unrelated hook behavior in an urgent archive fix would add risk.
+- No SideStore, LiveContainer launch, JIT, or APK runtime behavior was changed by this fix.
