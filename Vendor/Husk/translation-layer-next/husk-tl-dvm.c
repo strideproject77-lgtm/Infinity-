@@ -2925,18 +2925,33 @@ static void visit_class_static_roots(tl_jclass *jc)
 static void visit_dex_runtime_roots(dvm_static_root_walk *walk)
 {
     if (!walk || !walk->visitor) return;
-    /* DEX string caches and dynamic DexFile class loaders are runtime-owned roots. */
+
+    /* Snapshot the fixed-size DEX registry while locked, then invoke collector
+     * callbacks after unlocking. Mark callbacks must never run under g_lock:
+     * tracing may inspect class/runtime metadata that itself takes this lock.
+     * The caller's stop-the-world safepoint keeps each DEX and its caches stable
+     * for the duration of the walk. */
+    dvm_dex *snapshot[256];
+    int count;
     pthread_mutex_lock(&g_lock);
-    for (int i = 0; i < g_ndex; i++) {
-        dvm_dex *dex = g_dex[i];
+    count = g_ndex;
+    if (count < 0) count = 0;
+    if (count > (int)(sizeof(snapshot) / sizeof(snapshot[0])))
+        count = (int)(sizeof(snapshot) / sizeof(snapshot[0]));
+    memcpy(snapshot, g_dex, (size_t)count * sizeof(snapshot[0]));
+    pthread_mutex_unlock(&g_lock);
+
+    for (int i = 0; i < count; i++) {
+        dvm_dex *dex = snapshot[i];
         if (!dex) continue;
         if (dex->loader) walk->visitor(dex->loader, walk->context);
         if (dex->scache) {
-            for (uint32_t n = 0; n < dex->nstr; n++)
-                if (dex->scache[n]) walk->visitor(dex->scache[n], walk->context);
+            for (uint32_t n = 0; n < dex->nstr; n++) {
+                jobj *string = __atomic_load_n(&dex->scache[n], __ATOMIC_ACQUIRE);
+                if (string) walk->visitor(string, walk->context);
+            }
         }
     }
-    pthread_mutex_unlock(&g_lock);
 }
 
 void tl_dvm_visit_static_roots(tl_dvm_root_visitor visitor, void *context)
