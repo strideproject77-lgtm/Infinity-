@@ -1719,3 +1719,8 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - No mark/sweep or reclamation enabled. Weak globals remain strong. Tests added but not executed; no compilation, workflow, IPA, or device testing. SideStore untouched.
 - Integration estimate remains **99.92%**. Safepoint coordination and all-thread invocation roots are implemented, but verifier maps, native-thread coverage, collector mark/sweep, and weak processing remain blockers.
 - Next: add verifier-backed register reference maps and make safepoint waits bounded/cancellable around native transitions; only then implement mark/sweep and weak-reference clearing.
+
+
+### Safepoint visitor completeness contract
+- Changed the all-thread active-call root visitor to return `bool`; invalid ownership/safepoint state and snapshot allocation failures now report failure. The composed root visitor propagates that failure instead of continuing as if the root set were complete.
+- Root visitor callbacks must be non-blocking and must not re-enter/mutate the DVM while the safepoint is held. Safepoint begin can wait indefinitely for a mutator stuck in native code; this remains a documented limitation, not a safe sweep guarantee.
