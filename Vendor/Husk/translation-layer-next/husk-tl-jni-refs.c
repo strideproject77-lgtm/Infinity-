@@ -12,16 +12,12 @@ struct tl_jni_ref_handle {
     uint32_t frame_depth;
     tl_jni_ref_kind kind;
     bool alive;
+    bool weak_retained;
 };
 
-/*
- * Handle records are tombstoned instead of freed. JNI permits stale values to
- * be passed back to deletion and identity entry points; retaining the tiny
- * token record prevents allocator address reuse from making a stale token
- * alias a newly-created reference. The Java object is released at deletion.
- */
 static pthread_mutex_t g_refs_lock = PTHREAD_MUTEX_INITIALIZER;
 static tl_jni_ref_handle *g_refs;
+static bool g_weak_gc_enabled;
 static __thread uint32_t t_frame_depth;
 
 static tl_jni_ref_handle *find_locked(tl_jni_ref_handle *candidate)
@@ -37,6 +33,14 @@ static bool local_owned_by_caller(const tl_jni_ref_handle *h)
     return h->kind != TL_JNI_REF_LOCAL || pthread_equal(h->owner, pthread_self());
 }
 
+static void unlink_locked(tl_jni_ref_handle *handle)
+{
+    tl_jni_ref_handle **cursor = &g_refs;
+    while (*cursor && *cursor != handle) cursor = &(*cursor)->next;
+    if (*cursor) *cursor = handle->next;
+    handle->next = NULL;
+}
+
 static tl_jni_ref_handle *create_handle(jobj *object, tl_jni_ref_kind kind)
 {
     if (!object || kind < TL_JNI_REF_LOCAL || kind > TL_JNI_REF_WEAK_GLOBAL) return NULL;
@@ -44,15 +48,25 @@ static tl_jni_ref_handle *create_handle(jobj *object, tl_jni_ref_kind kind)
     tl_jni_ref_handle *h = calloc(1, sizeof(*h));
     if (!h) return NULL;
 
-    h->object = kind == TL_JNI_REF_WEAK_GLOBAL ? object : tl_jni_ref(object);
     h->kind = kind;
     h->alive = true;
     if (kind == TL_JNI_REF_LOCAL) {
+        h->object = tl_jni_ref(object);
         h->owner = pthread_self();
         h->frame_depth = t_frame_depth;
+    } else if (kind == TL_JNI_REF_GLOBAL) {
+        h->object = tl_jni_ref(object);
     }
 
     pthread_mutex_lock(&g_refs_lock);
+    if (kind == TL_JNI_REF_WEAK_GLOBAL) {
+        if (g_weak_gc_enabled) {
+            h->object = object;
+        } else {
+            h->object = tl_jni_ref(object);
+            h->weak_retained = true;
+        }
+    }
     h->next = g_refs;
     g_refs = h;
     pthread_mutex_unlock(&g_refs_lock);
@@ -77,22 +91,25 @@ tl_jni_ref_handle *tl_jni_refs_pop_local_frame(tl_jni_ref_handle *preserve)
 
     tl_jni_ref_handle *release = NULL;
     pthread_mutex_lock(&g_refs_lock);
-    for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
+    tl_jni_ref_handle **cursor = &g_refs;
+    while (*cursor) {
+        tl_jni_ref_handle *h = *cursor;
         if (h->alive && h->kind == TL_JNI_REF_LOCAL &&
             pthread_equal(h->owner, pthread_self()) && h->frame_depth == t_frame_depth) {
+            *cursor = h->next;
             h->alive = false;
             h->release_next = release;
             release = h;
+        } else {
+            cursor = &h->next;
         }
     }
     pthread_mutex_unlock(&g_refs_lock);
 
     while (release) {
         tl_jni_ref_handle *next = release->release_next;
-        jobj *object = release->object;
-        release->object = NULL;
-        release->release_next = NULL;
-        if (object) tl_jni_unref(object);
+        if (release->object) tl_jni_unref(release->object);
+        free(release);
         release = next;
     }
     t_frame_depth--;
@@ -124,9 +141,11 @@ void tl_jni_refs_delete(tl_jni_ref_handle *handle, tl_jni_ref_kind expected_kind
     tl_jni_ref_handle *h = find_locked(handle);
     if (h && h->alive && (expected_kind == TL_JNI_REF_INVALID || h->kind == expected_kind) &&
         local_owned_by_caller(h)) {
+        unlink_locked(h);
         h->alive = false;
-        if (h->kind != TL_JNI_REF_WEAK_GLOBAL) release = h->object;
+        if (h->kind != TL_JNI_REF_WEAK_GLOBAL || h->weak_retained) release = h->object;
         h->object = NULL;
+        free(h);
     }
     pthread_mutex_unlock(&g_refs_lock);
     if (release) tl_jni_unref(release);
@@ -168,9 +187,37 @@ void tl_jni_refs_detach_thread(void)
 {
     tl_jni_ref_handle *release = NULL;
     pthread_mutex_lock(&g_refs_lock);
-    for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
+    tl_jni_ref_handle **cursor = &g_refs;
+    while (*cursor) {
+        tl_jni_ref_handle *h = *cursor;
         if (h->alive && h->kind == TL_JNI_REF_LOCAL && pthread_equal(h->owner, pthread_self())) {
+            *cursor = h->next;
             h->alive = false;
+            h->release_next = release;
+            release = h;
+        } else {
+            cursor = &h->next;
+        }
+    }
+    pthread_mutex_unlock(&g_refs_lock);
+
+    while (release) {
+        tl_jni_ref_handle *next = release->release_next;
+        if (release->object) tl_jni_unref(release->object);
+        free(release);
+        release = next;
+    }
+    t_frame_depth = 0;
+}
+
+void tl_jni_refs_enable_weak_gc(void)
+{
+    tl_jni_ref_handle *release = NULL;
+    pthread_mutex_lock(&g_refs_lock);
+    g_weak_gc_enabled = true;
+    for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
+        if (h->alive && h->kind == TL_JNI_REF_WEAK_GLOBAL && h->weak_retained) {
+            h->weak_retained = false;
             h->release_next = release;
             release = h;
         }
@@ -179,13 +226,10 @@ void tl_jni_refs_detach_thread(void)
 
     while (release) {
         tl_jni_ref_handle *next = release->release_next;
-        jobj *object = release->object;
-        release->object = NULL;
+        if (release->object) tl_jni_unref(release->object);
         release->release_next = NULL;
-        if (object) tl_jni_unref(object);
         release = next;
     }
-    t_frame_depth = 0;
 }
 
 void tl_jni_refs_visit_strong_roots(tl_jni_refs_root_visitor visitor, void *context)
@@ -193,8 +237,8 @@ void tl_jni_refs_visit_strong_roots(tl_jni_refs_root_visitor visitor, void *cont
     if (!visitor) return;
     pthread_mutex_lock(&g_refs_lock);
     for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
-        if (h->alive && h->object && h->kind != TL_JNI_REF_WEAK_GLOBAL)
-            visitor(h->object, context);
+        bool strong = h->kind != TL_JNI_REF_WEAK_GLOBAL || h->weak_retained;
+        if (h->alive && h->object && strong) visitor(h->object, context);
     }
     pthread_mutex_unlock(&g_refs_lock);
 }
@@ -203,9 +247,11 @@ void tl_jni_refs_process_weak(tl_jni_refs_is_marked is_marked, void *context)
 {
     if (!is_marked) return;
     pthread_mutex_lock(&g_refs_lock);
-    for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
-        if (h->alive && h->kind == TL_JNI_REF_WEAK_GLOBAL && h->object &&
-            !is_marked(h->object, context)) h->object = NULL;
+    if (g_weak_gc_enabled) {
+        for (tl_jni_ref_handle *h = g_refs; h; h = h->next) {
+            if (h->alive && h->kind == TL_JNI_REF_WEAK_GLOBAL && h->object &&
+                !is_marked(h->object, context)) h->object = NULL;
+        }
     }
     pthread_mutex_unlock(&g_refs_lock);
 }

@@ -37,22 +37,22 @@ tl_jni_ref_handle *tl_jni_refs_new_global(jobj *object);
 tl_jni_ref_handle *tl_jni_refs_new_weak_global(jobj *object);
 void tl_jni_refs_delete(tl_jni_ref_handle *handle, tl_jni_ref_kind expected_kind);
 
-/*
- * Acquire returns a temporary strong object reference. The caller must release
- * it with tl_jni_unref, including when acquiring a weak handle.
- */
+/* Acquire returns a temporary strong object reference; caller releases via tl_jni_unref. */
 jobj *tl_jni_refs_acquire(tl_jni_ref_handle *handle);
 tl_jni_ref_kind tl_jni_refs_get_kind(tl_jni_ref_handle *handle);
 bool tl_jni_refs_is_same(tl_jni_ref_handle *left, tl_jni_ref_handle *right);
 
+/*
+ * Weak globals retain strongly until a tracing collector is actually active.
+ * Enable weak-GC semantics only at a stop-the-world safepoint, after installing
+ * the collector's complete root walk and weak processing hooks.
+ */
+void tl_jni_refs_enable_weak_gc(void);
+
 typedef void (*tl_jni_refs_root_visitor)(jobj *object, void *context);
 typedef bool (*tl_jni_refs_is_marked)(jobj *object, void *context);
 
-/*
- * Collector integration. Call at a stop-the-world safepoint. The visitor and
- * mark predicate must not call back into this registry. Weak handles are not
- * roots; process_weak clears them after the mark phase.
- */
+/* Collector hooks run at a stop-the-world safepoint and must not re-enter this registry. */
 void tl_jni_refs_visit_strong_roots(tl_jni_refs_root_visitor visitor, void *context);
 void tl_jni_refs_process_weak(tl_jni_refs_is_marked is_marked, void *context);
 
