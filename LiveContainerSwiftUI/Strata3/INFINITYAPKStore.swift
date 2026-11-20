@@ -433,6 +433,7 @@ enum INFINITYAPKStore {
 
         let baseInspection = try INFINITYAPKInspection.inspect(url: baseURL)
         guard let baseManifest = baseInspection.manifest else { throw StoreError.invalidManifest }
+        var seenSplitNames = Set<String>()
         for url in urls {
             let standardized = url.standardizedFileURL
             guard standardized.path.hasPrefix(splitDirectory.standardizedFileURL.path + "/") else {
@@ -446,6 +447,11 @@ enum INFINITYAPKStore {
                   (manifest.versionCode == nil || baseManifest.versionCode == nil ||
                    manifest.versionCode == baseManifest.versionCode) else {
                 throw StoreError.invalidSplitPackage
+            }
+            if let splitName = manifest.splitName {
+                guard !splitName.isEmpty, seenSplitNames.insert(splitName).inserted else {
+                    throw StoreError.invalidSplitPackage
+                }
             }
         }
         return urls

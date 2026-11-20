@@ -2,6 +2,7 @@ import Foundation
 
 struct INFINITYAPKManifest: Sendable {
     let packageName: String
+    let splitName: String?
     let versionName: String?
     let versionCode: UInt64?
     let applicationLabel: String?
@@ -44,6 +45,7 @@ struct INFINITYAPKManifest: Sendable {
 
         var strings: [String] = []
         var packageName: String?
+        var splitName: String?
         var versionName: String?
         var versionCode: UInt64?
         var label: String?
@@ -112,6 +114,7 @@ struct INFINITYAPKManifest: Sendable {
                 switch elementName {
                 case "manifest":
                     packageName = attributes["package"]?.stringValue
+                    splitName = attributes["split"]?.stringValue
                     versionName = attributes["versionName"]?.stringValue
                     versionCode = attributes["versionCode"]?.uint64Value
                 case "application":
@@ -161,6 +164,7 @@ struct INFINITYAPKManifest: Sendable {
             resolvedActivity = launchActivity
         }
         return INFINITYAPKManifest(packageName: packageName,
+                                   splitName: splitName,
                                    versionName: versionName,
                                    versionCode: versionCode,
                                    applicationLabel: label,

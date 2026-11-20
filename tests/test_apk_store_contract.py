@@ -65,6 +65,14 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn('pathComponents.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." })', inspection)
         self.assertIn("flags & 0x2041 == 0", inspection)
 
+    def test_split_apks_reject_duplicate_manifest_split_names(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        manifest = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKManifest.swift")
+        self.assertIn("var seenSplitNames = Set<String>()", store)
+        self.assertIn("seenSplitNames.insert(splitName).inserted", store)
+        self.assertIn('splitName = attributes["split"]?.stringValue', manifest)
+        self.assertIn("let splitName: String?", manifest)
+
     def test_runtime_asset_import_accepts_builder_zip_with_strict_path_and_size_limits(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
         center = self.read("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
