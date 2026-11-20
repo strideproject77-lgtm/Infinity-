@@ -133,6 +133,12 @@ static bool image_range_fits(const tl_lib *L, uint64_t vaddr, uint64_t bytes);
 static bool writable_range(const tl_lib *L, uint64_t lo, uint64_t hi);
 static inline bool writable_vaddr(const tl_lib *L, uint64_t va) { return writable_range(L, va, va + 1); }
 static bool redirect_data(const tl_lib *L, uint64_t vaddr);
+/* GNU symbol-version helpers are defined with the ELF version-table validators below,
+ * but are also used by earlier export/relocation lookup paths. Keep their internal
+ * linkage explicit before the first call (Clang treats implicit C declarations as errors).
+ */
+static const char *symbol_version_file(const tl_lib *L, uint32_t symbol_index);
+static const char *symbol_version_name(const tl_lib *L, uint32_t symbol_index, bool defined);
 
 /*
  * Whether a page's data is kept in a writable copy after the image (see map_library). A library built for 16 KiB pages has code and
