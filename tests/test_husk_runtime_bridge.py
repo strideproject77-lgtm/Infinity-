@@ -754,6 +754,16 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("return tl_dvm_safepoint_begin_timeout(5000);", dvm)
         self.assertIn("bool tl_dvm_safepoint_begin_timeout(uint32_t timeout_ms);", header)
 
+    def test_opaque_jni_tokens_use_monotonic_ids_not_handle_addresses(self):
+        refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
+        self.assertIn("uintptr_t token_id;", refs)
+        self.assertIn("static uintptr_t g_next_token_id = 1;", refs)
+        self.assertIn("h->token_id = g_next_token_id++;", refs)
+        self.assertIn("static tl_jni_ref_handle *find_token_locked(const void *token)", refs)
+        self.assertIn("if (h->token_id == id) return h;", refs)
+        self.assertIn("(void *)(uintptr_t)h->token_id", refs)
+        self.assertNotIn("(void *)h : NULL;", refs)
+
     def test_typed_jni_registry_exposes_opaque_non_dereferenced_tokens(self):
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.h")
         refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
