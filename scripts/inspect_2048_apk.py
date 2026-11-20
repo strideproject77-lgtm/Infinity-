@@ -171,7 +171,7 @@ def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
     )
     method_refs = set()
     for owner, method in re.findall(
-        r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*(?::|\()",
+        r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*[:(]",
         disassembly,
     ):
         if owner.startswith("Landroid/") and not owner.startswith("Landroid/support/"):
