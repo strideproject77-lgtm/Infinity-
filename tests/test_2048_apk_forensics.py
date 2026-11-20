@@ -94,12 +94,17 @@ class TPCSTLD2048APKForensicsTests(unittest.TestCase):
             "  Superclass        : 'Landroid/support/v7/app/AppCompatActivity;'\\n"
             "  Landroid/view/View;.invalidate:()V\\n"
             "  Landroid/content/SharedPreferences;.getInt:(Ljava/lang/String;I)I\\n"
+            "Class #1\\n"
+            "  Class descriptor  : 'Landroid/support/v7/app/AppCompatActivity;'\\n"
+            "  Superclass        : 'Landroid/app/Activity;'\\n"
+            "  Landroid/app/Activity;.finish:()V\\n"
         )
         self.assertEqual(
             result["main_activity_superclass"],
             "Landroid/support/v7/app/AppCompatActivity;",
         )
-        self.assertEqual(result["class_descriptor_count"], 1)
+        self.assertEqual(result["class_descriptor_count"], 2)
+        self.assertEqual(result["app_class_descriptors"], ["Lcom/tpcstld/twozerogame/MainActivity;"])
         self.assertIn("Landroid/view/View;->invalidate", result["android_framework_method_refs"])
         self.assertIn(
             "Landroid/content/SharedPreferences;->getInt",

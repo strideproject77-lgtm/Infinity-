@@ -156,34 +156,39 @@ def dependency_class_descriptors(dex_payloads: dict[str, bytes]) -> dict[str, se
 
 
 def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
-    """Extract app class identity and Android framework method references from dexdump."""
+    """Extract app class identity and Android framework calls from app-owned DEX class blocks."""
     descriptors = sorted(set(re.findall(
         r"Class descriptor\s*:\s*'([^']+)'", disassembly
     )))
     class_blocks = re.split(r"(?=^Class #\d+)", disassembly, flags=re.MULTILINE)
-    main_block = next(
-        (block for block in class_blocks
-         if "Lcom/tpcstld/twozerogame/MainActivity;" in block),
-        "",
-    )
-    superclass_match = re.search(
-        r"Superclass\s*:\s*'([^']+)'", main_block
-    )
+    app_classes = []
+    main_superclass = None
     method_refs = set()
-    for owner, method in re.findall(
-        r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*[:(]",
-        disassembly,
-    ):
-        if owner.startswith("Landroid/") and not owner.startswith("Landroid/support/"):
-            method_refs.add(f"{owner}->{method}")
-    app_classes = [
-        descriptor for descriptor in descriptors
-        if descriptor.startswith("Lcom/tpcstld/twozerogame/")
-    ]
+    for block in class_blocks:
+        descriptor_match = re.search(
+            r"Class descriptor\s*:\s*'([^']+)'", block
+        )
+        if descriptor_match is None:
+            continue
+        descriptor = descriptor_match.group(1)
+        if not descriptor.startswith("Lcom/tpcstld/twozerogame/"):
+            continue
+        app_classes.append(descriptor)
+        if descriptor == "Lcom/tpcstld/twozerogame/MainActivity;":
+            superclass_match = re.search(
+                r"Superclass\s*:\s*'([^']+)'", block
+            )
+            main_superclass = superclass_match.group(1) if superclass_match else None
+        for owner, method in re.findall(
+            r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*[:(]",
+            block,
+        ):
+            if owner.startswith("Landroid/") and not owner.startswith("Landroid/support/"):
+                method_refs.add(f"{owner}->{method}")
     return {
         "class_descriptor_count": len(descriptors),
-        "app_class_descriptors": app_classes,
-        "main_activity_superclass": superclass_match.group(1) if superclass_match else None,
+        "app_class_descriptors": sorted(set(app_classes)),
+        "main_activity_superclass": main_superclass,
         "android_framework_method_ref_count": len(method_refs),
         "android_framework_method_refs": sorted(method_refs),
     }
