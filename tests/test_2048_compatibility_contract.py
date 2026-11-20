@@ -90,6 +90,19 @@ class TPCSTLD2048FrameworkContractTests(unittest.TestCase):
         view_root = self.read("Vendor/Husk/src/java-framework/src/husk/ViewRoot.java")
         self.assertIn("r.mView.dispatchTouchEvent", view_root)
 
+    def test_dex_only_native_java_apks_select_the_husk_java_backend(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        launch = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
+
+        start = store.index("private static func detectEngine(")
+        detector = store[start:]
+        self.assertIn('if inspection.dexFiles.isEmpty == false { return "java" }', detector)
+        self.assertIn('case "java": return .java', launch)
+        self.assertIn("if engine == .java", launch)
+        self.assertIn("javaRuntimePrepared", runtime)
+        self.assertIn("infinity_husk_launch_engine(engine.rawValue", runtime)
+
     def test_android_15_status_bar_path_and_legacy_fallback_exist(self):
         build = self.read("Vendor/Husk/src/java-framework/src/android/os/Build.java")
         window = self.read("Vendor/Husk/src/java-framework/src/android/view/Window.java")
