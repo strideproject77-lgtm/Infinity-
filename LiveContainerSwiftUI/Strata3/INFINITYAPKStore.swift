@@ -555,6 +555,10 @@ enum INFINITYAPKStore {
             }
             return
         }
+        let sourceManifest = sourceRoot.appendingPathComponent("runtime-assets-manifest.json")
+        if fileManager.isReadableFile(atPath: sourceManifest.path) {
+            try validateRuntimeArchiveManifest(at: sourceRoot)
+        }
         guard hasJavaRuntimeAssets(at: sourceRoot),
               hasAndroidSystemAssets(at: sourceRoot) else {
             throw StoreError.missingRuntimeAssets
