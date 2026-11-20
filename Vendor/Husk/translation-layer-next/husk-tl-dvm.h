@@ -46,6 +46,10 @@ const uint16_t *tl_dvm_string_chars(jobj *s, int32_t *n);
 /* The exception pending on this thread as text ("java.lang.Foo: message"), for logs; NULL when there is none. */
 const char *tl_dvm_describe_pending(char *buf, size_t n);
 
+typedef void (*tl_dvm_root_visitor)(jobj *object, void *context);
+/* Visit object-valued DEX class statics at a collector safepoint. */
+void tl_dvm_visit_static_roots(tl_dvm_root_visitor visitor, void *context);
+
 void tl_dvm_set_trace(int level);       /* 1: classes and natives; 2: every invoke */
 
 #ifdef __cplusplus
