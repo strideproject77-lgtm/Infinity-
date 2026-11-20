@@ -12,7 +12,7 @@ Status: **source audit in progress; not yet launch-verified**
 - Main rendering path: `MainView extends View`, Android `Canvas`, `Paint`, `BitmapDrawable`, and a bundled ClearSans font.
 - Input path: `InputListener implements View.OnTouchListener` and interprets `MotionEvent` swipes.
 - Local persistence: default `SharedPreferences`, including board state, undo state, score, and high score.
-- The upstream Gradle project declares min SDK 21 and target SDK 35. It also declares AndroidX AppCompat and Google Play Games dependencies.
+- The source-tree audit previously recorded min SDK 21 / target SDK 35 and AndroidX dependencies from the current source configuration. Those are **not** the metadata of the pinned v1.3.3 release APK; see the exact binary findings below. The APK's manifest is authoritative for the binary under test.
 - Infinity's APK engine detector already classifies a DEX-bearing APK with no recognized native engine library as `java`; the launch view routes that selection to Husk's Java backend and requires the Java runtime bundle.
 
 ## Infinity/Husk framework surfaces already present in source
@@ -38,6 +38,24 @@ The source-level regression contract is `tests/test_2048_compatibility_contract.
 - `scripts/inspect_2048_apk.py` validates the ZIP/DEX structure, records DEX header table counts, checks the package identity with AAPT, dumps the binary manifest and resources, and disassembles every DEX file with `dexdump`. It also records AndroidX and Google Play SDK class descriptors found in DEX strings.
 - `.github/workflows/2048-apk-forensics.yml` downloads that exact release asset and publishes a report artifact. The report is static evidence only: it does not prove class verification, framework execution, or a successful Husk launch.
 - The actual inspection results remain pending until the workflow completes and its artifact is reviewed.
+
+## Exact v1.3.3 APK findings — GitHub Actions run 44716776681
+
+The workflow downloaded and inspected the actual upstream release asset, not a locally rebuilt APK.
+
+- APK: `tpcstld/2048` release tag `1.3.3`, asset `133-release.apk`.
+- SHA-256: `caed84eb0556cb5745da3cfaab8587244fc0122b49fe3df80d0caea3908f1f39`.
+- Package / version: `com.tpcstld.twozerogame`, version name `1.3.3`, version code `1007`.
+- Manifest SDK values: min SDK **14**, target SDK **28**, compile SDK **28**. Launcher: `com.tpcstld.twozerogame.MainActivity`, portrait orientation.
+- The APK contains one DEX file, `classes.dex`, format **035**, with **3,711** class definitions, **29,157** method IDs and **15,845** field IDs. AAPT manifest/resource dumps and DEX disassembly completed.
+- DEX header integrity: stored Adler-32 checksum matches; stored SHA-1 signature does **not** match the computed signature. This discrepancy is recorded, not silently waived. The DEX disassembler still produced output; a successful disassembly is not class-verifier proof.
+- Resource inventory: **492** resource/asset entries, including `assets/ClearSans-Bold.ttf`. Native library inventory: **zero** `.so` files.
+- Dependency descriptor inventory: **1,452** Android Support descriptors, **zero** AndroidX descriptors, and **2,106** Google Play Services descriptors. The manifest declares `android.support.VERSION=26.1.0`; `MainActivity` extends `android.support.v7.app.AppCompatActivity`, `MainView` extends `android.view.View`, and `InputListener` implements `View.OnTouchListener`.
+- This corrects the earlier source-only assumption: the pinned v1.3.3 APK exercises the legacy Android Support Library, not AndroidX AppCompat. The current source tree's build metadata must not be substituted for the exact binary's manifest/dependency facts.
+- The DEX shows `onCreate` constructing the local `MainView`, restoring local state from `SharedPreferences` when present, and calling `setContentView`. `onResume` then calls local `load()` and `signInToGoogle()`. The latter starts Google Play Games `silentSignIn()`; if it fails and the `no_login_prompt` preference is false, the callback can launch the interactive sign-in activity. The local view/state path is initialized before that cloud sign-in callback, but a real runtime test must still prove local gameplay remains usable without authentication.
+- Report artifact: [2048-v1.3.3-apk-forensic-report](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44716776681/artifacts/14619274277).
+
+These are static APK findings only. No Android class verification, AppCompat execution, Husk launch, rendering, swipe, persistence, or lifecycle behavior has yet been verified end to end.
 
 ## Remaining blockers before claiming full support
 
