@@ -2062,3 +2062,15 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Added a regression assertion that the shared version provider exists and reads both bundle version keys. Updated workflow path filters for the new Swift source.
 - At the time of this note, the corrected PR workflow has been committed but its new CI run is pending. No new Codemagic build has been triggered. No IPA/archive success is claimed.
 - The Codemagic archive contains many pre-existing warnings, but only the single `StrataVersion` error above is a fatal diagnostic in this uploaded run. Review warnings separately after the clean compile checks; do not make unrelated behavioral changes to SideStore, LiveContainer launch, or JIT as part of this build fix.
+
+
+## 2026-11-20 — Corrected Codemagic preflight checks passed on Ubuntu
+
+- PR #3 head `e750aff1965e0eb637f80872ba03ac23ae557f46` passed GitHub Actions run `44757330972`:
+  - 144/144 Python source/APK regression tests passed.
+  - Linux Clang syntax check passed for the exported APK archive and Husk bridge headers.
+  - Swift 6.0.3 on Ubuntu 24.04 successfully type-checked `INFINITYVersion.swift`, the APK manifest parser, and the APK archive inspector using the test-only C declaration shim.
+  - The iPhoneOS-SDK Swift/C bridge job was skipped by design because it is manual macOS-only.
+- PR #5 head `403f24686e98555036e0d6649a442265e1b9bca8` passed the portable-core workflow `44757572229` and native test workflow `44757572387`. The Ubuntu 24.04 shared-source script passed; manual macOS verification was skipped.
+- Reviewed the complete latest Codemagic build and archive logs again: the only fatal compiler diagnostic is the old-main `StrataVersion` reference in `LiveBoardHomeScreen.swift:565`. The 283 warning diagnostics are non-fatal in that run; the `LCStorageManagementModel.swift:325` async-enumerator warning is explicitly a Swift 6-language-mode issue, while the app target is configured for Swift 5 language mode. Other warnings include existing selector/deprecation/macro warnings in guest hooks and ZSign; they are not changed as part of this compile fix.
+- No new Codemagic run was triggered. No full Xcode archive from the corrected PR head exists yet. Passing Ubuntu tests does not prove SwiftUI/iOS archive, signing, packaging, or device runtime behavior.
