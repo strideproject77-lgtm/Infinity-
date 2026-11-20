@@ -1530,3 +1530,24 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - No test run, compiler run, IPA build, or device/APK test was performed for this batch. Do not claim validation until the planned consolidated GitHub test is run.
 - Husk integration remains **99.50%**; this batch is a real preparatory root-integration step but does not close any of the four remaining integration blockers.
 - SideStore remains untouched.
+
+
+## 2026-11-20 — JNI incoming native-argument shadow-root integration
+
+### Implemented on main
+- Added `tl_jni_native_frame_root(jobj *)`, which creates an owned local reference in the currently active native-method frame while leaving the DVM's original reference ownership unchanged.
+- Added a DVM native-call argument walker that roots the instance receiver (or static method's `jclass` mirror) and every non-null object parameter identified by the method shorty descriptor.
+- Connected the argument-root walk to both ARM32 JNI bridge dispatch and the normal AArch64 native-call dispatch. If root registration fails, the native call is aborted and the frame is closed so already-added roots are released.
+- This closes a concrete native-boundary lifetime gap: incoming JNI object references now participate in the same typed local-root registry as references created by JNI calls during the native method.
+
+### Commits
+- - JNI native-frame root API: d2cb8f4042c8e6dbfcbdd97e179cedb686c01f8b
+- JNI frame root registration implementation: a14c197f86c24a3e3c4996f964d8d17bf925e017
+- DVM receiver/object-argument rooting in both native call paths: 88292952a4fbaad8d3572d9d2e9f35a1db3ef8c4
+- Source-contract coverage: 7f2542555780b9c9542c81ba6fd1fb4e403fb4ea
+
+### Scope and validation
+- This is an incoming-argument root/lifetime improvement; it does **not** convert guest-visible `jobject` values to opaque typed tokens. The 233-slot JNI table still uses raw `jobj *` handles, so complete handle identity and stale-token rejection remain open.
+- Source-contract coverage was added but not executed. No compilation, test run, GitHub workflow, IPA build/export, signing, or device test was performed. SideStore was not touched.
+- Overall Husk source integration remains **99.60%**; this batch improves JNI root coverage but does not close the full guest-handle ABI migration, DVM tracing-GC root walk, or true weak-global processing.
+- Next target: continue the JNI object-boundary migration inventory and implement the next coherent group without changing the raw-pointer ABI halfway through the 233-slot table.
