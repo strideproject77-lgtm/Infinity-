@@ -1954,3 +1954,14 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Added a small smoke-only `LCPath.docPath` URL stub in the temporary Swift source. This keeps the isolated check focused on the APK store/runtime's path API without pulling the full app UI dependency graph into a narrow C bridge check. No production source or path behavior was changed.
 - Added a regression assertion for the stub contract. Linux source tests and the final Swift bridge/native tests are pending on the new commit.
 - No IPA/APK build, device test, or SideStore changes.
+
+
+## 2026-11-20 — IPA preflight validation checkpoint
+
+- Latest source commit at validation: `55cc22101fe920ea9952336a2f259fce923ee09c`.
+- Latest Linux regression workflow `44663722184` passed.
+- Latest native Swift/APK workflow `44663722136` passed all three jobs: APK parser type-check, Swift-to-Husk bridge type-check, and source-contract/APK archive tests.
+- The earlier 97/97 iPhoneOS native translation-source syntax audit `44663169822` also passed. No Husk C/Objective-C source changed after that audit in the Swift smoke-only follow-up commits.
+- The preceding failures were harness/source integration issues: isolated bridge omitted the APK archive C header, then omitted the app-wide `LCPath.docPath` provider. The smoke target now imports the same two C API headers as the app and supplies a narrow test-only `LCPath` URL contract. No production path behavior was changed.
+- **IPA status:** all currently identified source/preflight failures are cleared by source-level checks, but no Xcode archive/Codemagic IPA build has been run after these fixes. Do not claim the IPA build is verified until the user starts the next Codemagic run and its archive/sign/package stages complete.
+- No APK build, no device test, and SideStore untouched. Husk integration percentage is unchanged by these build-check harness fixes.
