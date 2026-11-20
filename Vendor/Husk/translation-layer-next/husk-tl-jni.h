@@ -83,6 +83,8 @@ void *tl_jni_env(void);
 
 /* Scope JNI local references created during one interpreted native-method call. */
 bool tl_jni_native_frame_enter(void);
+/* Add a borrowed Java object to the current native-call local frame. */
+bool tl_jni_native_frame_root(jobj *object);
 jobj *tl_jni_native_frame_leave(jobj *result);
 
 /* ---------------------------------------------------------------- objects */
