@@ -10,6 +10,7 @@
 
 #include <math.h>
 #include <stdatomic.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,6 +23,8 @@ static atomic_int g_infinity_engine = ATOMIC_VAR_INIT(INFINITY_ENGINE_NONE);
 static atomic_bool g_java_runtime_ready = ATOMIC_VAR_INIT(false);
 static atomic_bool g_native_runtime_ready = ATOMIC_VAR_INIT(false);
 static atomic_int g_queued_split_packages = ATOMIC_VAR_INIT(0);
+/* Serialize launch and teardown around Husk's process-global engine state. */
+static pthread_mutex_t g_infinity_lifecycle_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static bool readable_directory(const char *path)
 {
@@ -134,7 +137,7 @@ bool infinity_husk_prepare_java(const char *runtime_root, float density,
     return true;
 }
 
-bool infinity_husk_launch_engine(int engine,
+static bool infinity_husk_launch_engine_locked(int engine,
                                  const char *apk_path, const char *data_dir,
                                  void *metal_layer, int width, int height,
                                  const char *angle_dylib, const char *ca_bundle,
@@ -210,6 +213,24 @@ bool infinity_husk_launch_engine(int engine,
     }
     atomic_store(&g_infinity_engine,
                  accepted ? engine : INFINITY_ENGINE_NONE);
+    return accepted;
+}
+
+/* A launch may be in the synchronous setup phase while SwiftUI requests stop.
+   Waiting here prevents unload from racing Husk's thread creation and callback
+   registration. The lock is held only across Husk's launch/stop boundary. */
+bool infinity_husk_launch_engine(int engine,
+                                 const char *apk_path, const char *data_dir,
+                                 void *metal_layer, int width, int height,
+                                 const char *angle_dylib, const char *ca_bundle,
+                                 const char *moltenvk_dylib)
+{
+    pthread_mutex_lock(&g_infinity_lifecycle_lock);
+    bool accepted = infinity_husk_launch_engine_locked(engine, apk_path, data_dir,
+                                                        metal_layer, width, height,
+                                                        angle_dylib, ca_bundle,
+                                                        moltenvk_dylib);
+    pthread_mutex_unlock(&g_infinity_lifecycle_lock);
     return accepted;
 }
 
@@ -322,33 +343,47 @@ void infinity_husk_gamepad_update(int slot, unsigned buttons, float lx, float ly
 
 bool infinity_husk_queue_split_package(const char *apk_path)
 {
+    pthread_mutex_lock(&g_infinity_lifecycle_lock);
     if (!apk_path || !apk_path[0] ||
         atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE ||
         !atomic_load(&g_native_runtime_ready) ||
         atomic_load(&g_queued_split_packages) >= (TL_LD_MAX_APKS - 1) ||
         strnlen(apk_path, 1024) >= 1024 ||
-        !readable_file(apk_path))
+        !readable_file(apk_path)) {
+        pthread_mutex_unlock(&g_infinity_lifecycle_lock);
         return false;
+    }
     tl_ld_queue_split(apk_path);
     atomic_fetch_add(&g_queued_split_packages, 1);
+    pthread_mutex_unlock(&g_infinity_lifecycle_lock);
     return true;
 }
 
 void infinity_husk_clear_split_packages(void)
 {
-    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE) return;
+    pthread_mutex_lock(&g_infinity_lifecycle_lock);
+    if (atomic_load(&g_infinity_engine) != INFINITY_ENGINE_NONE) {
+        pthread_mutex_unlock(&g_infinity_lifecycle_lock);
+        return;
+    }
     tl_ld_reset_session();
     atomic_store(&g_queued_split_packages, 0);
+    pthread_mutex_unlock(&g_infinity_lifecycle_lock);
 }
 
 void infinity_husk_stop(void)
 {
-    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_NONE) return;
+    pthread_mutex_lock(&g_infinity_lifecycle_lock);
+    if (atomic_load(&g_infinity_engine) == INFINITY_ENGINE_NONE) {
+        pthread_mutex_unlock(&g_infinity_lifecycle_lock);
+        return;
+    }
     /* Stop and join the NativeActivity UI thread before unloading its code and callback table. */
     tl_na_stop();
     husk_native_unload();
     atomic_store(&g_queued_split_packages, 0);
     atomic_store(&g_infinity_engine, INFINITY_ENGINE_NONE);
+    pthread_mutex_unlock(&g_infinity_lifecycle_lock);
 }
 
 infinity_husk_state infinity_husk_get_state(void)

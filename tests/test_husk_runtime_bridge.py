@@ -84,6 +84,18 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
             with self.subTest(symbol=symbol):
                 self.assertIn(symbol, jni)
 
+    def test_engine_launch_queue_and_teardown_share_a_lifecycle_lock(self):
+        adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
+        self.assertIn("#include <pthread.h>", adapter)
+        self.assertIn("g_infinity_lifecycle_lock = PTHREAD_MUTEX_INITIALIZER", adapter)
+        self.assertIn("infinity_husk_launch_engine_locked", adapter)
+        self.assertIn("pthread_mutex_lock(&g_infinity_lifecycle_lock)", adapter)
+        self.assertIn("pthread_mutex_unlock(&g_infinity_lifecycle_lock)", adapter)
+        self.assertIn("bool infinity_husk_launch_engine(int engine,", adapter)
+        self.assertIn("void infinity_husk_stop(void)", adapter)
+        self.assertIn("void infinity_husk_queue_split_package", adapter)
+        self.assertIn("void infinity_husk_clear_split_packages", adapter)
+
     def test_swift_bridge_smoke_stubs_only_shared_document_path_contract(self):
         workflow = self.read(".github/workflows/infinity-tests.yml")
         bridge_job = workflow.split("husk-bridge-header-check:", 1)[1].split("swift-typecheck:", 1)[0]
