@@ -598,6 +598,19 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertNotIn("static int32_t jni_PushLocalFrame(void *env, int32_t cap) { (void)env; (void)cap; return 0; }", jni)
         self.assertNotIn("static jo jni_PopLocalFrame(void *env, jo r) { (void)env; return r; }", jni)
 
+    def test_jni_local_roots_are_shadowed_in_typed_reference_registry(self):
+        jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
+        for marker in (
+            '#include "husk-tl-jni-refs.h"',
+            "tl_jni_refs_new_local(o)",
+            "tl_jni_refs_push_local_frame((size_t)cap)",
+            "tl_jni_refs_pop_local_frame(NULL)",
+            "tl_jni_refs_detach_thread()",
+            "return local_frame_adopt(ref);"
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, jni)
+
     def test_jni_weak_global_slots_are_not_aliased_to_strong_global_slots(self):
         jni = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni.c")
         self.assertIn("static jo jni_NewWeakGlobalRef", jni)
