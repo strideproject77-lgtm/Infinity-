@@ -1215,6 +1215,8 @@ typedef struct dvm_call_root_frame {
     dvm_method *method;
     jobj *receiver;
     const jvalue *params;
+    uint64_t *registers;
+    uint16_t register_count;
 } dvm_call_root_frame;
 
 static _Thread_local dvm_call_root_frame *t_call_root_frames;
@@ -1347,6 +1349,13 @@ bool tl_dvm_visit_all_active_call_roots(tl_dvm_root_visitor visitor, void *conte
     for (size_t i = 0; i < count; i++) {
         for (dvm_call_root_frame *f = frames[i]; f; f = f->previous) {
             if (f->receiver) visitor(f->receiver, context);
+            /* DEX has no verifier reference map in this interpreter yet. Scan register
+             * words conservatively, accepting only exact addresses in the managed heap.
+             * Primitive integers can cause retention, never arbitrary-pointer dereference. */
+            for (uint16_t r = 0; f->registers && r < f->register_count; r++) {
+                jobj *candidate = (jobj *)(uintptr_t)f->registers[r];
+                if (tl_jni_heap_contains(candidate)) visitor(candidate, context);
+            }
             if (!f->params || !f->method || !f->method->shorty) continue;
             for (int n = 0; n < f->method->nparams; n++)
                 if (f->method->shorty[n + 1] == 'L' && f->params[n].l)
@@ -1475,7 +1484,10 @@ static bool dvm_call_inner(dvm_method *m, jobj *self, const jvalue *params, jval
         default: regs[r++] = (uint32_t)params[i].i; break;
         }
     }
+    dvm_call_root_frame *active = t_call_root_frames;
+    if (active) { active->registers = regs; active->register_count = m->regs; }
     bool ok = interpret(m, regs, ret);
+    if (active) { active->registers = NULL; active->register_count = 0; }
     if (regs != small) free(regs);
     return ok;
 }
