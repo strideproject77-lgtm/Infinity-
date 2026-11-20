@@ -1571,3 +1571,23 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
 - Overall Husk source integration estimate advances to **99.70%** for this additional JNI root-lifecycle subtask. Remaining blockers still include complete guest-facing JNI handle conversion/native marshaling, complete DVM heap/root tracing and safe weak-global processing.
 - Next target: continue closing missing DVM root categories and audit the pending-exception lifecycle under nested native frames before the single consolidated test pass.
+
+
+## 2026-11-20 — DVM class-static object root traversal
+
+### Implemented on main
+- Added the public `tl_dvm_visit_static_roots()` collector hook and a DVM walker over all currently declared JNI/DVM classes.
+- The walker uses linked DEX field metadata and visits only reference-typed static fields (`L...;` and array descriptors), skipping primitive statics and validating every static slot against the allocated static storage count.
+- The walk is explicitly documented as a stop-the-world collector-safepoint operation; class linking/drop and static-field mutation must be quiescent while it runs.
+- Added source-contract regression coverage for the visitor API, reference descriptor filtering, and slot bounds.
+
+### Commits
+- Public DVM static-root visitor API: 7a4c048d3b14ca676a34a9d6987787d0eafa514a
+- DEX class static object root walker: 5a8da5abfe947556fb6076d5fc9948f760af3acc
+- Source-contract regression coverage: 9840765b00abeb8f611ae85843bc55436cf99f44
+
+### Scope and validation
+- This closes one concrete GC root category: DEX class static object fields. It does not provide a complete tracing collector or claim that weak globals can be cleared safely. Instance object fields, live interpreter registers, native stack roots, and safe stop-the-world coordination remain open.
+- Source-contract coverage was added but not executed. No compilation, tests, GitHub workflow, IPA build/export, signing, or device testing was performed. SideStore was not touched.
+- Overall Husk source integration estimate advances to **99.80%** for this discrete static-root traversal subtask. This is an engineering integration estimate, not an APK compatibility score.
+- Next target: establish a safe interpreter-frame root map; never scan raw DEX registers as pointers without verified per-register reference types.
