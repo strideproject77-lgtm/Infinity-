@@ -1412,7 +1412,8 @@ static bool native_platform_ok_to_stub(const char *n)
 
 static bool native_frame_root_arguments(dvm_method *m, jobj *self, const jvalue *params)
 {
-    if (!m || !m->shorty || m->nparams < 0 || m->nparams > 4096) return false;
+    if (!m || !m->shorty || m->nparams < 0 || m->nparams > 4096 ||
+        (m->nparams > 0 && !params)) return false;
 
     /* A JNI static method receives its jclass as the second native argument. */
     jobj *receiver = (m->flags & 8) ? m->cls->jc->mirror : self;
