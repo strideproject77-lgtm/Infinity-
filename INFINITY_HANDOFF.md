@@ -1849,3 +1849,12 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - **Testing status:** source-contract suite passed; Swift bridge and native compile gates pending. No IPA/APK build, no device runtime test, and no SideStore changes.
 - **Husk integration status:** do not claim 100%. Guest JNI ABI still exposes raw `jobj *`; native argument/return marshaling remains to be migrated; DVM mark traversal is not connected to a safe sweep/reclamation path; weak-global clearing remains gated off until those prerequisites are met. Percentage remains unassigned pending a real scope audit.
 - **Next chat handoff:** first inspect the three run IDs above. If a macOS job fails, read the exact job log, fix the underlying source/workflow issue in one coordinated batch, then rerun the affected CI. Once all CI gates pass, continue the remaining JNI handle ABI and collector work. Preserve the rule: SideStore untouched; no IPA/APK/device testing until Husk integration is actually complete.
+
+## 2026-11-20 — Independent Ubuntu-only CI passed
+
+- Added `.github/workflows/infinity-linux-tests.yml` so regression checks can run independently of macOS runners.
+- Linux-only run [44656852608](https://github.com/strideproject77-lgtm/Infinity-/actions/runs/44656852608) completed **success** on Ubuntu.
+- Verified all six workflow steps: checkout, Python 3.12 setup, shell syntax checks for runtime scripts, complete Python regression suite, and runtime audit script byte-compilation.
+- Result: **117 tests passed** (`Ran 117 tests ... OK`); all shell syntax and audit-script checks passed. No failures, so no test-fix rerun was needed.
+- This is host-side regression validation only. It does not replace the pending macOS/iPhoneOS SDK compile audit, and it does not prove runtime execution or full Husk integration.
+- No IPA/APK build, no device test, and SideStore untouched. Raw JNI ABI / native marshaling / collector sweep remain integration blockers; do not claim 100%.
