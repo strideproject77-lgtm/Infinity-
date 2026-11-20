@@ -102,6 +102,17 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("bool infinity_husk_queue_split_package", adapter)
         self.assertIn("void infinity_husk_clear_split_packages", adapter)
 
+    def test_rejected_launch_always_resets_husk_global_state_even_without_splits(self):
+        adapter = self.read("Vendor/Husk/bridge/INFINITYHuskRuntime.c")
+        launch = adapter[adapter.index("static bool infinity_husk_launch_engine_locked"):
+                         adapter.index("bool infinity_husk_launch_engine(")]
+        self.assertIn("if (!accepted)", launch)
+        self.assertIn("tl_na_stop();", launch)
+        self.assertIn("husk_native_unload()", launch)
+        self.assertIn("tl_ld_reset_session()", launch)
+        self.assertNotIn("queued_splits > 0", launch)
+        self.assertIn("atomic_store(&g_queued_split_packages, 0);", launch)
+
     def test_swift_bridge_smoke_stubs_only_shared_document_path_contract(self):
         workflow = self.read(".github/workflows/infinity-tests.yml")
         bridge_job = workflow.split("husk-bridge-header-check:", 1)[1].split("swift-typecheck:", 1)[0]

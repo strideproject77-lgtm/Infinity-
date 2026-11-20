@@ -156,7 +156,6 @@ static bool infinity_husk_launch_engine_locked(int engine,
 
     if (engine < INFINITY_HUSK_ENGINE_UNITY || engine > INFINITY_HUSK_ENGINE_GAMEMAKER)
         return false;
-    int queued_splits = atomic_load(&g_queued_split_packages);
     /* Reserve the single native session before entering upstream launch code.
        Without this CAS, two callers can both observe NONE and start two engines
        against the same global Husk state and Metal surface. */
@@ -200,17 +199,15 @@ static bool infinity_husk_launch_engine_locked(int engine,
             break;
     }
 
-    /* Publish the selected backend only after Husk accepted the launch. */
-    if (!accepted && queued_splits > 0) {
-        /* A failed pthread start leaves Husk's state FAILED, not IDLE.
-           Reset that rejected, never-running session before another app is queued. */
+    /* Publish the selected backend only after Husk accepted the launch.
+       Any rejected launch can leave process-global loader state partially prepared,
+       even when no split APKs were queued. Always reset that failed session. */
+    if (!accepted) {
         tl_na_stop();
         if (husk_unity_state() != 0) husk_native_unload();
         else tl_ld_reset_session();
-        atomic_store(&g_queued_split_packages, 0);
-    } else if (accepted) {
-        atomic_store(&g_queued_split_packages, 0);
     }
+    atomic_store(&g_queued_split_packages, 0);
     atomic_store(&g_infinity_engine,
                  accepted ? engine : INFINITY_ENGINE_NONE);
     return accepted;
