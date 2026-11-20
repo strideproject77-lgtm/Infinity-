@@ -684,6 +684,15 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn("static int32_t jni_Throw(void *env, jo t) { (void)env; pending_set(t); return 0; }", jni)
         self.assertIn("pending_set(NULL);", jni)
 
+    def test_dvm_tracks_active_call_receiver_and_object_argument_roots(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
+        self.assertIn("tl_dvm_visit_active_call_roots(tl_dvm_root_visitor visitor, void *context);", header)
+        self.assertIn("static _Thread_local dvm_call_root_frame *t_call_root_frames;", dvm)
+        self.assertIn("frame->method->shorty[i + 1] == 'L'", dvm)
+        self.assertIn(".receiver = (m->flags & 8) ? NULL : self", dvm)
+        self.assertIn("t_call_root_frames = root_frame.previous;", dvm)
+
     def test_dvm_exposes_object_valued_class_statics_as_gc_roots(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
