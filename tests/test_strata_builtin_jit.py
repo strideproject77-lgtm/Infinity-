@@ -50,11 +50,15 @@ class StrataBuiltInJITContractTests(unittest.TestCase):
         runtime = source("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
         home = source("LiveContainerSwiftUI/Views/LiveBoardHomeScreen.swift")
         about = source("LiveContainerSwiftUI/Views/StrataAboutView.swift")
+        settings = source("LiveContainerSwiftUI/Views/Settings/LCSettingsView.swift")
         self.assertNotIn("StrataVersion", runtime)
         self.assertNotIn("StrataVersion", home)
+        self.assertNotIn("StrataVersion", settings)
         self.assertIn("INFINITYVersion.display", runtime)
         self.assertIn("INFINITYVersion.display", home)
         self.assertIn("INFINITYVersion.display", about)
+        self.assertIn("INFINITYVersion.display", settings)
+        self.assertIn("private var strataRuntimeManagerLink: some View", settings)
 
 
 if __name__ == "__main__":
