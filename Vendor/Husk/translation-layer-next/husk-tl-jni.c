@@ -65,9 +65,14 @@ jobj *tl_jni_ref(jobj *o)
 
 
 /* JNI local references are scoped to the calling native thread and its pushed frames.
- * The guest object pointer remains the handle; each recorded slot owns one refcount. */
+ * The raw object pointer remains the legacy ABI value; each slot also records
+ * its typed-registry shadow root so DeleteLocalRef can invalidate both owners. */
+typedef struct jni_local_entry {
+    jobj *object;
+    tl_jni_ref_handle *root;
+} jni_local_entry;
 typedef struct jni_local_frame {
-    jobj **items;
+    jni_local_entry *items;
     size_t count, capacity;
     struct jni_local_frame *parent;
 } jni_local_frame;
@@ -92,18 +97,18 @@ static bool local_frame_reserve(jni_local_frame *f, size_t extra)
         cap *= 2;
     }
     if (cap > SIZE_MAX / sizeof(*f->items)) return false;
-    jobj **items = realloc(f->items, cap * sizeof(*items));
+    jni_local_entry *items = realloc(f->items, cap * sizeof(*items));
     if (!items) return false;
     f->items = items;
     f->capacity = cap;
     return true;
 }
-static bool local_frame_add_owned(jobj *o)
+static bool local_frame_add_owned(jobj *o, tl_jni_ref_handle *root)
 {
     if (!o) return true;
     jni_local_frame *f = local_frame_current();
     if (!f || !local_frame_reserve(f, 1)) return false;
-    f->items[f->count++] = o;
+    f->items[f->count++] = (jni_local_entry){ .object = o, .root = root };
     return true;
 }
 static jo local_frame_adopt(jobj *o)
@@ -116,7 +121,7 @@ static jo local_frame_adopt(jobj *o)
      * view of JNI-created local roots without changing the 233-slot ABI.
      */
     tl_jni_ref_handle *root = tl_jni_refs_new_local(o);
-    if (!root || !local_frame_add_owned(o)) {
+    if (!root || !local_frame_add_owned(o, root)) {
         if (root) tl_jni_refs_delete(root, TL_JNI_REF_LOCAL);
         tl_jni_unref(o);
         tl_jni_throw("java/lang/OutOfMemoryError", "recording JNI local reference root");
@@ -128,8 +133,10 @@ static bool local_frame_remove(jobj *o)
 {
     for (jni_local_frame *f = t_local_frame; f; f = f->parent) {
         for (size_t i = f->count; i > 0; i--) {
-            if (f->items[i - 1] == o) {
+            if (f->items[i - 1].object == o) {
+                jni_local_entry removed = f->items[i - 1];
                 f->items[i - 1] = f->items[--f->count];
+                tl_jni_refs_delete(removed.root, TL_JNI_REF_LOCAL);
                 return true;
             }
         }
@@ -139,7 +146,10 @@ static bool local_frame_remove(jobj *o)
 static void local_frame_release(jni_local_frame *f)
 {
     if (!f) return;
-    for (size_t i = 0; i < f->count; i++) tl_jni_unref(f->items[i]);
+    for (size_t i = 0; i < f->count; i++) {
+        tl_jni_refs_delete(f->items[i].root, TL_JNI_REF_LOCAL);
+        tl_jni_unref(f->items[i].object);
+    }
     free(f->items);
     free(f);
 }
