@@ -1,0 +1,58 @@
+name: 2048 APK forensic audit
+
+on:
+  push:
+    paths:
+      - "scripts/inspect_2048_apk.py"
+      - "tests/test_2048_apk_forensics.py"
+      - "docs/compatibility/2048-tpcstld.md"
+      - ".github/workflows/2048-apk-forensics.yml"
+  pull_request:
+    paths:
+      - "scripts/inspect_2048_apk.py"
+      - "tests/test_2048_apk_forensics.py"
+      - "docs/compatibility/2048-tpcstld.md"
+      - ".github/workflows/2048-apk-forensics.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-upstream-apk:
+    name: Inspect upstream 2048 v1.3.3 APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out INFINITY
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Android SDK build-tools
+        uses: android-actions/setup-android@v3
+      - name: Install AAPT and DEX inspection tools
+        run: sdkmanager "build-tools;35.0.0"
+      - name: Download the pinned upstream distributable
+        run: |
+          mkdir -p "$RUNNER_TEMP/2048-apk" "$RUNNER_TEMP/2048-report"
+          curl --fail --location --retry 3 \
+            "https://github.com/tpcstld/2048/releases/download/1.3.3/133-release.apk" \
+            --output "$RUNNER_TEMP/2048-apk/133-release.apk"
+          sha256sum "$RUNNER_TEMP/2048-apk/133-release.apk"
+      - name: Inspect manifest, resources, DEX headers and bytecode
+        run: |
+          python scripts/inspect_2048_apk.py \
+            "$RUNNER_TEMP/2048-apk/133-release.apk" \
+            --output "$RUNNER_TEMP/2048-report" \
+            --aapt "$ANDROID_HOME/build-tools/35.0.0/aapt" \
+            --dexdump "$ANDROID_HOME/build-tools/35.0.0/dexdump"
+      - name: Publish forensic report
+        uses: actions/upload-artifact@v4
+        with:
+          name: 2048-v1.3.3-apk-forensic-report
+          path: |
+            ${{ runner.temp }}/2048-report/REPORT.md
+            ${{ runner.temp }}/2048-report/report.json
+            ${{ runner.temp }}/2048-report/*.txt
+          if-no-files-found: error
+          retention-days: 30

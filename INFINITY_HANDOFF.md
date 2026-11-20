@@ -1991,3 +1991,16 @@ These percentages are engineering estimates of implementation/wiring coverage, n
 - **Progress remains 59%**: the helper and tests do not justify a percentage increase because JNI table/native argument-return migration is still incomplete.
 - No tests have been run yet. Next planned test checkpoint is the existing `infinity-tests.yml` source/parser + iPhoneOS native syntax + Swift bridge checks after this batch is merged. No IPA/APK build or device/game test. SideStore untouched.
 - Next implementation: build a typed JNI ABI adapter in stages, starting with object-reference creation/deletion/equality and then object-bearing method/field/array/string entry points. Do not expose token values to guest code until all reachable object-bearing slots and native argument/return paths are adapted.
+
+
+## 2026-11-20 — Pinned tpcstld 2048 distributable for APK-level forensic inspection
+
+- Re-verified repository `main` before editing: `420e8295bd4a383882a519bd3812469f07869bbd`. This matches the previously supplied handoff commit.
+- Identified the actual upstream GitHub release asset `tpcstld/2048` tag `1.3.3`, file `133-release.apk` (published asset size 2,233,942 bytes). The APK itself is downloaded by CI; it is not fabricated or replaced with a source build.
+- Added `scripts/inspect_2048_apk.py` to validate APK ZIP integrity, require the expected package identity via AAPT, dump the binary manifest/resources, validate each DEX header and table counts, disassemble every DEX with `dexdump`, and report AndroidX / Google Play class descriptors plus the APK SHA-256.
+- Added `tests/test_2048_apk_forensics.py` with synthetic DEX/ZIP fixtures covering header parsing, malformed DEX rejection, multidex/resource/native-library inventory, and the pinned-tool workflow contract. These tests do not claim to execute the APK.
+- Added `.github/workflows/2048-apk-forensics.yml` to download and inspect the exact v1.3.3 release asset and publish the static forensic report as a workflow artifact.
+- Updated `docs/compatibility/2048-tpcstld.md` with the pinned APK provenance and explicit evidence boundary.
+- **Validation pending:** the workflow must complete and the artifact must be reviewed before recording APK manifest/DEX/dependency findings. No actual APK execution, class verification, AndroidX runtime execution, IPA build, or device test is claimed by this batch.
+- **Progress remains 59% Husk integration.** The APK-forensics harness is a 2048 evidence-gathering milestone, not runtime API completion. 2048 compatibility remains unverified.
+- SideStore was not modified. Hill Climb Racing and Subway Surfers remain deferred.
