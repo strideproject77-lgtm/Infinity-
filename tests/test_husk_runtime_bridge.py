@@ -693,6 +693,28 @@ class HuskRuntimeBridgeContractTests(unittest.TestCase):
         self.assertIn(".receiver = (m->flags & 8) ? NULL : self", dvm)
         self.assertIn("t_call_root_frames = root_frame.previous;", dvm)
 
+    def test_typed_jni_root_callbacks_run_outside_registry_lock(self):
+        refs = self.read("Vendor/Husk/translation-layer-next/husk-tl-jni-refs.c")
+        start = refs.index("bool tl_jni_refs_visit_strong_roots(")
+        end = refs.index("\nvoid tl_jni_refs_process_weak", start)
+        walker = refs[start:end]
+        unlock = walker.rindex("pthread_mutex_unlock(&g_refs_lock);")
+        callback = walker.index("visitor(snapshot[i], context)")
+        self.assertLess(unlock, callback)
+        self.assertIn("if (count && !snapshot) return false;", walker)
+        self.assertIn("return used == count;", walker)
+
+    def test_dvm_composes_available_current_thread_and_jni_roots(self):
+        dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
+        header = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.h")
+        start = dvm.index("bool tl_dvm_visit_current_thread_roots(")
+        end = dvm.index("\nvoid tl_dvm_visit_static_roots", start)
+        composer = dvm[start:end]
+        self.assertIn("tl_dvm_visit_static_roots(visitor, context);", composer)
+        self.assertIn("tl_dvm_visit_active_call_roots(visitor, context);", composer)
+        self.assertIn("tl_jni_refs_visit_strong_roots(visitor, context)", composer)
+        self.assertIn("requires external all-mutator safepoint", header.lower())
+
     def test_dex_root_callbacks_run_after_registry_lock_is_released(self):
         dvm = self.read("Vendor/Husk/translation-layer-next/husk-tl-dvm.c")
         start = dvm.index("static void visit_dex_runtime_roots(")
