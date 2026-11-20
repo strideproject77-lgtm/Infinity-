@@ -156,14 +156,16 @@ def dependency_class_descriptors(dex_payloads: dict[str, bytes]) -> dict[str, se
 
 
 def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
-    """Extract app class identity and Android framework calls from app-owned DEX class blocks."""
+    """Extract app/support class identity and Android framework calls from DEX class blocks."""
     descriptors = sorted(set(re.findall(
         r"Class descriptor\s*:\s*'([^']+)'", disassembly
     )))
     class_blocks = re.split(r"(?=^Class #\d+)", disassembly, flags=re.MULTILINE)
     app_classes = []
     main_superclass = None
-    method_refs = set()
+    support_superclasses = {}
+    app_method_refs = set()
+    support_method_refs = set()
     for block in class_blocks:
         descriptor_match = re.search(
             r"Class descriptor\s*:\s*'([^']+)'", block
@@ -171,26 +173,45 @@ def parse_dex_disassembly(disassembly: str) -> dict[str, Any]:
         if descriptor_match is None:
             continue
         descriptor = descriptor_match.group(1)
-        if not descriptor.startswith("Lcom/tpcstld/twozerogame/"):
-            continue
-        app_classes.append(descriptor)
-        if descriptor == "Lcom/tpcstld/twozerogame/MainActivity;":
-            superclass_match = re.search(
-                r"Superclass\s*:\s*'([^']+)'", block
+        superclass_match = re.search(
+            r"Superclass\s*:\s*'([^']+)'", block
+        )
+        superclass = superclass_match.group(1) if superclass_match else None
+        if descriptor.startswith("Lcom/tpcstld/twozerogame/"):
+            app_classes.append(descriptor)
+            if descriptor == "Lcom/tpcstld/twozerogame/MainActivity;":
+                main_superclass = superclass
+            target_support_classes = (
+                "Landroid/support/v7/app/AppCompatActivity;",
+                "Landroid/support/v4/app/FragmentActivity;",
+                "Landroid/support/v4/app/SupportActivity;",
             )
-            main_superclass = superclass_match.group(1) if superclass_match else None
+        elif descriptor.startswith("Landroid/support/"):
+            if descriptor in (
+                "Landroid/support/v7/app/AppCompatActivity;",
+                "Landroid/support/v4/app/FragmentActivity;",
+                "Landroid/support/v4/app/SupportActivity;",
+            ):
+                support_superclasses[descriptor] = superclass
+            target_support_classes = ()
+        else:
+            continue
+        refs = app_method_refs if descriptor.startswith("Lcom/tpcstld/twozerogame/") else support_method_refs
         for owner, method in re.findall(
-            r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*[:(]",
+            r"(L[^;\s]+;)(?:->|\.)([A-Za-z_$][A-Za-z0-9_$]*)\s*:\s*\(",
             block,
         ):
             if owner.startswith("Landroid/") and not owner.startswith("Landroid/support/"):
-                method_refs.add(f"{owner}->{method}")
+                refs.add(f"{owner}->{method}")
     return {
         "class_descriptor_count": len(descriptors),
         "app_class_descriptors": sorted(set(app_classes)),
         "main_activity_superclass": main_superclass,
-        "android_framework_method_ref_count": len(method_refs),
-        "android_framework_method_refs": sorted(method_refs),
+        "support_superclasses": support_superclasses,
+        "android_framework_method_ref_count": len(app_method_refs),
+        "android_framework_method_refs": sorted(app_method_refs),
+        "support_framework_method_ref_count": len(support_method_refs),
+        "support_framework_method_refs": sorted(support_method_refs),
     }
 
 def main() -> int:
