@@ -24,6 +24,7 @@ workflows:
           - scripts/package_codemagic_artifacts.sh
           - scripts/publish_codemagic_logs.sh
           - scripts/build_ipa.sh
+          - scripts/prepare_livecontainer_dependencies.sh
           - scripts/prepare_stikjit_idevice.sh
           - scripts/prepare_infinity_app_icon.sh
           - Branding/INFINITY-AppIcon.svg
