@@ -43,6 +43,8 @@ mv ./tmp/SideStoreSupport.framework Payload/LiveContainer.app/Frameworks
 /usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:3:DefaultValue bool false" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
 
 # download SideStore
+# Bundle source pin: LiveContainer/SideStore@044bd72ad4eb270c3900bd04dc6f508d0ac474db.
+# Keep the IPA SHA-256 check below; do not silently consume an unreviewed nightly.
 cd tmp
 wget https://github.com/LiveContainer/SideStore/releases/download/nightly/SideStore.ipa
 SIDESTORE_IPA_SHA256="f65f5a5e1adca962e663563bc8ade90f64da98dd7f1d1b51f2d5b33002ced00e"
@@ -72,7 +74,7 @@ sed -i '' 's/9SideStore26RefreshAllAppsWidgetIntentV/16SideStoreSupport26Refresh
 mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/PlugIns/AltWidgetExtension.appex ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kdt.livecontainer.LiveWidget"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable LiveWidgetExtension"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
-mv ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/AltWidgetExtension ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension
+mv ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/AltWidgetExtension ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
 
 # Sign
 rm -rf .zsign_cache
