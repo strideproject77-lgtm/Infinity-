@@ -61,6 +61,10 @@ on:
       - ".github/workflows/infinity-tests.yml"
       - ".github/workflows/infinity-strata-framework-build.yml"
       - "tests/test_strata_framework_workflow.py"
+      - "upstream/manifest.json"
+      - "scripts/check_upstream_updates.py"
+      - "tests/test_upstream_update_bridge.py"
+      - ".github/workflows/infinity-upstream-update-bridge.yml"
   workflow_dispatch:
 
 permissions:
