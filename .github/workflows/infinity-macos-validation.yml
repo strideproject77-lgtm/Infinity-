@@ -13,7 +13,6 @@ on:
       - "SideStoreSupport/**"
       - "scripts/build_ipa.sh"
       - "scripts/prepare_stikjit_idevice.sh"
-      - "scripts/prepare_stikjit_idevice.sh"
       - ".github/build_github.sh"
       - "Vendor/**"
   workflow_dispatch:
@@ -22,8 +21,8 @@ permissions:
   contents: read
 
 jobs:
-  ios-simulator-compile:
-    name: Xcode ARM64 Simulator compile checks (no archive / no IPA)
+  ios-device-compile:
+    name: Xcode ARM64 iOS device compile checks (no archive / no IPA)
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -41,7 +40,7 @@ jobs:
         run: |
           xcodebuild -version
           test "$(xcodebuild -version | awk '/^Xcode / {print $2; exit}')" = "26.2"
-          xcrun --sdk iphonesimulator --show-sdk-version
+          xcrun --sdk iphoneos --show-sdk-version
 
       - name: Prepare and verify pinned StikJIT idevice_ffi archive
         run: |
@@ -54,13 +53,13 @@ jobs:
             -project LiveContainer.xcodeproj \
             -scheme LiveContainer
 
-      - name: Compile ARM64 iOS Simulator target without signing or packaging
+      - name: Compile ARM64 iOS device target without signing or packaging
         run: |
           xcodebuild build \
             -project LiveContainer.xcodeproj \
             -scheme LiveContainer \
-            -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
             -configuration Debug \
             -derivedDataPath "$RUNNER_TEMP/INFINITYDerivedData" \
             ARCHS=arm64 \
@@ -72,4 +71,4 @@ jobs:
           test ! -e LiveContainer.ipa
           test ! -e LiveContainer+SideStore.ipa
           test ! -e archive.xcarchive
-          echo "ARM64 simulator compile completed; IPA/archive packaging was not run."
+          echo "ARM64 iOS device compile completed; IPA/archive packaging was not run."
