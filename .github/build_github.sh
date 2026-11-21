@@ -42,6 +42,8 @@ mv ./tmp/SideStoreSupport.framework Payload/LiveContainer.app/Frameworks
 # download SideStore
 cd tmp
 wget https://github.com/LiveContainer/SideStore/releases/download/nightly/SideStore.ipa
+SIDESTORE_IPA_SHA256="f65f5a5e1adca962e663563bc8ade90f64da98dd7f1d1b51f2d5b33002ced00e"
+echo "${SIDESTORE_IPA_SHA256}  SideStore.ipa" | shasum -a 256 -c -
 unzip SideStore.ipa
 cd ..
 
