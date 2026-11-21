@@ -63,6 +63,7 @@ on:
       - "tests/test_strata_framework_workflow.py"
       - "upstream/manifest.json"
       - "scripts/check_upstream_updates.py"
+      - "scripts/patch_sidestore_pairing.py"
       - "tests/test_upstream_update_bridge.py"
       - ".github/workflows/infinity-upstream-update-bridge.yml"
   workflow_dispatch:
