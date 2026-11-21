@@ -66,6 +66,27 @@ class UpstreamBridgeTests(unittest.TestCase):
         self.assertIn("SIDESTORE_IPA_SHA256=", packaging)
         self.assertIn("f65f5a5e1adca962e663563bc8ade90f64da98dd7f1d1b51f2d5b33002ced00e", packaging)
 
+    def test_pairing_patch_only_corrects_lockdown_branch(self):
+        patch_spec = importlib.util.spec_from_file_location(
+            "patch_sidestore_pairing", ROOT / "scripts" / "patch_sidestore_pairing.py"
+        )
+        patch_module = importlib.util.module_from_spec(patch_spec)
+        patch_spec.loader.exec_module(patch_module)
+        source = """if pprotocol == .rppairing {\n    requiredKeys = [\"private_key\"]\n} else if pprotocol == .rppairing {\n    requiredKeys = [\"HostID\"]\n}"""
+        fixed = patch_module.patch_source(source)
+        self.assertIn("} else if pprotocol == .lockdown {", fixed)
+        self.assertEqual(fixed.count("pprotocol == .rppairing"), 1)
+        self.assertEqual(patch_module.patch_source(fixed), fixed)
+
+    def test_pairing_patch_fails_closed_on_unexpected_source(self):
+        patch_spec = importlib.util.spec_from_file_location(
+            "patch_sidestore_pairing", ROOT / "scripts" / "patch_sidestore_pairing.py"
+        )
+        patch_module = importlib.util.module_from_spec(patch_spec)
+        patch_spec.loader.exec_module(patch_module)
+        with self.assertRaises(ValueError):
+            patch_module.patch_source("unrecognized source")
+
 
 if __name__ == "__main__":
     unittest.main()
