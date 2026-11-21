@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "default_branch": "main",
+    "automatic_source_merges": false,
+    "automatic_version_bumps": false,
+    "protected_local_components": ["INFINITY", "STRATA"],
+    "validation_required_before_adoption": true
+  },
+  "components": [
+    {
+      "id": "livecontainer",
+      "name": "LiveContainer",
+      "repository": "LiveContainer/LiveContainer",
+      "pinned_revision": "b0f53e8934df325970e9b6ff52932a43b585c424",
+      "mode": "review-only"
+    },
+    {
+      "id": "sidestore",
+      "name": "SideStore",
+      "repository": "SideStore/SideStore",
+      "pinned_revision": "044bd72ad4eb270c3900bd04dc6f508d0ac474db",
+      "mode": "review-only"
+    },
+    {
+      "id": "husk",
+      "name": "Husk",
+      "repository": "Leviidev/Husk",
+      "pinned_revision": "29abb512d81bf8cc08babcbe7f7007cb557208ef",
+      "mode": "review-only"
+    },
+    {
+      "id": "stikjit",
+      "name": "StikJIT",
+      "repository": "StikDebug/StikJIT",
+      "pinned_revision": "32287268fa5824f9edce4cb359f5833ce0cf7b00",
+      "mode": "review-only"
+    },
+    {
+      "id": "stossign",
+      "name": "StosSign",
+      "repository": "stossy11/StosSign",
+      "pinned_revision": "f8075577623707bd7899a884f31f2c4674af18d4",
+      "mode": "review-only"
+    },
+    {
+      "id": "metalfg",
+      "name": "MetalFG",
+      "repository": "dnullptr/MetalFG",
+      "pinned_revision": "c6e5f49cb4eb1a466eca1c66e3bf200ebbdab9e9",
+      "mode": "review-only"
+    }
+  ],
+  "local_components": [
+    {
+      "id": "strata",
+      "name": "STRATA",
+      "policy": "Keep INFINITY-specific patches. Never replace wholesale from upstream."
+    },
+    {
+      "id": "infinity",
+      "name": "INFINITY",
+      "policy": "Project-owned host integration. Never overwrite from upstream."
+    }
+  ]
+}
