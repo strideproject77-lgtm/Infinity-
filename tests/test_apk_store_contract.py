@@ -50,7 +50,8 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("android-system/fonts/ (non-empty)", store)
         self.assertIn("App.frameworks/libANGLE-shared.dylib", store)
         self.assertIn("static func javaRuntimeMissingAssets() -> [String]", store)
-        self.assertIn("java-runtime/com.android.art/javalib/core-oj.jar", store)
+        self.assertIn('"com.android.art/javalib/core-oj.jar"', store)
+        self.assertIn('.map { "java-runtime/" + $0 }', store)
         self.assertIn("StoreError.missingJavaRuntimeAssets(missingJavaAssets)", view)
         self.assertIn('runtime.recordSessionEvent("JAVA_RUNTIME_MISSING"', view)
 
