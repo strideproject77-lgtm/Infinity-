@@ -1,0 +1,68 @@
+name: INFINITY macOS validation (no IPA)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/infinity-macos-validation.yml"
+      - "LiveContainer.xcodeproj/**"
+      - "LiveContainer/**"
+      - "LiveContainerSwiftUI/**"
+      - "LiveProcess/**"
+      - "ShareExtension/**"
+      - "SideStoreSupport/**"
+      - "scripts/build_ipa.sh"
+      - "scripts/prepare_stikjit_idevice.sh"
+      - ".github/build_github.sh"
+      - "Vendor/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator-compile:
+    name: Xcode dependency and simulator compile checks (no archive / no IPA)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Select pinned Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.2"
+
+      - name: Check out INFINITY
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify toolchain
+        run: |
+          xcodebuild -version
+          test "$(xcodebuild -version | awk '/^Xcode / {print $2; exit}')" = "26.2"
+          xcrun --sdk iphonesimulator --show-sdk-version
+
+      - name: Resolve Xcode package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -project LiveContainer.xcodeproj \
+            -scheme LiveContainer
+
+      - name: Compile iOS Simulator target without signing or packaging
+        run: |
+          xcodebuild build \
+            -project LiveContainer.xcodeproj \
+            -scheme LiveContainer \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/INFINITYDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Confirm no IPA/archive was created in the repository
+        run: |
+          test ! -e LiveContainer.ipa
+          test ! -e LiveContainer+SideStore.ipa
+          test ! -e archive.xcarchive
+          echo "Simulator compile completed; IPA/archive packaging was not run."
