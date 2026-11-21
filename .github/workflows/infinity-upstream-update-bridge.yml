@@ -1,0 +1,53 @@
+name: INFINITY upstream update bridge
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 8 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infinity-upstream-update-bridge
+  cancel-in-progress: false
+
+jobs:
+  check-upstream:
+    name: Check upstream revisions (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check pinned upstream revisions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/check_upstream_updates.py
+
+      - name: Publish update report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: infinity-upstream-update-report
+          path: upstream/reports/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Add report to job summary
+        if: always()
+        run: |
+          if [ -f upstream/reports/latest.md ]; then
+            cat upstream/reports/latest.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Update report was not generated. Inspect the checker step logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
