@@ -23,6 +23,13 @@
       "mode": "review-only"
     },
     {
+      "id": "sidestore_bundle",
+      "name": "SideStore bundled build (LiveContainerSupport)",
+      "repository": "LiveContainer/SideStore",
+      "pinned_revision": "044bd72ad4eb270c3900bd04dc6f508d0ac474db",
+      "mode": "review-only"
+    },
+    {
       "id": "husk",
       "name": "Husk",
       "repository": "Leviidev/Husk",
