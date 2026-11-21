@@ -42,6 +42,11 @@ jobs:
           test "$(xcodebuild -version | awk '/^Xcode / {print $2; exit}')" = "26.2"
           xcrun --sdk iphonesimulator --show-sdk-version
 
+      - name: Prepare and verify pinned StikJIT idevice_ffi archive
+        run: |
+          bash scripts/prepare_stikjit_idevice.sh
+          test -s Vendor/StikJIT/idevice/libidevice_ffi.a
+
       - name: Resolve Xcode package dependencies
         run: |
           xcodebuild -resolvePackageDependencies \
