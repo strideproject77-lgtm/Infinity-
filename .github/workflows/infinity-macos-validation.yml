@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   ios-simulator-compile:
-    name: Xcode dependency and simulator compile checks (no archive / no IPA)
+    name: Xcode ARM64 Simulator compile checks (no archive / no IPA)
     runs-on: macos-15
     timeout-minutes: 45
     steps:
@@ -48,13 +48,14 @@ jobs:
             -project LiveContainer.xcodeproj \
             -scheme LiveContainer
 
-      - name: Compile iOS Simulator target without signing or packaging
+      - name: Compile ARM64 iOS Simulator target without signing or packaging
         run: |
           xcodebuild build \
             -project LiveContainer.xcodeproj \
             -scheme LiveContainer \
             -sdk iphonesimulator \
             -destination "generic/platform=iOS Simulator" \
+            -arch arm64 \
             -configuration Debug \
             -derivedDataPath "$RUNNER_TEMP/INFINITYDerivedData" \
             CODE_SIGNING_ALLOWED=NO \
@@ -65,4 +66,4 @@ jobs:
           test ! -e LiveContainer.ipa
           test ! -e LiveContainer+SideStore.ipa
           test ! -e archive.xcarchive
-          echo "Simulator compile completed; IPA/archive packaging was not run."
+          echo "ARM64 simulator compile completed; IPA/archive packaging was not run."
