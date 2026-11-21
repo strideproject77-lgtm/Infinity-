@@ -474,8 +474,14 @@ struct INFINITYAPKLaunchView: View {
             runtime.recordSessionEvent("APK_VALIDATED", details: "bytes=\((try? apk.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)")
             let dataDirectory = try INFINITYAPKStore.dataURL(for: app)
             runtime.recordSessionEvent("APP_DATA", details: "directoryReady=\((try? dataDirectory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false)")
-            guard let nativeBundle = INFINITYAPKStore.nativeRuntimeBundle() else {
-                throw INFINITYHuskRuntime.RuntimeError.nativeRuntimeNotPrepared
+            let missingNativeAssets = INFINITYAPKStore.nativeRuntimeMissingAssets()
+            guard missingNativeAssets.isEmpty,
+                  let nativeBundle = INFINITYAPKStore.nativeRuntimeBundle() else {
+                runtime.recordSessionEvent("NATIVE_RUNTIME_MISSING",
+                                           details: missingNativeAssets.isEmpty
+                                               ? "Native runtime bundle could not be resolved"
+                                               : missingNativeAssets.joined(separator: ", "))
+                throw INFINITYAPKStore.StoreError.missingNativeRuntimeAssets(missingNativeAssets)
             }
             runtime.recordSessionEvent("NATIVE_RUNTIME", details: "ANGLE and Android system assets resolved")
             let angle = nativeBundle.angleLibrary
@@ -486,8 +492,12 @@ struct INFINITYAPKLaunchView: View {
 
             var javaBundle: INFINITYAPKRuntimeBundle?
             if engine == .java {
-                guard let bundle = INFINITYAPKStore.runtimeBundle() else {
-                    throw INFINITYAPKStore.StoreError.missingRuntimeAssets
+                let missingJavaAssets = INFINITYAPKStore.javaRuntimeMissingAssets()
+                guard missingJavaAssets.isEmpty,
+                      let bundle = INFINITYAPKStore.runtimeBundle() else {
+                    runtime.recordSessionEvent("JAVA_RUNTIME_MISSING",
+                                               details: missingJavaAssets.joined(separator: ", "))
+                    throw INFINITYAPKStore.StoreError.missingJavaRuntimeAssets(missingJavaAssets)
                 }
                 javaBundle = bundle
                 runtime.recordSessionEvent("JAVA_RUNTIME", details: "ART/runtime assets resolved")
