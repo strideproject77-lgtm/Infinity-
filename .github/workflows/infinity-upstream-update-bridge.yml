@@ -2,8 +2,6 @@ name: INFINITY upstream update bridge
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "23 8 * * 1"
 
 permissions:
   contents: read
