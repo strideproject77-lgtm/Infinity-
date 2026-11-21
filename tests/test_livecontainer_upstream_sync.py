@@ -73,6 +73,8 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn("path = Dependencies/OpenSSL.xcframework", project)
         self.assertIn("17E1BB9530B0950900FF1617", project)
         self.assertIn("17E1BB9630B0953A00FF1617", project)
+        self.assertNotIn("17554B732DA16988004C6D90 /* OpenSSL.xcframework in Embed Frameworks */", project)
+        self.assertNotIn("17554B742DA169AA004C6D90 /* OpenSSL.xcframework in Frameworks */", project)
 
     def test_sidestore_packaging_fails_fast_and_cleans_the_real_payload(self):
         build = source(".github/build_github.sh")
