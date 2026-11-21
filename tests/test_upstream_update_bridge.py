@@ -51,6 +51,20 @@ class UpstreamBridgeTests(unittest.TestCase):
         self.assertIn("3 upstream commit(s) ahead", report)
         self.assertIn("macOS iOS-device compile validation", report)
 
+    def test_bundled_sidestore_source_matches_packaging_pipeline(self):
+        manifest = json.loads((ROOT / "upstream" / "manifest.json").read_text())
+        bundle = next(item for item in manifest["components"] if item["id"] == "sidestore_bundle")
+        self.assertEqual(bundle["repository"], "LiveContainer/SideStore")
+        self.assertEqual(bundle["pinned_revision"], "044bd72ad4eb270c3900bd04dc6f508d0ac474db")
+
+        packaging = (ROOT / ".github" / "build_github.sh").read_text()
+        self.assertIn(
+            "https://github.com/LiveContainer/SideStore/releases/download/nightly/SideStore.ipa",
+            packaging,
+        )
+        self.assertIn("SIDESTORE_IPA_SHA256=", packaging)
+        self.assertIn(bundle["pinned_revision"], packaging)
+
 
 if __name__ == "__main__":
     unittest.main()
