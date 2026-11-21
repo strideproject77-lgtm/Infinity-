@@ -55,9 +55,9 @@ jobs:
             -scheme LiveContainer \
             -sdk iphonesimulator \
             -destination "generic/platform=iOS Simulator" \
-            -arch arm64 \
             -configuration Debug \
             -derivedDataPath "$RUNNER_TEMP/INFINITYDerivedData" \
+            ARCHS=arm64 \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
 
