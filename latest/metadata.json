@@ -1,0 +1,31 @@
+{
+  "provider": "Codemagic",
+  "repository": "strideproject77-lgtm/Infinity-",
+  "source_branch": "main",
+  "commit": "9f7d7d697a6b6eb8983d917c8c8b3198e466d365",
+  "build_id": "6b01c42e8f52ca275129c6bd",
+  "build_number": "unknown",
+  "workflow": "INFINITY IPA (Codemagic backup)",
+  "xcode": "26.2",
+  "exit_code": 56,
+  "result": "failed",
+  "uploaded_at_utc": "2026-11-21T16:20:10.006288+00:00",
+  "logs": {
+    "build.log": {
+      "bytes": 1482,
+      "lines": 17,
+      "sha256": "7e49328bef87898c932e4d13364bdb6b27cc92625617518322a9c50d54c59395"
+    },
+    "xcodebuild-archive.log": {
+      "bytes": 0,
+      "lines": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "submodules.log": {
+      "bytes": 240,
+      "lines": 5,
+      "sha256": "a5e6a3c3be5bf968bd603bf29da840afc62de8083f5d3ae34e81f891430d5f56"
+    }
+  },
+  "redaction": "Common credential/token patterns and PEM private-key blocks are redacted before publication."
+}
