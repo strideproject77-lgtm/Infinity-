@@ -20,6 +20,12 @@ class UpstreamBridgeTests(unittest.TestCase):
             self.assertEqual(component["mode"], "review-only")
             self.assertRegex(component["pinned_revision"], r"^[0-9a-f]{40}$")
 
+    def test_update_bridge_is_manual_only(self):
+        workflow = (ROOT / ".github" / "workflows" / "infinity-upstream-update-bridge.yml").read_text()
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertNotIn("schedule:", workflow)
+        self.assertNotIn("push:", workflow)
+
     def test_local_strata_and_infinity_are_protected(self):
         manifest = json.loads((ROOT / "upstream" / "manifest.json").read_text())
         protected = {item["id"] for item in manifest["local_components"]}
