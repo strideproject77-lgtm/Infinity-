@@ -102,7 +102,7 @@ jobs:
 
   husk-bridge-header-check:
     name: Swift to Husk bridge header check
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: macos-15
     steps:
       - name: Check out source
