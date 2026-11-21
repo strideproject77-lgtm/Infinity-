@@ -58,6 +58,13 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn('if ! echo "${SIDESTORE_IPA_SHA256}  SideStore.ipa" | shasum -a 256 -c -; then', build)
         self.assertIn('echo "SideStore IPA checksum verification failed." >&2', build)
         self.assertIn("    exit 1\nfi", build)
+
+    def test_sidestore_packaging_fails_fast_and_cleans_the_real_payload(self):
+        build = source(".github/build_github.sh")
+        self.assertIn("set -eu", build)
+        self.assertIn('find Payload -type d -name "_CodeSignature" -prune -exec rm -rf {} +', build)
+        self.assertNotIn("find payloadlc/Payload", build)
+        self.assertIn("rm -rf .zsign_cache", build)
         self.assertIn("LiveContainer/SideStore nightly 0.7.0-20261107.512+044bd72a", source("RELEASE.json"))
 
 
