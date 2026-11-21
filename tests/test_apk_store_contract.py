@@ -36,10 +36,23 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("static var hasEmbeddedAngle", store)
         self.assertIn("static var hasEmbeddedMoltenVK", store)
         self.assertIn("isANGLEEmbeddedAndReadable", store)
-        self.assertIn("guard let nativeBundle = INFINITYAPKStore.nativeRuntimeBundle()", view)
-        self.assertIn("RuntimeError.nativeRuntimeNotPrepared", view)
+        self.assertIn("INFINITYAPKStore.nativeRuntimeMissingAssets()", view)
+        self.assertIn("StoreError.missingNativeRuntimeAssets(missingNativeAssets)", view)
+        self.assertIn('runtime.recordSessionEvent("NATIVE_RUNTIME_MISSING"', view)
         self.assertIn("angleLibrary.standardizedFileURL == embeddedANGLE", runtime)
         self.assertIn("moltenVKLibrary.standardizedFileURL == embeddedMoltenVK", runtime)
+
+    def test_runtime_preflight_reports_each_missing_host_and_java_asset(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        view = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift")
+        self.assertIn("static func nativeRuntimeMissingAssets() -> [String]", store)
+        self.assertIn("android-system/cacerts/ (non-empty)", store)
+        self.assertIn("android-system/fonts/ (non-empty)", store)
+        self.assertIn("App.frameworks/libANGLE-shared.dylib", store)
+        self.assertIn("static func javaRuntimeMissingAssets() -> [String]", store)
+        self.assertIn("java-runtime/com.android.art/javalib/core-oj.jar", store)
+        self.assertIn("StoreError.missingJavaRuntimeAssets(missingJavaAssets)", view)
+        self.assertIn('runtime.recordSessionEvent("JAVA_RUNTIME_MISSING"', view)
 
     def test_runtime_data_install_is_staged_and_rollback_safe(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
