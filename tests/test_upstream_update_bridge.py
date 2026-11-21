@@ -1,3 +1,4 @@
+# Regression coverage for the embedded SideStore IPA source pin.
 import importlib.util
 import json
 import unittest
