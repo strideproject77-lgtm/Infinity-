@@ -55,7 +55,9 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
             release["sideStoreIpaSha256"],
             "f65f5a5e1adca962e663563bc8ade90f64da98dd7f1d1b51f2d5b33002ced00e",
         )
-        self.assertIn('echo "${SIDESTORE_IPA_SHA256}  SideStore.ipa" | shasum -a 256 -c -', build)
+        self.assertIn('if ! echo "${SIDESTORE_IPA_SHA256}  SideStore.ipa" | shasum -a 256 -c -; then', build)
+        self.assertIn('echo "SideStore IPA checksum verification failed." >&2', build)
+        self.assertIn("    exit 1\nfi", build)
         self.assertIn("LiveContainer/SideStore nightly 0.7.0-20261107.512+044bd72a", source("RELEASE.json"))
 
 
