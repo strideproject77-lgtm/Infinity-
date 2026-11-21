@@ -64,7 +64,7 @@ class UpstreamBridgeTests(unittest.TestCase):
             packaging,
         )
         self.assertIn("SIDESTORE_IPA_SHA256=", packaging)
-        self.assertIn(bundle["pinned_revision"], packaging)
+        self.assertIn("f65f5a5e1adca962e663563bc8ade90f64da98dd7f1d1b51f2d5b33002ced00e", packaging)
 
 
 if __name__ == "__main__":
