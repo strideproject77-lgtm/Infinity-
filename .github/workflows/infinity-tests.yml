@@ -89,6 +89,11 @@ jobs:
           bash -n scripts/build_infinity_runtime_assets.sh
           bash -n Vendor/Husk/build-support/build_angle_ios.sh
           bash -n Vendor/Husk/src/java-framework/build.sh
+      - name: Verify SideStore pairing patch against pinned source
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/LiveContainer/SideStore/044bd72ad4eb270c3900bd04dc6f508d0ac474db/SideStore/Core/Pairing/PairingFileManager.swift" -o /tmp/PairingFileManager.swift
+          python scripts/patch_sidestore_pairing.py /tmp/PairingFileManager.swift
+          grep -F "else if pprotocol == .lockdown {" /tmp/PairingFileManager.swift
       - name: Run source contract and ZIP extraction regression tests
         run: python -m unittest discover -s tests -p "test_*.py" -v
       - name: Validate audit script syntax
