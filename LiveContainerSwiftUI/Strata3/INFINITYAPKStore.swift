@@ -82,6 +82,8 @@ enum INFINITYAPKStore {
         case incompleteArchive
         case missingInstalledAPK
         case missingRuntimeAssets
+        case missingNativeRuntimeAssets([String])
+        case missingJavaRuntimeAssets([String])
         case unsupportedPackageFormat
         case missingBaseAPK
         case ambiguousBaseAPK
@@ -96,6 +98,8 @@ enum INFINITYAPKStore {
             case .incompleteArchive: return "The selected archive is missing its Android manifest or executable content."
             case .missingInstalledAPK: return "The installed APK file is missing. Remove this entry and import it again."
             case .missingRuntimeAssets: return "The Android Java runtime or ANGLE graphics assets are not installed yet."
+            case .missingNativeRuntimeAssets(let paths): return "Android host runtime assets are incomplete: " + paths.joined(separator: ", ") + ". Import the generated INFINITY Android runtime asset bundle, then retry."
+            case .missingJavaRuntimeAssets(let paths): return "Android Java runtime assets are incomplete: " + paths.joined(separator: ", ") + ". Import the generated INFINITY Android runtime asset bundle, then retry."
             case .unsupportedPackageFormat: return "Supported Android packages are .apk, .xapk, .apks and .apkm. Android App Bundles (.aab) and OBB files are not directly installable."
             case .missingBaseAPK: return "The selected package archive does not contain a base APK."
             case .ambiguousBaseAPK: return "The selected package archive contains multiple possible base APKs and cannot be imported safely."
@@ -516,33 +520,36 @@ enum INFINITYAPKStore {
         return directory
     }
 
-    static func nativeRuntimeBundle() -> INFINITYAPKNativeRuntimeBundle? {
+    /// Returns every missing or unreadable host asset needed before Husk can start.
+    /// Keeping this check separate makes launch failures actionable instead of reporting
+    /// one generic "runtime not prepared" message for several independent prerequisites.
+    static func nativeRuntimeMissingAssets() -> [String] {
         let system = runtimeRoot.appendingPathComponent("android-system", isDirectory: true)
         let certificates = system.appendingPathComponent("cacerts", isDirectory: true)
-        let angle = angleLibraryURL
+        let fonts = system.appendingPathComponent("fonts", isDirectory: true)
         let caBundle = runtimeRoot.appendingPathComponent("cacert.pem")
-        let fontFiles = system.appendingPathComponent("fonts", isDirectory: true)
-        guard fileManager.fileExists(atPath: certificates.path),
-              (try? fileManager.contentsOfDirectory(at: certificates, includingPropertiesForKeys: nil).isEmpty) == false,
-              fileManager.fileExists(atPath: fontFiles.path),
-              fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/fonts.xml").path),
-              fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/font_fallback.xml").path),
-              hasEmbeddedAngle,
-              fileManager.isReadableFile(atPath: caBundle.path) else {
-            return nil
+        var missing: [String] = []
+
+        if !fileManager.isReadableFile(atPath: system.path) { missing.append("android-system/") }
+        if !fileManager.isReadableFile(atPath: certificates.path) ||
+            (try? fileManager.contentsOfDirectory(at: certificates, includingPropertiesForKeys: nil).isEmpty) != false {
+            missing.append("android-system/cacerts/ (non-empty)")
         }
-        return INFINITYAPKNativeRuntimeBundle(systemRoot: system,
-                                              certificatesDirectory: certificates,
-                                              angleLibrary: angle,
-                                              certificateBundle: caBundle)
+        if !fileManager.isReadableFile(atPath: fonts.path) ||
+            (try? fileManager.contentsOfDirectory(at: fonts, includingPropertiesForKeys: nil).isEmpty) != false {
+            missing.append("android-system/fonts/ (non-empty)")
+        }
+        for relativePath in ["etc/fonts.xml", "etc/font_fallback.xml"] {
+            if !fileManager.isReadableFile(atPath: system.appendingPathComponent(relativePath).path) {
+                missing.append("android-system/" + relativePath)
+            }
+        }
+        if !fileManager.isReadableFile(atPath: caBundle.path) { missing.append("cacert.pem") }
+        if !hasEmbeddedAngle { missing.append("App.frameworks/libANGLE-shared.dylib") }
+        return missing
     }
 
-    static func runtimeDataReady() -> Bool {
-        hasJavaRuntimeAssets(at: runtimeRoot) && hasAndroidSystemAssets(at: runtimeRoot)
-    }
-
-    static func runtimeBundle() -> INFINITYAPKRuntimeBundle? {
-        guard let native = nativeRuntimeBundle() else { return nil }
+    static func javaRuntimeMissingAssets() -> [String] {
         let java = runtimeRoot.appendingPathComponent("java-runtime", isDirectory: true)
         let required = [
             "com.android.art/javalib/core-oj.jar",
@@ -567,11 +574,35 @@ enum INFINITYAPKStore {
             "org.apache.http.legacy.jar",
             "framework-res.apk"
         ]
-        guard required.allSatisfy({ fileManager.isReadableFile(atPath: java.appendingPathComponent($0).path) }),
-              fileManager.fileExists(atPath: java.appendingPathComponent("com.android.i18n/etc/icu").path),
-              fileManager.fileExists(atPath: java.appendingPathComponent("com.android.tzdata/etc").path) else {
-            return nil
+        var missing = required.filter {
+            !fileManager.isReadableFile(atPath: java.appendingPathComponent($0).path)
+        }.map { "java-runtime/" + $0 }
+        for relativePath in ["com.android.i18n/etc/icu", "com.android.tzdata/etc"] {
+            if !fileManager.isReadableFile(atPath: java.appendingPathComponent(relativePath).path) {
+                missing.append("java-runtime/" + relativePath + "/")
+            }
         }
+        return missing
+    }
+
+    static func nativeRuntimeBundle() -> INFINITYAPKNativeRuntimeBundle? {
+        guard nativeRuntimeMissingAssets().isEmpty else { return nil }
+        let system = runtimeRoot.appendingPathComponent("android-system", isDirectory: true)
+        let certificates = system.appendingPathComponent("cacerts", isDirectory: true)
+        return INFINITYAPKNativeRuntimeBundle(systemRoot: system,
+                                              certificatesDirectory: certificates,
+                                              angleLibrary: angleLibraryURL,
+                                              certificateBundle: runtimeRoot.appendingPathComponent("cacert.pem"))
+    }
+
+    static func runtimeDataReady() -> Bool {
+        hasJavaRuntimeAssets(at: runtimeRoot) && hasAndroidSystemAssets(at: runtimeRoot)
+    }
+
+    static func runtimeBundle() -> INFINITYAPKRuntimeBundle? {
+        guard let native = nativeRuntimeBundle() else { return nil }
+        let java = runtimeRoot.appendingPathComponent("java-runtime", isDirectory: true)
+        guard javaRuntimeMissingAssets().isEmpty else { return nil }
         return INFINITYAPKRuntimeBundle(javaRoot: java,
                                         systemRoot: native.systemRoot,
                                         certificatesDirectory: native.certificatesDirectory,
