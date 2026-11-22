@@ -12,7 +12,7 @@ workflows:
       xcode: '26.2'
       vars:
         scheme: LiveContainer
-        archive_path: archive.xcarchive
+        archive_path: archive
 
     when:
       changeset:
