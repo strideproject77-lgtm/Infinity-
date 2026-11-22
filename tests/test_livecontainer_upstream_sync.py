@@ -108,6 +108,7 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         build = source(".github/build_github.sh")
         self.assertEqual(build.count("--retry 6 --retry-all-errors --retry-delay 5 --retry-max-time 600"), 2)
         self.assertNotIn("wget https://github.com/LiveContainer", build)
+        self.assertNotRegex(build, r"\\\\\n")
 
     def test_sidestore_packaging_fails_fast_and_cleans_the_real_payload(self):
         build = source(".github/build_github.sh")
