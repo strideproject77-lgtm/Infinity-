@@ -126,5 +126,23 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn('unzip -t "$scheme+SideStore.ipa"', build)
 
 
+    def test_app_group_resolution_retries_instead_of_caching_a_missing_container(self):
+        shared = source("LiveContainer/LCSharedUtils.m")
+        resolver_start = shared.index("+ (NSString *)appGroupID {")
+        resolver_end = shared.index("+ (NSString *)certificatePassword {", resolver_start)
+        resolver = shared[resolver_start:resolver_end]
+        self.assertNotIn("dispatch_once", resolver)
+        self.assertIn("containerURLForSecurityApplicationGroupIdentifier", resolver)
+        self.assertIn("return @\"Unknown\";", resolver)
+        self.assertIn("return [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:identifier];", resolver)
+
+    def test_guest_data_lock_reports_missing_app_group_and_filesystem_errors(self):
+        shared = source("LiveContainer/LCSharedUtils.m")
+        self.assertIn("if (!groupPath)", shared)
+        self.assertIn("The SideStore/AltStore App Group container is unavailable", shared)
+        self.assertIn("NSError *directoryError = nil", shared)
+        self.assertIn("errno %d", shared)
+
+
 if __name__ == "__main__":
     unittest.main()
