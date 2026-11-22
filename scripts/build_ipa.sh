@@ -7,6 +7,11 @@ cd "$ROOT"
 
 : "${scheme:=LiveContainer}"
 : "${archive_path:=archive}"
+ARCHIVE_PATH="$archive_path"
+case "$ARCHIVE_PATH" in
+  *.xcarchive) ;;
+  *) ARCHIVE_PATH="${ARCHIVE_PATH}.xcarchive" ;;
+esac
 ARCHIVE_LOG="${INFINITY_ARCHIVE_LOG:-/tmp/xcodebuild-archive.log}"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -25,7 +30,7 @@ fi
 
 echo "INFINITY canonical build"
 echo "Scheme: $scheme"
-echo "Archive: $archive_path"
+echo "Archive: $ARCHIVE_PATH"
 echo "Xcode: $XCODE_VERSION"
 
 bash scripts/prepare_stikjit_idevice.sh
@@ -47,7 +52,7 @@ xcodebuild -resolvePackageDependencies "${XCODE_CONTAINER[@]}" -scheme "$scheme"
 mkdir -p "$(dirname "$ARCHIVE_LOG")"
 set -o pipefail
 xcodebuild archive \
-  -archivePath "$archive_path" \
+  -archivePath "$ARCHIVE_PATH" \
   -scheme "$scheme" \
   "${XCODE_CONTAINER[@]}" \
   -sdk iphoneos \
@@ -56,6 +61,8 @@ xcodebuild archive \
   -jobs 1 \
   SWIFT_COMPILATION_MODE=singlefile \
   SWIFT_OPTIMIZATION_LEVEL=-Onone \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY="" \
