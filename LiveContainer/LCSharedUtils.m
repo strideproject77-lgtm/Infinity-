@@ -4,6 +4,7 @@
 #import "utils.h"
 @import MachO;
 #include <sys/sysctl.h>
+#include <errno.h>
 #include <sys/file.h>
 #include <fcntl.h>
 #import <objc/message.h>
@@ -194,7 +195,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
         if ([groups isKindOfClass:NSArray.class]) {
             for (id candidate in (NSArray *)groups) {
                 if (![candidate isKindOfClass:NSString.class] || ![candidate length]) continue;
-                if ([NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:candidate]) {
+                if ([NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:(NSString *)candidate]) {
                     return candidate;
                 }
             }
