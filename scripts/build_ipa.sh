@@ -6,12 +6,11 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 : "${scheme:=LiveContainer}"
-: "${archive_path:=archive.xcarchive}"
-ARCHIVE_PATH="$archive_path"
-case "$ARCHIVE_PATH" in
-  *.xcarchive) ;;
-  *) ARCHIVE_PATH="${ARCHIVE_PATH}.xcarchive" ;;
-esac
+: "${archive_path:=archive}"
+ARCHIVE_BASE="${archive_path%.xcarchive}"
+ARCHIVE_PATH="${ARCHIVE_BASE}.xcarchive"
+archive_path="$ARCHIVE_BASE"
+export archive_path
 ARCHIVE_LOG="${INFINITY_ARCHIVE_LOG:-/tmp/xcodebuild-archive.log}"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
