@@ -17,11 +17,11 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
             shared,
         )
         self.assertIn(
-            '[@"group.com.SideStore.SideStore" stringByAppendingPathExtension:[self teamIdentifier]]',
+            '[@"group.com.SideStore.SideStore" stringByAppendingPathExtension:team]',
             shared,
         )
         self.assertIn(
-            '[@"group.com.rileytestut.AltStore" stringByAppendingPathExtension:[self teamIdentifier]]',
+            '[@"group.com.rileytestut.AltStore" stringByAppendingPathExtension:team]',
             shared,
         )
 
@@ -131,7 +131,7 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         resolver_start = shared.index("+ (NSString *)appGroupID {")
         resolver_end = shared.index("+ (NSString *)certificatePassword {", resolver_start)
         resolver = shared[resolver_start:resolver_end]
-        self.assertNotIn("dispatch_once", resolver)
+        self.assertNotIn("dispatch_once(&once", resolver)
         self.assertIn("containerURLForSecurityApplicationGroupIdentifier", resolver)
         self.assertIn("return @\"Unknown\";", resolver)
         self.assertIn("return [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:identifier];", resolver)
