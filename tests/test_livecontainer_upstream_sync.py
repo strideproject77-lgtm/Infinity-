@@ -61,6 +61,21 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
 
 
 
+    def test_openssl_uses_the_pinned_submodule_without_custom_download(self):
+        modules = source(".gitmodules")
+        project = source("LiveContainer.xcodeproj/project.pbxproj")
+        build = source("scripts/build_ipa.sh")
+        self.assertIn('path = OpenSSL', modules)
+        self.assertIn('path = OpenSSL/Frameworks/OpenSSL.xcframework', project)
+        self.assertNotIn("prepare_livecontainer_dependencies.sh", build)
+        self.assertNotIn("Dependencies/OpenSSL.xcframework", project)
+
+    def test_archive_uses_external_sideload_signing(self):
+        build = source("scripts/build_ipa.sh")
+        self.assertIn("CODE_SIGNING_ALLOWED=NO", build)
+        self.assertIn("CODE_SIGNING_REQUIRED=NO", build)
+        self.assertIn('CODE_SIGN_IDENTITY=""', build)
+
     def test_sidestore_packaging_fails_fast_and_cleans_the_real_payload(self):
         build = source(".github/build_github.sh")
         self.assertIn("set -eu", build)
