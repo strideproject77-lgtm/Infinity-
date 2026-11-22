@@ -68,6 +68,11 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertNotIn("find payloadlc/Payload", build)
         self.assertIn("rm -rf .zsign_cache", build)
         self.assertIn("LiveContainer/SideStore nightly 0.7.0-20261107.512+044bd72a", source("RELEASE.json"))
+        self.assertIn('Add :PreferenceSpecifiers:2 dict', build)
+        self.assertIn('Add :PreferenceSpecifiers:2:Key string LCOpenSideStore', build)
+        self.assertNotIn('Add :PreferenceSpecifiers:3:Type', build)
+        self.assertIn('unzip -t "$scheme.ipa"', build)
+        self.assertIn('unzip -t "$scheme+SideStore.ipa"', build)
 
 
 if __name__ == "__main__":
