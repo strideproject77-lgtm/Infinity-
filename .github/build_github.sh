@@ -82,12 +82,12 @@ mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/PlugIns/AltWidg
 WIDGET_BUNDLE="./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex"
 WIDGET_OLD_EXECUTABLE="$WIDGET_BUNDLE/AltWidgetExtension"
 WIDGET_EXECUTABLE="$WIDGET_BUNDLE/LiveWidgetExtension"
-if [[ ! -f "$WIDGET_OLD_EXECUTABLE" ]]; then
+if [ ! -f "$WIDGET_OLD_EXECUTABLE" ]; then
   echo "Expected SideStore widget executable is missing: $WIDGET_OLD_EXECUTABLE" >&2
   exit 1
 fi
 mv "$WIDGET_OLD_EXECUTABLE" "$WIDGET_EXECUTABLE"
-if [[ ! -x "$WIDGET_EXECUTABLE" ]]; then
+if [ ! -x "$WIDGET_EXECUTABLE" ]; then
   echo "Widget executable rename failed: $WIDGET_EXECUTABLE" >&2
   exit 1
 fi
