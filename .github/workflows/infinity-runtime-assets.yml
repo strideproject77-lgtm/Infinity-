@@ -71,12 +71,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: INFINITY-Android-Runtime-Assets-v1
-          path: |
-            ${{ runner.temp }}/infinity-runtime-assets/java-runtime/**
-            ${{ runner.temp }}/infinity-runtime-assets/android-system/**
-            ${{ runner.temp }}/infinity-runtime-assets/cacert.pem
-            ${{ runner.temp }}/infinity-runtime-assets/infinity-android-runtime-assets.zip
-            ${{ runner.temp }}/infinity-runtime-assets/runtime-assets-manifest.json
+          # The ZIP already contains java-runtime/, android-system/, cacert.pem,
+          # and runtime-assets-manifest.json. Upload it once; do not duplicate
+          # its expanded contents in the same Actions artifact.
+          path: ${{ runner.temp }}/infinity-runtime-assets/infinity-android-runtime-assets.zip
           if-no-files-found: error
           compression-level: 0
           retention-days: 7
