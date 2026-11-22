@@ -143,6 +143,27 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn("NSError *directoryError = nil", shared)
         self.assertIn("errno %d", shared)
 
+    def test_team_identifier_and_container_lock_path_retry_after_transient_failure(self):
+        shared = source("LiveContainer/LCSharedUtils.m")
+        team_start = shared.index("+ (NSString*) teamIdentifier {")
+        team_end = shared.index("+ (NSString *)appGroupID {", team_start)
+        team_resolver = shared[team_start:team_end]
+        self.assertNotIn("dispatch_once", team_resolver)
+        self.assertIn("@synchronized (self)", team_resolver)
+        self.assertIn("if (ans.length) return ans;", team_resolver)
+        self.assertIn("if (resolved.length) ans = [resolved copy];", team_resolver)
+
+        lock_start = shared.index("+ (NSURL*)containerLockPath {")
+        lock_end = shared.index("+ (BOOL)isLCSchemeInUse:", lock_start)
+        lock_resolver = shared[lock_start:lock_end]
+        self.assertNotIn("dispatch_once", lock_resolver)
+        self.assertIn("if (!groupPath) return nil;", lock_resolver)
+        self.assertIn('URLByAppendingPathComponent:@"LiveContainer" isDirectory:YES', lock_resolver)
+        self.assertIn("createDirectoryAtURL:directory", lock_resolver)
+        self.assertIn("if (!infoPath) return NO;", shared)
+        self.assertIn("if (!infoPath) return nil;", shared)
+        self.assertIn("Cannot update the LiveContainer process lock", shared)
+
 
 if __name__ == "__main__":
     unittest.main()

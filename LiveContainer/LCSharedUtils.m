@@ -116,21 +116,28 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 }
 
 + (NSString*) teamIdentifier {
-    static NSString* ans = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
+    // Cache only a successfully resolved team ID. A transient entitlement or
+    // Keychain failure must not poison this process with a permanent nil value.
+    static NSString *ans = nil;
+    @synchronized (self) {
+        if (ans.length) return ans;
+
+        NSString *resolved = nil;
 #if !TARGET_OS_SIMULATOR
-        void* taskSelf = SecTaskCreateFromSelf(NULL);
-        CFErrorRef error = NULL;
-        CFTypeRef cfans = SecTaskCopyValueForEntitlement(taskSelf, CFSTR("com.apple.developer.team-identifier"), &error);
-        if(cfans && CFGetTypeID(cfans) == CFStringGetTypeID()) {
-            ans = (__bridge NSString*)cfans;
+        void *taskSelf = SecTaskCreateFromSelf(NULL);
+        if (taskSelf) {
+            CFErrorRef error = NULL;
+            CFTypeRef cfans = SecTaskCopyValueForEntitlement(taskSelf, CFSTR("com.apple.developer.team-identifier"), &error);
+            if (cfans && CFGetTypeID(cfans) == CFStringGetTypeID()) {
+                resolved = [(__bridge NSString *)cfans copy];
+            }
+            if (cfans) CFRelease(cfans);
+            if (error) CFRelease(error);
+            CFRelease(taskSelf);
         }
-        CFRelease(taskSelf);
 #endif
-        if(!ans) {
-            // the above seems not to work if the device is jailbroken by Palera1n, so we use the public api one as backup
-            // https://stackoverflow.com/a/11841898
+        if (!resolved.length) {
+            // Public API fallback used by existing jailbroken-device installs.
             NSString *tempAccountName = @"bundleSeedID";
             NSDictionary *query = @{
                 (__bridge NSString *)kSecClass : (__bridge NSString *)kSecClassGenericPassword,
@@ -138,21 +145,26 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
                 (__bridge NSString *)kSecAttrService : @"",
                 (__bridge NSString *)kSecReturnAttributes: (__bridge NSNumber *)kCFBooleanTrue,
             };
-            CFDictionaryRef result = nil;
-            OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
-            if (status == errSecItemNotFound)
-                status = SecItemAdd((__bridge CFDictionaryRef)query, (CFTypeRef *)&result);
-            if (status == errSecSuccess) {
-                status = SecItemDelete((__bridge CFDictionaryRef)query); // remove temp item
-                NSDictionary *dict = (__bridge_transfer NSDictionary *)result;
+            CFTypeRef result = NULL;
+            OSStatus status = SecItemCopyMatching((__bridge CFDictionaryRef)query, &result);
+            if (status == errSecItemNotFound) {
+                status = SecItemAdd((__bridge CFDictionaryRef)query, &result);
+            }
+            if (status == errSecSuccess && result) {
+                NSDictionary *dict = CFBridgingRelease(result);
                 NSString *accessGroup = dict[(__bridge NSString *)kSecAttrAccessGroup];
                 NSArray *components = [accessGroup componentsSeparatedByString:@"."];
-                NSString *bundleSeedID = [[components objectEnumerator] nextObject];
-                ans = bundleSeedID;
+                id first = components.firstObject;
+                if ([first isKindOfClass:NSString.class] && [first length]) {
+                    resolved = [first copy];
+                }
+                SecItemDelete((__bridge CFDictionaryRef)query);
             }
         }
-    });
-    return ans;
+
+        if (resolved.length) ans = [resolved copy];
+        return ans;
+    }
 }
 
 + (NSString *)appGroupID {
@@ -374,17 +386,27 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 }
 
 + (NSURL*)containerLockPath {
-    static dispatch_once_t once;
-    static NSURL *infoPath;
-    
-    dispatch_once(&once, ^{
-        infoPath = [[LCSharedUtils appGroupPath] URLByAppendingPathComponent:@"LiveContainer/containerLock.plist"];
-    });
-    return infoPath;
+    // Resolve the App Group every time: the first call can occur before iOS has
+    // exposed the entitled container. Never cache a nil/stale path via dispatch_once.
+    NSURL *groupPath = [self appGroupPath];
+    if (!groupPath) return nil;
+
+    NSURL *directory = [groupPath URLByAppendingPathComponent:@"LiveContainer" isDirectory:YES];
+    NSError *directoryError = nil;
+    if (![NSFileManager.defaultManager createDirectoryAtURL:directory
+                                withIntermediateDirectories:YES
+                                                 attributes:nil
+                                                      error:&directoryError]) {
+        NSLog(@"[INFINITY] Cannot prepare LiveContainer shared lock directory %@: %@",
+              directory.path, directoryError.localizedDescription ?: @"unknown filesystem error");
+        return nil;
+    }
+    return [directory URLByAppendingPathComponent:@"containerLock.plist"];
 }
 
 + (BOOL)isLCSchemeInUse:(NSString*)lc {
     NSURL* infoPath = [self containerLockPath];
+    if (!infoPath) return NO;
     NSMutableDictionary *info = [NSMutableDictionary dictionaryWithContentsOfFile:infoPath.path];
     if (!info) {
         return NO;
@@ -407,6 +429,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 
 + (NSString*)getContainerUsingLCSchemeWithFolderName:(NSString*)folderName {
     NSURL* infoPath = [self containerLockPath];
+    if (!infoPath) return nil;
     NSMutableDictionary *info = [NSMutableDictionary dictionaryWithContentsOfFile:infoPath.path];
     if (!info) {
         return nil;
@@ -429,7 +452,11 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 // lc can be something like livecontainer or livecontainer2.liveprocess, such that one LC can jump to another LC hosting the multitask app when user presses run while it's running
 + (void)setContainerUsingByLC:(NSString*)lc folderName:(NSString*)folderName auditToken:(uint64_t)val57 {
     NSURL* infoPath = [self containerLockPath];
-    
+    if (!infoPath) {
+        NSLog(@"[INFINITY] Cannot update the LiveContainer process lock: App Group container is unavailable.");
+        return;
+    }
+
     NSMutableDictionary *info = [NSMutableDictionary dictionaryWithContentsOfFile:infoPath.path];
     if (!info) {
         info = [NSMutableDictionary new];
