@@ -30,6 +30,15 @@ class RuntimeAssetBuilderTests(unittest.TestCase):
         self.assertIn(r'-exec cp {} "$ANDROID_SYSTEM/fonts/" \;', script)
         self.assertIn('cacerts', script)
 
+    def test_runtime_artifact_uploads_the_complete_zip_only_once(self):
+        workflow = self.read(".github/workflows/infinity-runtime-assets.yml")
+        self.assertIn("infinity-android-runtime-assets.zip", workflow)
+        self.assertIn("path: ${{ runner.temp }}/infinity-runtime-assets/infinity-android-runtime-assets.zip", workflow)
+        self.assertNotIn("${{ runner.temp }}/infinity-runtime-assets/java-runtime/**", workflow)
+        self.assertNotIn("${{ runner.temp }}/infinity-runtime-assets/android-system/**", workflow)
+        self.assertNotIn("${{ runner.temp }}/infinity-runtime-assets/cacert.pem", workflow)
+        self.assertNotIn("${{ runner.temp }}/infinity-runtime-assets/runtime-assets-manifest.json", workflow)
+
     def test_builder_never_packages_qemu_guest_or_ipa(self):
         script = self.read("scripts/build_infinity_runtime_assets.sh")
         workflow = self.read(".github/workflows/infinity-runtime-assets.yml")
