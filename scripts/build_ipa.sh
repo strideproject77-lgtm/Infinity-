@@ -56,6 +56,9 @@ xcodebuild archive \
   -jobs 1 \
   SWIFT_COMPILATION_MODE=singlefile \
   SWIFT_OPTIMIZATION_LEVEL=-Onone \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGNING_REQUIRED=NO \
+  CODE_SIGN_IDENTITY="" \
   2>&1 | tee "$ARCHIVE_LOG"
 
 # Reuse the repository's existing packaging implementation unchanged.
