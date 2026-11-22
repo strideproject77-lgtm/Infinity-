@@ -61,10 +61,40 @@ xcodebuild archive \
   -jobs 1 \
   SWIFT_COMPILATION_MODE=singlefile \
   SWIFT_OPTIMIZATION_LEVEL=-Onone \
-  CODE_SIGNING_ALLOWED=NO \
-  CODE_SIGNING_REQUIRED=NO \
-  CODE_SIGN_IDENTITY="" \
   2>&1 | tee "$ARCHIVE_LOG"
+
+# Match the upstream LiveContainer Nightly signing behavior. The app-group
+# entitlements must be embedded in the host app and guest process extension.
+APP_BUNDLE="$ARCHIVE_PATH/Products/Applications/LiveContainer.app"
+LIVE_PROCESS_EXTENSION="$APP_BUNDLE/PlugIns/LiveProcess.appex"
+if [[ ! -d "$APP_BUNDLE" ]]; then
+  echo "Archived LiveContainer.app is missing: $APP_BUNDLE" >&2
+  exit 2
+fi
+if [[ ! -d "$LIVE_PROCESS_EXTENSION" ]]; then
+  echo "Archived LiveProcess.appex is missing: $LIVE_PROCESS_EXTENSION" >&2
+  exit 2
+fi
+verify_app_group_entitlement() {
+  local bundle="$1"
+  local label="$2"
+  local entitlements
+  entitlements="$(codesign -d --entitlements :- "$bundle" 2>&1)" || {
+    echo "Unable to read code-signing entitlements for $label." >&2
+    return 1
+  }
+  if ! grep -Fq "group.com.SideStore.SideStore" <<<"$entitlements"; then
+    echo "$label is missing the SideStore App Group entitlement." >&2
+    return 1
+  fi
+  if ! grep -Fq "group.com.rileytestut.AltStore" <<<"$entitlements"; then
+    echo "$label is missing the AltStore compatibility App Group entitlement." >&2
+    return 1
+  fi
+  echo "Verified SideStore and AltStore App Group entitlements: $label"
+}
+verify_app_group_entitlement "$APP_BUNDLE" "LiveContainer.app"
+verify_app_group_entitlement "$LIVE_PROCESS_EXTENSION" "LiveProcess.appex"
 
 # Reuse the repository's existing packaging implementation unchanged.
 sh .github/build_github.sh
