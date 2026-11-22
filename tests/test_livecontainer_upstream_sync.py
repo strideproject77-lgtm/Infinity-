@@ -102,6 +102,11 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn('rm -f "$TEMP_ARCHIVE"', prepare)
         self.assertIn('EXPECTED_GIT_BLOB="3fb7e2dbfdb9db3d47bd6364a435bbc10d5581f9"', prepare)
 
+    def test_packaging_downloads_retry_transient_network_errors(self):
+        build = source(".github/build_github.sh")
+        self.assertEqual(build.count("--retry 6 --retry-all-errors --retry-delay 5 --retry-max-time 600"), 2)
+        self.assertNotIn("wget https://github.com/LiveContainer", build)
+
     def test_sidestore_packaging_fails_fast_and_cleans_the_real_payload(self):
         build = source(".github/build_github.sh")
         self.assertIn("set -eu", build)
