@@ -70,6 +70,15 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertNotIn("prepare_livecontainer_dependencies.sh", build)
         self.assertNotIn("Dependencies/OpenSSL.xcframework", project)
 
+    def test_archive_path_matches_codemagic_artifact_packager(self):
+        build = source("scripts/build_ipa.sh")
+        codemagic = source("codemagic.yaml")
+        packager = source("scripts/package_codemagic_artifacts.sh")
+        self.assertIn(': "${archive_path:=archive.xcarchive}"', build)
+        self.assertIn("archive_path: archive.xcarchive", codemagic)
+        self.assertIn('[[ ! -d "archive.xcarchive" ]]', packager)
+        self.assertIn('ditto "archive.xcarchive"', packager)
+
     def test_archive_uses_external_sideload_signing(self):
         build = source("scripts/build_ipa.sh")
         self.assertIn("CODE_SIGNING_ALLOWED=NO", build)
