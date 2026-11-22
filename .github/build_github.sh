@@ -2,7 +2,8 @@
 set -eu
 
 # copy lc
-wget https://github.com/LiveContainer/dylibify/releases/download/1.0/dylibify
+curl --fail --location --retry 6 --retry-all-errors --retry-delay 5 --retry-max-time 600 --connect-timeout 30 --max-time 900 \\
+  https://github.com/LiveContainer/dylibify/releases/download/1.0/dylibify --output dylibify
 chmod +x dylibify
 brew install ldid
 
@@ -49,7 +50,8 @@ plutil -lint ./Payload/LiveContainer.app/Settings.bundle/Root.plist
 # Bundle source pin: LiveContainer/SideStore@044bd72ad4eb270c3900bd04dc6f508d0ac474db.
 # Keep the IPA SHA-256 check below; do not silently consume an unreviewed nightly.
 cd tmp
-wget https://github.com/LiveContainer/SideStore/releases/download/nightly/SideStore.ipa
+curl --fail --location --retry 6 --retry-all-errors --retry-delay 5 --retry-max-time 600 --connect-timeout 30 --max-time 900 \\
+  https://github.com/LiveContainer/SideStore/releases/download/nightly/SideStore.ipa --output SideStore.ipa
 SIDESTORE_IPA_SHA256="f65f5a5e1adca962e663563bc8ade90f64da98dd7f1d1b51f2d5b33002ced00e"
 if ! echo "${SIDESTORE_IPA_SHA256}  SideStore.ipa" | shasum -a 256 -c -; then
     echo "SideStore IPA checksum verification failed." >&2
