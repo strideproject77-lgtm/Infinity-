@@ -81,20 +81,22 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn('[[ ! -d "archive.xcarchive" ]]', packager)
         self.assertIn('ditto "archive.xcarchive"', packager)
 
-    def test_archive_uses_external_sideload_signing(self):
+    def test_archive_preserves_xcode_signing_and_checks_shared_group_entitlements(self):
         build = source("scripts/build_ipa.sh")
-        self.assertIn("CODE_SIGNING_ALLOWED=NO", build)
-        self.assertIn("CODE_SIGNING_REQUIRED=NO", build)
-        self.assertIn('CODE_SIGN_IDENTITY=""', build)
+        self.assertIn("xcodebuild archive", build)
+        self.assertNotIn("CODE_SIGNING_ALLOWED=NO", build)
+        self.assertNotIn("CODE_SIGNING_REQUIRED=NO", build)
+        self.assertIn('codesign -d --entitlements :- "$bundle"', build)
+        self.assertIn('verify_app_group_entitlement "$APP_BUNDLE" "LiveContainer.app"', build)
+        self.assertIn('verify_app_group_entitlement "$LIVE_PROCESS_EXTENSION" "LiveProcess.appex"', build)
 
-    def test_archive_path_and_unsigned_sideload_build_are_consistent(self):
+    def test_archive_path_and_signed_sideload_build_are_consistent(self):
         build = source("scripts/build_ipa.sh")
         self.assertIn("export scheme", build)
         self.assertIn('ARCHIVE_PATH="${ARCHIVE_BASE}.xcarchive"', build)
         self.assertIn('archive_path="$ARCHIVE_BASE"', build)
         self.assertIn('-archivePath "$ARCHIVE_PATH"', build)
-        self.assertIn("CODE_SIGNING_ALLOWED=NO", build)
-        self.assertIn("CODE_SIGNING_REQUIRED=NO", build)
+        self.assertIn("xcodebuild archive", build)
         self.assertIn('test -s "$scheme.ipa"', build)
 
     def test_stikjit_archive_download_retries_transient_network_failures(self):
