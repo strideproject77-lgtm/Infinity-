@@ -24,9 +24,15 @@ if [[ -f "$ARCHIVE" ]] && [[ "$(git -C "$ROOT" hash-object "$ARCHIVE")" == "$EXP
   echo "Pinned idevice_ffi archive already present."
 else
   rm -f "$TEMP_ARCHIVE"
-  curl --fail --location --retry 3 --retry-delay 2 --connect-timeout 30 \
+  if ! curl --fail --location \
+    --retry 6 --retry-all-errors --retry-delay 5 --retry-max-time 600 \
+    --connect-timeout 30 --max-time 900 \
     "$UPSTREAM_REPO/raw/$UPSTREAM_COMMIT/idevice/libidevice_ffi.a" \
-    --output "$TEMP_ARCHIVE"
+    --output "$TEMP_ARCHIVE"; then
+    rm -f "$TEMP_ARCHIVE"
+    echo "Unable to download the pinned idevice_ffi archive after retrying." >&2
+    exit 1
+  fi
   ACTUAL_GIT_BLOB="$(git -C "$ROOT" hash-object "$TEMP_ARCHIVE")"
   if [[ "$ACTUAL_GIT_BLOB" != "$EXPECTED_GIT_BLOB" ]]; then
     echo "Pinned idevice_ffi archive hash mismatch: $ACTUAL_GIT_BLOB" >&2
