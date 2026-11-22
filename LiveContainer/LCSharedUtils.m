@@ -31,12 +31,22 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 + (NSString *)strataAcquireGuestDataLease:(NSString *)container {
 
     if (!container.length || ![container.lastPathComponent isEqualToString:container] || [container isEqualToString:@"."] || [container isEqualToString:@".."]) return @"Invalid guest data container.";
-    NSURL *root = [self.appGroupPath URLByAppendingPathComponent:@"Library/StrataDataLocks"];
-    if (!root || ![NSFileManager.defaultManager createDirectoryAtURL:root withIntermediateDirectories:YES attributes:nil error:nil]) return @"Cannot open the guest data lock directory.";
+    NSURL *groupPath = self.appGroupPath;
+    if (!groupPath) {
+        return [NSString stringWithFormat:@"The SideStore/AltStore App Group container is unavailable (resolved group: %@). Reinstall using a build signed with the matching App Group entitlements.", self.appGroupID ?: @"unknown"];
+    }
+    NSURL *root = [groupPath URLByAppendingPathComponent:@"Library/StrataDataLocks" isDirectory:YES];
+    NSError *directoryError = nil;
+    if (![NSFileManager.defaultManager createDirectoryAtURL:root withIntermediateDirectories:YES attributes:nil error:&directoryError]) {
+        return [NSString stringWithFormat:@"Cannot create guest data lock directory at %@: %@", root.path, directoryError.localizedDescription ?: @"unknown filesystem error"];
+    }
     NSURL *file = [root URLByAppendingPathComponent:[container stringByAppendingString:@".lock"]];
     int fd = open(file.fileSystemRepresentation, O_CREAT | O_RDWR | O_NOFOLLOW, 0600);
-    if (fd < 0 || flock(fd, LOCK_SH | LOCK_NB) != 0) {
-        if (fd >= 0) close(fd);
+    if (fd < 0) {
+        return [NSString stringWithFormat:@"Cannot open guest data lock file at %@ (errno %d). Check App Group access and available storage.", file.lastPathComponent, errno];
+    }
+    if (flock(fd, LOCK_SH | LOCK_NB) != 0) {
+        close(fd);
         return @"A backup, restore or file import is using this guest's data. Wait for it to finish before launching.";
     }
     if (strataGuestDataFD >= 0) close(strataGuestDataFD);
@@ -145,68 +155,60 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 }
 
 + (NSString *)appGroupID {
-    static dispatch_once_t once;
-    static NSString *appGroupID = @"Unknown";
-    dispatch_once(&once, ^{
-        NSArray* possibleAppGroups = @[
-            [@"group.com.SideStore.SideStore" stringByAppendingPathExtension:[self teamIdentifier]],
-            [@"group.com.rileytestut.AltStore" stringByAppendingPathExtension:[self teamIdentifier]]
-        ];
-        
-        // we prefer app groups with "Apps" in it, which indicate this app group is actually used by the store.
-        for (NSString *group in possibleAppGroups) {
-            NSURL *path = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:group];
-            if(!path) {
-                continue;
+    // Do not cache a failed lookup. The first call can happen before the shared
+    // container is visible to the process; a dispatch_once around a nil result
+    // would make every later guest-data operation fail for the life of the app.
+    NSString *team = [self teamIdentifier];
+    NSMutableArray<NSString *> *possibleAppGroups = [NSMutableArray array];
+    if (team.length) {
+        [possibleAppGroups addObject:[@"group.com.SideStore.SideStore" stringByAppendingPathExtension:team]];
+        [possibleAppGroups addObject:[@"group.com.rileytestut.AltStore" stringByAppendingPathExtension:team]];
+    }
+
+    // Prefer the store's active group when both compatibility groups exist.
+    for (NSString *group in possibleAppGroups) {
+        NSURL *path = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:group];
+        if (!path) continue;
+        NSURL *appsPath = [path URLByAppendingPathComponent:@"Apps"];
+        if ([NSFileManager.defaultManager fileExistsAtPath:appsPath.path]) return group;
+    }
+    for (NSString *group in possibleAppGroups) {
+        if ([NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:group]) return group;
+    }
+
+    // Older installs may have a non-standard group identifier saved already.
+    NSString *cached = [lcUserDefaults objectForKey:@"LCAppGroupID"];
+    if ([cached isKindOfClass:NSString.class] && cached.length &&
+        [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:cached]) {
+        return cached;
+    }
+
+    // Last resort: discover an entitled group, but only accept it if iOS
+    // actually resolves a container for it.
+    CFErrorRef error = NULL;
+    void *taskSelf = SecTaskCreateFromSelf(NULL);
+    CFTypeRef value = taskSelf ? SecTaskCopyValueForEntitlement(taskSelf, CFSTR("com.apple.security.application-groups"), &error) : NULL;
+    if (taskSelf) CFRelease(taskSelf);
+    if (value) {
+        id groups = CFBridgingRelease(value);
+        if ([groups isKindOfClass:NSArray.class]) {
+            for (id candidate in (NSArray *)groups) {
+                if (![candidate isKindOfClass:NSString.class] || ![candidate length]) continue;
+                if ([NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:candidate]) {
+                    return candidate;
+                }
             }
-            NSURL *bundlePath = [path URLByAppendingPathComponent:@"Apps"];
-            if ([NSFileManager.defaultManager fileExistsAtPath:bundlePath.path]) {
-                // This will fail if LiveContainer is installed in both stores, but it should never be the case
-                appGroupID = group;
-                return;
-            }
         }
-        
-        // if no "Apps" is found, we choose a valid group
-        for (NSString *group in possibleAppGroups) {
-            NSURL *path = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:group];
-            if(!path) {
-                continue;
-            }
-            appGroupID = group;
-            return;
-        }
-        
-        // if no possibleAppGroup is found, we detect app group from entitlement file
-        // Cache app group after importing cert so we don't have to analyze executable every launch
-        NSString *cached = [lcUserDefaults objectForKey:@"LCAppGroupID"];
-        if (cached && [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:cached]) {
-            appGroupID = cached;
-            return;
-        }
-        CFErrorRef error = NULL;
-        void* taskSelf = SecTaskCreateFromSelf(NULL);
-        CFTypeRef value = SecTaskCopyValueForEntitlement(taskSelf, CFSTR("com.apple.security.application-groups"), &error);
-        CFRelease(taskSelf);
-        
-        if(!value) {
-            return;
-        }
-        NSArray* appGroups = (__bridge NSArray *)value;
-        if(appGroups.count > 0) {
-            appGroupID = [appGroups firstObject];
-        }
-    });
-    return appGroupID;
+    }
+    return @"Unknown";
 }
 
-+ (NSURL*) appGroupPath {
-    static NSURL *appGroupPath = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        appGroupPath = [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:[LCSharedUtils appGroupID]];
-    });
-    return appGroupPath;
++ (NSURL *)appGroupPath {
+    NSString *identifier = [self appGroupID];
+    if (!identifier.length || [identifier isEqualToString:@"Unknown"]) return nil;
+    // Resolve on demand instead of permanently caching nil after an early
+    // entitlement/container lookup failure.
+    return [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:identifier];
 }
 
 + (NSString *)certificatePassword {
