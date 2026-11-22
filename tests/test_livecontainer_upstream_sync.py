@@ -90,7 +90,7 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
     def test_archive_path_and_unsigned_sideload_build_are_consistent(self):
         self.assertIn("export scheme", build)
         build = source("scripts/build_ipa.sh")
-        self.assertIn('ARCHIVE_PATH="\${ARCHIVE_BASE}.xcarchive"', build)
+        self.assertIn('ARCHIVE_PATH="${ARCHIVE_BASE}.xcarchive"', build)
         self.assertIn('archive_path="$ARCHIVE_BASE"', build)
         self.assertIn('-archivePath "$ARCHIVE_PATH"', build)
         self.assertIn("CODE_SIGNING_ALLOWED=NO", build)
