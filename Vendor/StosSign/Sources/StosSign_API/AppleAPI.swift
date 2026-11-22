@@ -270,48 +270,68 @@ public final class AppleAPI: Sendable {
     }
     
     public func updateAppID(_ appID: AppID, capabilities: [String], team: Team, session: AppleAPISession) async throws -> AppID {
-        let url = v1URL.appendingPathComponent("bundleIds").appendingPathComponent(appID.identifier)
-        
-        let capabilitiesPayload: [[String: Any]] = capabilities.map { capabilityId in
-            [
-                "type": "bundleIdCapabilities",
-                "attributes": ["enabled": true, "settings": []],
-                "relationships": [
-                    "capability": [
-                        "data": ["type": "capabilities", "id": capabilityId]
+        // Read the existing capability set first. Sending a partial bundleIdCapabilities
+        // relationship on the parent Bundle ID can replace unrelated capabilities.
+        let existingURL = v1URL.appendingPathComponent("bundleIds")
+            .appendingPathComponent(appID.identifier)
+            .appendingPathComponent("bundleIdCapabilities")
+        var existingRequest = URLRequest(url: existingURL)
+        existingRequest.httpMethod = "GET"
+        let existingResponse = try await sendServicesRequest(
+            originalRequest: existingRequest,
+            additionalParameters: ["fields[bundleIdCapabilities]": "capabilityType"],
+            session: session,
+            team: team
+        )
+        let existingCapabilities = Set(
+            ((existingResponse["data"] as? [[String: Any]]) ?? []).compactMap {
+                ($0["attributes"] as? [String: Any])?["capabilityType"] as? String
+            }
+        )
+
+        // Apple exposes capability enablement as POST /v1/bundleIdCapabilities.
+        // Add only missing capabilities; leave all unrelated existing capabilities intact.
+        for capabilityId in capabilities where !existingCapabilities.contains(capabilityId) {
+            let url = v1URL.appendingPathComponent("bundleIdCapabilities")
+            let payload: [String: Any] = [
+                "data": [
+                    "type": "bundleIdCapabilities",
+                    "attributes": [
+                        "capabilityType": capabilityId,
+                        "settings": []
+                    ],
+                    "relationships": [
+                        "bundleId": [
+                            "data": [
+                                "type": "bundleIds",
+                                "id": appID.identifier
+                            ]
+                        ]
                     ]
                 ]
             ]
+
+            let response = try await sendEditRequest(
+                requestURL: url,
+                body: payload,
+                session: session,
+                json: true,
+                appendClientId: false,
+                httpMethod: "POST"
+            )
+
+            guard response["data"] as? [String: Any] != nil else {
+                if let message = response["error"] as? String {
+                    throw AppleAPIError.customError(code: 0, message: message)
+                }
+                if let errors = response["errors"] as? [[String: Any]],
+                   let message = errors.first?["detail"] as? String {
+                    throw AppleAPIError.customError(code: 0, message: message)
+                }
+                throw AppleAPIError.badServerResponse
+            }
         }
 
-        let payload: [String: Any] = [
-            "data": [
-                "type": "bundleIds",
-                "id": appID.identifier,
-                "attributes": [
-                    "identifier": appID.bundleIdentifier,
-                    "teamId": team.identifier,
-                    "seedId": team.identifier,
-                    "bundleType": "bundle",
-                    "name": appID.name,
-                    "hasExclusiveManagedCapabilities": false
-                ],
-                "relationships": [
-                    "bundleIdCapabilities": ["data": capabilitiesPayload]
-                ]
-            ]
-        ]
-        
-        let response = try await sendEditRequest(requestURL: url, body: payload, session: session, json: true, appendClientId: false)
-        
-        
-        guard let _ = response["data"] as? [String: Any] else {
-            if let data = response["error"] as? String {
-                throw AppleAPIError.customError(code: 0, message: data)
-            }
-            throw AppleAPIError.badServerResponse
-        }
-        
         return appID
     }
 
@@ -587,7 +607,7 @@ public final class AppleAPI: Sendable {
         return responseDictionary
     }
     
-    public func sendEditRequest(requestURL: URL, body: [String: Any], session: AppleAPISession, json: Bool = false, appendClientId: Bool = true) async throws -> [String : Any] {
+    public func sendEditRequest(requestURL: URL, body: [String: Any], session: AppleAPISession, json: Bool = false, appendClientId: Bool = true, httpMethod: String = "PATCH") async throws -> [String : Any] {
         let bodyData = json ? try JSONSerialization.data(withJSONObject: body) : try PropertyListSerialization.data(fromPropertyList: body, format: .xml, options: 0)
         
         var urlString = requestURL.absoluteString
@@ -599,7 +619,7 @@ public final class AppleAPI: Sendable {
         }
         
         var request = URLRequest(url: url)
-        request.httpMethod = "PATCH"
+        request.httpMethod = httpMethod
         request.httpBody = bodyData
         
         let httpHeaders: [String: String] = [
