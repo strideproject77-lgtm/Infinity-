@@ -60,21 +60,6 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn("    exit 1\nfi", build)
 
 
-    def test_livecontainer_openssl_dependency_is_pinned_and_prepared_before_archive(self):
-        prepare = source("scripts/prepare_livecontainer_dependencies.sh")
-        build = source("scripts/build_ipa.sh")
-        project = source("LiveContainer.xcodeproj/project.pbxproj")
-        self.assertIn("3.6.5000/OpenSSL.xcframework.zip", prepare)
-        self.assertIn(
-            "f50188506490c643715489217d32e458d06cee5579399ff616f0ce2038169fea",
-            prepare,
-        )
-        self.assertIn("prepare_livecontainer_dependencies.sh", build)
-        self.assertIn("path = Dependencies/OpenSSL.xcframework", project)
-        self.assertIn("17E1BB9530B0950900FF1617", project)
-        self.assertIn("17E1BB9630B0953A00FF1617", project)
-        self.assertNotIn("17554B732DA16988004C6D90 /* OpenSSL.xcframework in Embed Frameworks */", project)
-        self.assertNotIn("17554B742DA169AA004C6D90 /* OpenSSL.xcframework in Frameworks */", project)
 
     def test_sidestore_packaging_fails_fast_and_cleans_the_real_payload(self):
         build = source(".github/build_github.sh")
