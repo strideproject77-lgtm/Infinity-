@@ -13,7 +13,7 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
     def test_entitlement_lookup_handles_missing_value(self):
         shared = source("LiveContainer/LCSharedUtils.m")
         self.assertIn(
-            "if(cfans && CFGetTypeID(cfans) == CFStringGetTypeID())",
+            "if (cfans && CFGetTypeID(cfans) == CFStringGetTypeID())",
             shared,
         )
         self.assertIn(

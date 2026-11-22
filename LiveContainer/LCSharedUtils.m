@@ -387,7 +387,7 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 
 + (NSURL*)containerLockPath {
     // Resolve the App Group every time: the first call can occur before iOS has
-    // exposed the entitled container. Never cache a nil/stale path via dispatch_once.
+    // exposed the entitled container. Never cache a nil or stale path.
     NSURL *groupPath = [self appGroupPath];
     if (!groupPath) return nil;
 
