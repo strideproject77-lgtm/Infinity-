@@ -76,6 +76,13 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn("CODE_SIGNING_REQUIRED=NO", build)
         self.assertIn('CODE_SIGN_IDENTITY=""', build)
 
+    def test_stikjit_archive_download_retries_transient_network_failures(self):
+        prepare = source("scripts/prepare_stikjit_idevice.sh")
+        self.assertIn("--retry 6 --retry-all-errors --retry-delay 5 --retry-max-time 600", prepare)
+        self.assertIn("--connect-timeout 30 --max-time 900", prepare)
+        self.assertIn('rm -f "$TEMP_ARCHIVE"', prepare)
+        self.assertIn('EXPECTED_GIT_BLOB="3fb7e2dbfdb9db3d47bd6364a435bbc10d5581f9"', prepare)
+
     def test_sidestore_packaging_fails_fast_and_cleans_the_real_payload(self):
         build = source(".github/build_github.sh")
         self.assertIn("set -eu", build)
