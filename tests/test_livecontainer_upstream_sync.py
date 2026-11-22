@@ -74,8 +74,10 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         build = source("scripts/build_ipa.sh")
         codemagic = source("codemagic.yaml")
         packager = source("scripts/package_codemagic_artifacts.sh")
-        self.assertIn(': "${archive_path:=archive.xcarchive}"', build)
-        self.assertIn("archive_path: archive.xcarchive", codemagic)
+        self.assertIn(': "${archive_path:=archive}"', build)
+        self.assertIn('ARCHIVE_BASE="${archive_path%.xcarchive}"', build)
+        self.assertIn('archive_path="$ARCHIVE_BASE"', build)
+        self.assertIn("archive_path: archive", codemagic)
         self.assertIn('[[ ! -d "archive.xcarchive" ]]', packager)
         self.assertIn('ditto "archive.xcarchive"', packager)
 
