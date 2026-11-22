@@ -1,6 +1,12 @@
 name: INFINITY build Android runtime assets
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/build_infinity_runtime_assets.sh"
+      - "Vendor/Husk/**"
+      - ".github/workflows/infinity-runtime-assets.yml"
   workflow_dispatch:
 
 permissions:
@@ -66,6 +72,9 @@ jobs:
         with:
           name: INFINITY-Android-Runtime-Assets-v1
           path: |
+            ${{ runner.temp }}/infinity-runtime-assets/java-runtime/**
+            ${{ runner.temp }}/infinity-runtime-assets/android-system/**
+            ${{ runner.temp }}/infinity-runtime-assets/cacert.pem
             ${{ runner.temp }}/infinity-runtime-assets/infinity-android-runtime-assets.zip
             ${{ runner.temp }}/infinity-runtime-assets/runtime-assets-manifest.json
           if-no-files-found: error
