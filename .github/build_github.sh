@@ -10,7 +10,7 @@ brew install ldid
 mv "$archive_path.xcarchive/Products/Applications" Payload
 
 # temporarily move sidestore support framrwork to tmp before zip
-mkdir tmp
+mkdir -p tmp
 mv Payload/LiveContainer.app/Frameworks/SideStoreSupport.framework ./tmp
 
 zip -r "$scheme.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
@@ -37,10 +37,14 @@ mv ./tmp/SideStoreSupport.framework Payload/LiveContainer.app/Frameworks
 /usr/libexec/PlistBuddy -c "Add :NSUserActivityTypes:0 string RefreshAllIntent" ./Payload/LiveContainer.app/Info.plist
 /usr/libexec/PlistBuddy -c "Add :NSUserActivityTypes:1 string ViewAppIntent" ./Payload/LiveContainer.app/Info.plist
 
-/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:3:Type string PSToggleSwitchSpecifier" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
-/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:3:Title string Open SideStore" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
-/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:3:Key string LCOpenSideStore" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
-/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:3:DefaultValue bool false" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
+/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:2 dict" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
+/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:2:Type string PSToggleSwitchSpecifier" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
+/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:2:Title string Open SideStore" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
+/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:2:Key string LCOpenSideStore" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
+/usr/libexec/PlistBuddy -c "Add :PreferenceSpecifiers:2:DefaultValue bool false" ./Payload/LiveContainer.app/Settings.bundle/Root.plist
+/usrusr=/usr/libexec/PlistBuddy
+/usrusr -c "Print :PreferenceSpecifiers:2:Key" ./Payload/LiveContainer.app/Settings.bundle/Root.plist | grep -qx LCOpenSideStore
+plutil -lint ./Payload/LiveContainer.app/Settings.bundle/Root.plist
 
 # download SideStore
 # Bundle source pin: LiveContainer/SideStore@044bd72ad4eb270c3900bd04dc6f508d0ac474db.
@@ -84,3 +88,5 @@ ldid -S.github/sidelc/LiveWidgetExtension_adhoc.xml ./Payload/LiveContainer.app/
 
 # package
 zip -r "$scheme+SideStore.ipa" "Payload" -x "._*" -x ".DS_Store" -x "__MACOSX"
+unzip -t "$scheme.ipa" >/dev/null
+unzip -t "$scheme+SideStore.ipa" >/dev/null
