@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 : "${scheme:=LiveContainer}"
+export scheme
 : "${archive_path:=archive}"
 ARCHIVE_BASE="${archive_path%.xcarchive}"
 ARCHIVE_PATH="${ARCHIVE_BASE}.xcarchive"
