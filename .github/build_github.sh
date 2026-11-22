@@ -79,7 +79,18 @@ sed -i '' 's/9SideStore26RefreshAllAppsWidgetIntentV/16SideStoreSupport26Refresh
 mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/PlugIns/AltWidgetExtension.appex ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kdt.livecontainer.LiveWidget"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable LiveWidgetExtension"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
-mv ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/AltWidgetExtension ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
+WIDGET_BUNDLE="./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex"
+WIDGET_OLD_EXECUTABLE="$WIDGET_BUNDLE/AltWidgetExtension"
+WIDGET_EXECUTABLE="$WIDGET_BUNDLE/LiveWidgetExtension"
+if [[ ! -f "$WIDGET_OLD_EXECUTABLE" ]]; then
+  echo "Expected SideStore widget executable is missing: $WIDGET_OLD_EXECUTABLE" >&2
+  exit 1
+fi
+mv "$WIDGET_OLD_EXECUTABLE" "$WIDGET_EXECUTABLE"
+if [[ ! -x "$WIDGET_EXECUTABLE" ]]; then
+  echo "Widget executable rename failed: $WIDGET_EXECUTABLE" >&2
+  exit 1
+fi
 
 # Sign
 rm -rf .zsign_cache
