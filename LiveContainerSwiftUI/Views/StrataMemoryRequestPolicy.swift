@@ -14,10 +14,24 @@ enum StrataMemoryRequestPolicy {
         let identity = String(signedID.dropFirst(prefix.count))
         return identity.isEmpty ? fallback : identity
     }
-    /// Selections must be explicit registrations returned by the authenticated team's API.
+    /// Match an App ID registration to the exact installed executable identity.
+    /// Apple's explicit and wildcard App IDs are both supported; arbitrary registrations are rejected.
+    static func registrationMatches(bundleIdentifier: String, expectedBundle: String) -> Bool {
+        guard !bundleIdentifier.isEmpty, !expectedBundle.isEmpty else { return false }
+        if bundleIdentifier == expectedBundle || bundleIdentifier == "*" { return true }
+        guard bundleIdentifier.hasSuffix(".*") else { return false }
+        let prefix = String(bundleIdentifier.dropLast())
+        return expectedBundle.hasPrefix(prefix) && expectedBundle.count > prefix.count
+    }
+    /// Selections must be authenticated registrations and must cover the actual signed host/guest IDs.
     /// A shared wildcard registration can legitimately cover both executables.
-    static func selectedTargets(host: String, guest: String, registered: Set<String>) -> Set<String>? {
-        guard !host.isEmpty, !guest.isEmpty, registered.contains(host), registered.contains(guest) else { return nil }
+    static func selectedTargets(host: String, guest: String, expectedHost: String, expectedGuest: String,
+                                registrations: [(identifier: String, bundleIdentifier: String)]) -> Set<String>? {
+        guard !host.isEmpty, !guest.isEmpty,
+              let hostRegistration = registrations.first(where: { $0.identifier == host }),
+              let guestRegistration = registrations.first(where: { $0.identifier == guest }),
+              registrationMatches(bundleIdentifier: hostRegistration.bundleIdentifier, expectedBundle: expectedHost),
+              registrationMatches(bundleIdentifier: guestRegistration.bundleIdentifier, expectedBundle: expectedGuest) else { return nil }
         return [host, guest]
     }
     static let capabilities = ["INCREASED_MEMORY_LIMIT"]

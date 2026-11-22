@@ -19,7 +19,13 @@ import StosSign_Anisette
     @Published private(set) var expectedHost = ""
     @Published private(set) var expectedGuest = ""
     private var registeredTargets: Set<String>? {
-        StrataMemoryRequestPolicy.selectedTargets(host: selectedHost, guest: selectedGuest, registered: Set(registrations.map(\.identifier)))
+        StrataMemoryRequestPolicy.selectedTargets(
+            host: selectedHost,
+            guest: selectedGuest,
+            expectedHost: expectedHost,
+            expectedGuest: expectedGuest,
+            registrations: registrations.map { (identifier: $0.identifier, bundleIdentifier: $0.bundleIdentifier) }
+        )
     }
     var canApply: Bool { signedIn && !busy && registeredTargets != nil }
     private var session: AppleAPISession?
