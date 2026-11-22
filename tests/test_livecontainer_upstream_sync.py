@@ -76,6 +76,14 @@ class LiveContainerUpstreamSyncContractTests(unittest.TestCase):
         self.assertIn("CODE_SIGNING_REQUIRED=NO", build)
         self.assertIn('CODE_SIGN_IDENTITY=""', build)
 
+    def test_archive_path_and_unsigned_sideload_build_are_consistent(self):
+        build = source("scripts/build_ipa.sh")
+        self.assertIn('ARCHIVE_PATH="${ARCHIVE_PATH}.xcarchive"', build)
+        self.assertIn('-archivePath "$ARCHIVE_PATH"', build)
+        self.assertIn("CODE_SIGNING_ALLOWED=NO", build)
+        self.assertIn("CODE_SIGNING_REQUIRED=NO", build)
+        self.assertIn('test -s "$scheme.ipa"', build)
+
     def test_stikjit_archive_download_retries_transient_network_failures(self):
         prepare = source("scripts/prepare_stikjit_idevice.sh")
         self.assertIn("--retry 6 --retry-all-errors --retry-delay 5 --retry-max-time 600", prepare)
