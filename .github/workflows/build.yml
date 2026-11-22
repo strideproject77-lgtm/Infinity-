@@ -1,6 +1,29 @@
 name: Xcode - Build
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build.yml"
+      - ".github/build_github.sh"
+      - ".github/sidelc/**"
+      - "scripts/**"
+      - "codemagic.yaml"
+      - ".gitmodules"
+      - "LiveContainer.xcodeproj/**"
+      - "LiveContainer/**"
+      - "LiveContainerSwiftUI/**"
+      - "LiveProcess/**"
+      - "ShareExtension/**"
+      - "LaunchAppExtension/**"
+      - "MultitaskSupport/**"
+      - "SideStoreSupport/**"
+      - "ZSign/**"
+      - "FrameGeneration/**"
+      - "Resources/**"
+      - "Branding/**"
+      - "Vendor/**"
+      - "xcconfigs/**"
   workflow_dispatch:
     inputs:
       release__nightly:
@@ -17,7 +40,7 @@ jobs:
       archive_path: archive
     outputs:
       scheme: LiveContainer
-      archive_path: ${{ env.archive_path }}
+      archive_path: archive
       artifact: LiveContainer.ipa
       artifact2: LiveContainer+SideStore.ipa
     steps:
