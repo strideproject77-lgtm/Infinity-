@@ -32,10 +32,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Validate runtime shell scripts
+      - name: Validate runtime and IPA build shell scripts
         run: |
           bash -n scripts/import_husk_runtime.sh
           bash -n scripts/prepare_stikjit_idevice.sh
+          bash -n scripts/build_ipa.sh
+          bash -n scripts/run_codemagic_build.sh
+          bash -n scripts/package_codemagic_artifacts.sh
+          bash -n scripts/publish_codemagic_logs.sh
+          sh -n .github/build_github.sh
           bash -n scripts/build_infinity_runtime_assets.sh
           bash -n Vendor/Husk/build-support/build_angle_ios.sh
           bash -n Vendor/Husk/src/java-framework/build.sh
