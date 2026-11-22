@@ -30,7 +30,6 @@ echo "Xcode: $XCODE_VERSION"
 
 bash scripts/prepare_stikjit_idevice.sh
 bash scripts/prepare_infinity_app_icon.sh
-bash scripts/prepare_livecontainer_dependencies.sh
 
 WORKSPACE="$(find . -maxdepth 1 -name '*.xcworkspace' -print -quit)"
 PROJECT="$(find . -maxdepth 1 -name '*.xcodeproj' -print -quit)"
