@@ -29,9 +29,6 @@ enum StrataControlsLibrary {
                 let running: Bool
                 if #available(iOS 16.0, *), let folder = app.uiSelectedContainer?.folderName { running = MultitaskManager.isUsing(container: folder) || MultitaskDockManager.shared.apps.contains(where: { $0.appUUID == folder }) }
                 else { running = false }
-                // The switcher strip is the union of running guests and explicit
-                // shortcuts. Unpinned, idle apps stay in the full Library only.
-                guard running || app.strataSwitcherPinned else { continue }
                 var entry = ["key": liveBoardAppKey(app), "name": LiveBoardAppCustomization.shared.name(app), "running": running ? "1" : "0"]
                 if let encoded = iconCache[iconKey] { entry["icon"] = encoded }
                 else if let image = LiveBoardIconStore.image(app, dark: false) {
@@ -47,9 +44,6 @@ enum StrataControlsLibrary {
             iconCache = iconCache.filter { keep.contains($0.key) }
             let data = try JSONSerialization.data(withJSONObject: entries, options: .sortedKeys)
             if data != previousData { try data.write(to: root.appendingPathComponent("library.json"), options: .atomic); previousData = data }
-            if #available(iOS 16.0, *) {
-                MultitaskDockManager.shared.libraryEntries = entries()
-            }
         } catch { NSLog("Strata controls snapshot: %@", error.localizedDescription) }
         }
     }
