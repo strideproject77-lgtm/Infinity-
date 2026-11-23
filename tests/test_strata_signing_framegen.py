@@ -41,7 +41,7 @@ class StrataSigningAndFrameGenerationTests(unittest.TestCase):
         self.assertIn("$model.uiHelperProcessesSupport", settings)
         self.assertIn('guestAppInfo[@"helperProcessesSupport"]', bootstrap)
         self.assertIn("StrataSeamlessSwitching", model)
-        self.assertIn("MultitaskWindowManager.openAppWindowWithDisplayName", host)
+        self.assertIn("[MultitaskWindowManager openAppWindowWithDisplayName", host)
         self.assertIn("StrataToggleHostControls", host)
         self.assertIn("StrataSwitcherPinnedApps", switcher)
 
