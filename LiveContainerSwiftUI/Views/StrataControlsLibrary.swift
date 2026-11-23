@@ -47,6 +47,9 @@ enum StrataControlsLibrary {
             iconCache = iconCache.filter { keep.contains($0.key) }
             let data = try JSONSerialization.data(withJSONObject: entries, options: .sortedKeys)
             if data != previousData { try data.write(to: root.appendingPathComponent("library.json"), options: .atomic); previousData = data }
+            if #available(iOS 16.0, *) {
+                MultitaskDockManager.shared.libraryEntries = entries()
+            }
         } catch { NSLog("Strata controls snapshot: %@", error.localizedDescription) }
         }
     }
