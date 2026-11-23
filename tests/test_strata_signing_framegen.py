@@ -47,6 +47,7 @@ class StrataSigningAndFrameGenerationTests(unittest.TestCase):
         self.assertIn("StrataSwitcherPinnedApps", switcher)
         self.assertIn("StrataControlsLibrary.publish(apps)", switcher)
         self.assertIn("guard running || app.strataSwitcherPinned else { continue }", controls)
+        self.assertIn("MultitaskDockManager.shared.libraryEntries = entries()", controls)
 
     def test_frame_generation_is_built_and_embedded_for_the_runtime_loader(self):
         build = source("scripts/build_ipa.sh")
