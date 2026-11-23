@@ -471,9 +471,9 @@ struct StrataDiagnosticsView: View {
     private func create() {
         let raw = LCUtils.strataMemoryStatus() as? [String: Any] ?? [:]
         let allowed = ["usedMB", "availableMB", "hostMemory", "hostAddress", "physicalMB", "increasedMemoryEntitlement", "getTaskAllow", "hostSignedID", "guestSignedID"]
-        var result: [String: Any] = ["schema": 1, "version": "3.0.0", "created": Date().timeIntervalSince1970,
+        var result: [String: Any] = ["schema": 1, "version": INFINITYVersion.display, "created": Date().timeIntervalSince1970,
             "host": raw.filter { allowed.contains($0.key) }, "guests": apps.map { ["name": $0.displayName, "bundleID": $0.bundleIdentifier, "is32bit": $0.uiIs32bit, "JITRequested": $0.uiIsJITNeeded] as [String: Any] },
-            "features": ["guestExtensionJIT": "existing", "hostInProcessJIT": "experimentalOptInUnverified", "huskEmbeddedAOT": "notIntegrated", "sharedIdentityVault": "implemented", "frameGeneration": "experimental2x"]]
+            "features": ["guestExtensionJIT": "existing", "hostInProcessJIT": "experimentalOptInUnverified", "huskEmbeddedAOT": "prelaunchIntegratedDeviceTestPending", "sharedIdentityVault": "implemented", "frameGeneration": "buildIntegratedExperimental2x3x4xDeviceTestPending"]]
         if let guest = raw["guestSample"] as? [String: Any] {
             let fields = ["pid", "guest", "executionMode", "availableBytes", "footprintBytes", "sampledAt", "increasedMemoryEntitlement", "availableReported", "footprintReported", "jitEnabled", "debuggerAttached"]
             result["latestGuest"] = guest.filter { fields.contains($0.key) }
