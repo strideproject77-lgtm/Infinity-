@@ -31,7 +31,7 @@ struct StrataIdentitySettings: View {
                     Button("Remove signing identity", role: .destructive) { removing = true }
                 } else { Text("No signing identity imported.").foregroundStyle(.secondary) }
                 Button("Import .p12 identity") { selecting = true }
-                Text("Use the identity that signed the executing app. Passwords are kept exactly as entered, including empty passwords and spaces. The vault is not included in guest backups.").font(.caption).foregroundStyle(.secondary)
+                Text("Use the identity that signed the executing app. Passwords are kept exactly as entered, including empty passwords and spaces. For a .p12 exported from SideStore, enter the password chosen during export—not your Apple Account password. The vault is not included in guest backups.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Provisioning") {
                 Text("Apple account permissions and profile renewal remain in bundled SideStore. Local signing can reuse a valid identity; it cannot renew an expired profile offline.").font(.footnote)
