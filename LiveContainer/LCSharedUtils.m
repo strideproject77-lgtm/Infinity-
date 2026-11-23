@@ -252,8 +252,30 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
     NSMutableDictionary *q = [@{(__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,
         (__bridge id)kSecAttrService:@"com.strata.signing.v1", (__bridge id)kSecAttrAccount:@"activeIdentity"} mutableCopy];
 #if !TARGET_OS_SIMULATOR
-    NSString *team = self.teamIdentifier;
-    if (team.length) q[(__bridge id)kSecAttrAccessGroup] = [team stringByAppendingString:@".com.kdt.livecontainer.shared"];
+    // Prefer the exact access group granted to this signed build. AppIdentifierPrefix
+    // can differ from the Team ID on some developer accounts, so deriving the group
+    // from teamIdentifier alone can make a valid imported .p12 appear unsaved.
+    CFTypeRef task = SecTaskCreateFromSelf(NULL);
+    CFTypeRef rawGroups = task ? SecTaskCopyValueForEntitlement(task, CFSTR("keychain-access-groups"), NULL) : NULL;
+    if (task) CFRelease(task);
+    NSArray *groups = rawGroups ? CFBridgingRelease(rawGroups) : nil;
+    NSString *accessGroup = nil;
+    if ([groups isKindOfClass:NSArray.class]) {
+        for (id candidate in groups) {
+            if ([candidate isKindOfClass:NSString.class] &&
+                [(NSString *)candidate hasSuffix:@".com.kdt.livecontainer.shared"]) {
+                accessGroup = candidate;
+                break;
+            }
+        }
+    }
+    // Keep compatibility with existing installations if entitlement introspection
+    // is unavailable, while preferring the actual AppIdentifierPrefix above.
+    if (!accessGroup.length) {
+        NSString *team = self.teamIdentifier;
+        if (team.length) accessGroup = [team stringByAppendingString:@".com.kdt.livecontainer.shared"];
+    }
+    if (accessGroup.length) q[(__bridge id)kSecAttrAccessGroup] = accessGroup;
 #endif
     return q;
 }
