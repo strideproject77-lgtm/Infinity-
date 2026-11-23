@@ -8,7 +8,8 @@
 + (NSDictionary *)strataSigningIdentity;
 + (BOOL)strataStoreSigningIdentity:(NSData *)p12 password:(NSString *)password error:(NSError **)error;
 + (BOOL)strataRemoveSigningIdentityWithError:(NSError **)error;
-+ (void)strataStopHostJIT;
+ + (void)strataStopHostJIT;
+ + (NSString *)strataJITHelperBundleIdentifier;
 + (NSString *)strataAttachHostJIT:(NSDictionary *)request;
 + (void)strataReleaseGuestDataLease;
 + (NSString *)strataAcquireGuestDataLease:(NSString *)container;
