@@ -38,6 +38,7 @@ class StrataSigningAndFrameGenerationTests(unittest.TestCase):
         host = source("LiveContainerSwiftUI/Utilities/LCUtils.m")
         switcher = source("LiveContainerSwiftUI/Views/StrataSwitcherSettings.swift")
         controls = source("LiveContainerSwiftUI/Views/StrataControlsLibrary.swift")
+        dock = source("MultitaskSupport/MultitaskDockView.swift")
 
         self.assertIn("$model.uiHelperProcessesSupport", settings)
         self.assertIn('guestAppInfo[@"helperProcessesSupport"]', bootstrap)
@@ -48,6 +49,9 @@ class StrataSigningAndFrameGenerationTests(unittest.TestCase):
         self.assertIn("StrataControlsLibrary.publish(apps)", switcher)
         self.assertIn("guard running || app.strataSwitcherPinned else { continue }", controls)
         self.assertIn("MultitaskDockManager.shared.libraryEntries = entries()", controls)
+        self.assertIn('@AppStorage("StrataSwitcherStyle"', dock)
+        self.assertIn('if strataSwitcherStyle == "strip"', dock)
+        self.assertIn('Text(entry.name)', dock)
 
     def test_frame_generation_is_built_and_embedded_for_the_runtime_loader(self):
         build = source("scripts/build_ipa.sh")
