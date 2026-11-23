@@ -305,25 +305,68 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
         if (error) *error = [NSError errorWithDomain:@"StrataIdentity" code:2 userInfo:@{NSLocalizedDescriptionKey:@"The .p12 could not be opened with that password, or has no usable signing private key."}];
         return NO;
     }
-    OSStatus status;
+
     NSData *bytes = [NSPropertyListSerialization dataWithPropertyList:@{@"schema":@1,@"p12":p12,@"password":password,@"importedAt":NSDate.date} format:NSPropertyListBinaryFormat_v1_0 options:0 error:error];
     if (!bytes) return NO;
-    NSMutableDictionary *q = [self strataIdentityQuery];
-    NSDictionary *attributes = @{(__bridge id)kSecValueData:bytes,(__bridge id)kSecAttrAccessible:(__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly};
-    status = SecItemUpdate((__bridge CFDictionaryRef)q, (__bridge CFDictionaryRef)attributes);
-    if (status == errSecItemNotFound) {
-        [q addEntriesFromDictionary:attributes];
-        status = SecItemAdd((__bridge CFDictionaryRef)q, NULL);
-    }
-    if (status != errSecSuccess && error) *error = [NSError errorWithDomain:@"StrataIdentity" code:status userInfo:@{NSLocalizedDescriptionKey:[NSString stringWithFormat:@"The shared Keychain could not save the identity (%d). The previous identity was retained.", (int)status]}];
-    if (status == errSecSuccess) {
-        NSDictionary *stored = [self strataSigningIdentity];
-        if (![stored[@"p12"] isEqual:p12] || ![stored[@"password"] isEqual:password]) {
-            if (error) *error = [NSError errorWithDomain:@"StrataIdentity" code:3 userInfo:@{NSLocalizedDescriptionKey:@"The saved identity could not be read back. Legacy credentials were retained; retry after unlocking the device."}];
+
+    // Snapshot the previous item before writing. A successful SecItemUpdate is
+    // not enough: the new value must also be readable through the same access group.
+    NSMutableDictionary *query = [self strataIdentityQuery];
+    NSMutableDictionary *snapshotQuery = [query mutableCopy];
+    snapshotQuery[(__bridge id)kSecReturnData] = @YES;
+    snapshotQuery[(__bridge id)kSecMatchLimit] = (__bridge id)kSecMatchLimitOne;
+    CFTypeRef previousResult = NULL;
+    OSStatus previousStatus = SecItemCopyMatching((__bridge CFDictionaryRef)snapshotQuery, &previousResult);
+    NSData *previousBytes = nil;
+    if (previousStatus == errSecSuccess) {
+        id value = CFBridgingRelease(previousResult);
+        if (![value isKindOfClass:NSData.class]) {
+            if (error) *error = [NSError errorWithDomain:@"StrataIdentity" code:4 userInfo:@{NSLocalizedDescriptionKey:@"The existing Keychain identity could not be safely backed up. No changes were made."}];
             return NO;
         }
+        previousBytes = value;
+    } else if (previousStatus != errSecItemNotFound) {
+        if (error) *error = [NSError errorWithDomain:@"StrataIdentity" code:previousStatus userInfo:@{NSLocalizedDescriptionKey:[NSString stringWithFormat:@"The existing Keychain identity could not be inspected (%d). No changes were made.", (int)previousStatus]}];
+        return NO;
     }
-    return status == errSecSuccess;
+
+    NSDictionary *attributes = @{(__bridge id)kSecValueData:bytes,(__bridge id)kSecAttrAccessible:(__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly};
+    OSStatus status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)attributes);
+    if (status == errSecItemNotFound) {
+        NSMutableDictionary *addQuery = [query mutableCopy];
+        [addQuery addEntriesFromDictionary:attributes];
+        status = SecItemAdd((__bridge CFDictionaryRef)addQuery, NULL);
+    }
+    if (status != errSecSuccess) {
+        if (error) *error = [NSError errorWithDomain:@"StrataIdentity" code:status userInfo:@{NSLocalizedDescriptionKey:[NSString stringWithFormat:@"The shared Keychain could not save the identity (%d). The previous identity was not changed.", (int)status]}];
+        return NO;
+    }
+
+    NSDictionary *stored = [self strataSigningIdentity];
+    if (![stored[@"p12"] isEqual:p12] || ![stored[@"password"] isEqual:password]) {
+        BOOL restored = NO;
+        if (previousBytes) {
+            NSDictionary *restoreAttributes = @{(__bridge id)kSecValueData:previousBytes,(__bridge id)kSecAttrAccessible:(__bridge id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly};
+            OSStatus restoreStatus = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)restoreAttributes);
+            if (restoreStatus == errSecItemNotFound) {
+                NSMutableDictionary *restoreQuery = [query mutableCopy];
+                [restoreQuery addEntriesFromDictionary:restoreAttributes];
+                restoreStatus = SecItemAdd((__bridge CFDictionaryRef)restoreQuery, NULL);
+            }
+            restored = restoreStatus == errSecSuccess;
+        } else {
+            OSStatus deleteStatus = SecItemDelete((__bridge CFDictionaryRef)query);
+            restored = deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound;
+        }
+        if (error) {
+            NSString *message = restored
+                ? @"The new identity could not be read back. The previous Keychain identity was restored."
+                : @"The new identity could not be verified and Keychain rollback failed. The current identity state could not be confirmed; re-open settings and verify before signing.";
+            *error = [NSError errorWithDomain:@"StrataIdentity" code:3 userInfo:@{NSLocalizedDescriptionKey:message}];
+        }
+        return NO;
+    }
+    return YES;
 }
 + (BOOL)strataRemoveSigningIdentityWithError:(NSError **)error {
     OSStatus status = SecItemDelete((__bridge CFDictionaryRef)[self strataIdentityQuery]);
