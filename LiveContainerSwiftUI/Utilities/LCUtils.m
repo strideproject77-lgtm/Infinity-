@@ -100,7 +100,12 @@
         @"availableMB":@(os_proc_available_memory() / (1024 * 1024)), @"physicalMB":@(NSProcessInfo.processInfo.physicalMemory / (1024 * 1024))};
 }
 + (NSObject *)strataStartJITHelper:(NSDictionary *)payload error:(NSError **)error {
-    NSExtension *ext = [NSExtension extensionWithIdentifier:[NSBundle.mainBundle.bundleIdentifier stringByAppendingString:@".JITHelper"] error:error];
+    NSString *helperIdentifier = [LCSharedUtils strataJITHelperBundleIdentifier];
+    if (!helperIdentifier.length) {
+        if (error) *error = [NSError errorWithDomain:@"StrataJIT" code:1 userInfo:@{NSLocalizedDescriptionKey:@"Embedded ShareExtension.appex is missing. Reinstall INFINITY and keep all app extensions."}];
+        return nil;
+    }
+    NSExtension *ext = [NSExtension extensionWithIdentifier:helperIdentifier error:error];
     if (!ext) return nil;
     NSExtensionItem *item = [NSExtensionItem new];
     item.userInfo = payload;
