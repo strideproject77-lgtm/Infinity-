@@ -909,7 +909,6 @@ public struct MultitaskDockSwiftView: View {
     @State private var dragOffset = CGSize.zero
     @State private var isMoving: Bool = false
     @AppStorage("LCHideCollapsedDock", store: LCUtils.appGroupUserDefault) var hideCollapsedDock: Bool = false
-    @AppStorage("StrataSwitcherStyle", store: LCUtils.appGroupUserDefault) private var strataSwitcherStyle = "cards"
     
     // Calculate dynamic padding based on user settings
     private var dynamicPadding: CGFloat {
@@ -942,25 +941,9 @@ public struct MultitaskDockSwiftView: View {
                             LazyVStack(spacing: 12) {
                                 ForEach(dockManager.libraryEntries) { entry in
                                     Button { dockManager.hideControls(); StrataControlsLibrary.select(entry.id) } label: {
-                                        Group {
-                                            if strataSwitcherStyle == "strip" {
-                                                Group { if let image = entry.icon { Image(uiImage: image).resizable().scaledToFill() } else { Image(systemName: "app").resizable().scaledToFit() } }
-                                                    .frame(width: 36, height: 36)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                                    .frame(width: 44, height: 44)
-                                            } else {
-                                                HStack(spacing: 9) {
-                                                    Group { if let image = entry.icon { Image(uiImage: image).resizable().scaledToFill() } else { Image(systemName: "app").resizable().scaledToFit() } }
-                                                        .frame(width: 36, height: 36)
-                                                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                                                    Text(entry.name).font(.caption.weight(.medium)).lineLimit(1).foregroundStyle(.white)
-                                                    Spacer(minLength: 0)
-                                                }
-                                                .frame(maxWidth: .infinity, minHeight: 52)
-                                                .padding(.horizontal, 8)
-                                                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.12)))
-                                            }
-                                        }
+                                        Group { if let image = entry.icon { Image(uiImage: image).resizable().scaledToFill() } else { Image(systemName: "app").resizable().scaledToFit() } }
+                                            .frame(width: dockManager.adaptiveIconSize, height: dockManager.adaptiveIconSize)
+                                            .clipShape(RoundedRectangle(cornerRadius: 15))
                                     }.buttonStyle(.plain).accessibilityLabel(entry.name)
                                         .contextMenu {
                                             Button("Open app", systemImage: "play") { dockManager.hideControls(); StrataControlsLibrary.select(entry.id) }
