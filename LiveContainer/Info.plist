@@ -4,7 +4,7 @@
 <dict>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>com.kdt.livecontainer2.bgtask.*</string>
+		<string>com.kdt.livecontainer.bgtask.*</string>
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
@@ -45,10 +45,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.kdt.livecontainer2.urlscheme</string>
+			<string>com.kdt.livecontainer.urlscheme</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>livecontainer2</string>
+				<string>livecontainer</string>
 			</array>
 		</dict>
 	</array>
@@ -79,7 +79,7 @@
 	<array>
 		<string>sidestore</string>
 		<string>livecontainer</string>
-		<string>livecontainer2</string>
+		<string>livecontainer</string>
 		<string>livecontainer3</string>
 	</array>
 	<key>LSSupportsGameMode</key>
