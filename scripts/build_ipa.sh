@@ -75,6 +75,12 @@ if [[ ! -d "$LIVE_PROCESS_EXTENSION" ]]; then
   echo "Archived LiveProcess.appex is missing: $LIVE_PROCESS_EXTENSION" >&2
   exit 2
 fi
+
+# Build the experimental Metal frame-generation loader as a real arm64 dylib.
+# The guest-side loader only activates it when a per-app mode is explicitly enabled.
+bash scripts/build_strata_framegen.sh "$APP_BUNDLE/Frameworks/StrataFrameGen.dylib"
+test -s "$APP_BUNDLE/Frameworks/StrataFrameGen.dylib"
+
 verify_app_group_entitlement() {
   local bundle="$1"
   local label="$2"
