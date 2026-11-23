@@ -242,6 +242,8 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 + (NSString *)certificatePassword {
     NSDictionary *identity = [self strataSigningIdentity];
     if (identity) return identity[@"password"];
+    NSDictionary *sideStoreIdentity = [self sideStoreSigningIdentity];
+    if (sideStoreIdentity) return sideStoreIdentity[@"password"];
     NSUserDefaults* nud = NSUserDefaults.lcSharedDefaults ?: NSUserDefaults.standardUserDefaults;
     return [nud objectForKey:@"LCCertificatePassword"];
 }
@@ -291,6 +293,34 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
     if (![record isKindOfClass:NSDictionary.class] || ![record[@"p12"] isKindOfClass:NSData.class] || ![record[@"password"] isKindOfClass:NSString.class]) return nil;
     return record;
 }
++ (NSDictionary *)sideStoreSigningIdentity {
+    // SideStore's bundled Keychain uses Keychain(service: "com.SideStore.SideStore")
+    // with accounts "signingCertificate" and "signingCertificatePassword".
+    // It runs inside this host process, so its default access group is the host's
+    // default group; the items are synchronizable in SideStore's pinned source.
+    NSMutableDictionary *query = [@{
+        (__bridge id)kSecClass:(__bridge id)kSecClassGenericPassword,
+        (__bridge id)kSecAttrService:@"com.SideStore.SideStore",
+        (__bridge id)kSecAttrAccount:@"signingCertificate",
+        (__bridge id)kSecAttrSynchronizable:@YES,
+        (__bridge id)kSecReturnData:@YES,
+        (__bridge id)kSecMatchLimit:(__bridge id)kSecMatchLimitOne
+    } mutableCopy];
+    CFTypeRef certificateResult = NULL;
+    if (SecItemCopyMatching((__bridge CFDictionaryRef)query, &certificateResult) != errSecSuccess) return nil;
+    NSData *p12 = CFBridgingRelease(certificateResult);
+    if (![p12 isKindOfClass:NSData.class] || !p12.length) return nil;
+
+    query[(__bridge id)kSecAttrAccount] = @"signingCertificatePassword";
+    CFTypeRef passwordResult = NULL;
+    if (SecItemCopyMatching((__bridge CFDictionaryRef)query, &passwordResult) != errSecSuccess) return nil;
+    NSData *passwordData = CFBridgingRelease(passwordResult);
+    if (![passwordData isKindOfClass:NSData.class]) return nil;
+    NSString *password = [[NSString alloc] initWithData:passwordData encoding:NSUTF8StringEncoding];
+    if (!password) return nil;
+    return @{@"p12":p12,@"password":password};
+}
+
 + (BOOL)strataStoreSigningIdentity:(NSData *)p12 password:(NSString *)password error:(NSError **)error {
     if (!p12.length || p12.length > 16*1024*1024 || !password) {
         if (error) *error = [NSError errorWithDomain:@"StrataIdentity" code:1 userInfo:@{NSLocalizedDescriptionKey:@"Choose a valid .p12 signing identity."}];
