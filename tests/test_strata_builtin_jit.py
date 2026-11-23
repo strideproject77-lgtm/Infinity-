@@ -43,6 +43,17 @@ class StrataBuiltInJITContractTests(unittest.TestCase):
         self.assertNotIn('stringByAppendingString:@".JITHelper"', shared)
         self.assertNotIn('stringByAppendingString:@".JITHelper"', utilities)
 
+    def test_hostjit_per_app_toggle_writes_the_exact_launch_key(self):
+        settings = source("LiveContainerSwiftUI/Views/AppList/AppSettings/LCAppSettingsView.swift")
+        model = source("LiveContainerSwiftUI/Models/LCAppModel.swift")
+        self.assertIn('@AppStorage("StrataHostJITApps"', settings)
+        self.assertIn('private var hostJITKey: String', settings)
+        self.assertIn('model.uiIsShared ? "shared" : "local"', settings)
+        self.assertIn('appInfo.relativeBundlePath ?? model.bundleIdentifier', settings)
+        self.assertIn('hostJITApps = encoded', settings)
+        self.assertIn('hostOptions[hostKey] == true', model)
+        self.assertIn('strataAttachHostJIT:hostJITRequest', source("LiveContainer/LCBootstrap.m"))
+
     def test_helper_serializes_stikjit_operations(self):
         worker = source("ShareExtension/StrataJITWorker.swift")
         self.assertIn('DispatchQueue(label: "Strata.JIT.helper")', worker)
