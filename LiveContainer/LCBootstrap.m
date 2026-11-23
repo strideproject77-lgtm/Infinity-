@@ -836,7 +836,35 @@ int LiveContainerMain(int argc, char *argv[]) {
         if (selectedContainer) [lcSharedDefaults removeObjectForKey:@"LCLaunchExtensionContainerName"];
         if (launchUrl) [lcSharedDefaults removeObjectForKey:@"LCLaunchExtensionLaunchURL"];
     } while (0);
-    
+
+    // Resume only a guest that was explicitly marked while backgrounded.
+    // The setting is opt-in; an explicit launch or SideStore request always wins.
+    if (!isLiveProcess) {
+        NSDictionary *resume = [lcUserDefaults dictionaryForKey:@"StrataResumeGuest"];
+        BOOL resumeEnabled = [lcSharedDefaults boolForKey:@"StrataResumeAfterSystemClose"];
+        if (!selectedApp && ![lcUserDefaults boolForKey:@"LCOpenSideStore"] && resumeEnabled &&
+            [resume isKindOfClass:NSDictionary.class]) {
+            NSTimeInterval age = NSDate.date.timeIntervalSince1970 - [resume[@"time"] doubleValue];
+            NSString *resumeApp = [resume[@"app"] isKindOfClass:NSString.class] ? resume[@"app"] : nil;
+            NSString *resumeContainer = [resume[@"container"] isKindOfClass:NSString.class] ? resume[@"container"] : nil;
+            BOOL validContainer = resumeContainer.length &&
+                [resumeContainer.lastPathComponent isEqualToString:resumeContainer] &&
+                ![resumeContainer isEqualToString:@"."] && ![resumeContainer isEqualToString:@".."];
+            bool sharedResume = false;
+            NSBundle *resumeBundle = resumeApp.length
+                ? [LCSharedUtils findBundleWithBundleId:resumeApp isSharedAppOut:&sharedResume] : nil;
+            if (age >= 0 && age <= 6 * 60 * 60 && resumeBundle && validContainer) {
+                selectedApp = resumeApp;
+                selectedContainer = resumeContainer;
+                NSString *resumeURL = [resume[@"url"] isKindOfClass:NSString.class] ? resume[@"url"] : nil;
+                if (resumeURL.length) launchUrl = resumeURL;
+                NSLog(@"[Strata] Restoring the previously running guest after a background termination.");
+            }
+        }
+        // Consume the record whether restored or rejected, so stale launches cannot loop.
+        [lcUserDefaults removeObjectForKey:@"StrataResumeGuest"];
+    }
+
     NSString* lastLaunchDataUUID;
     if(!isLiveProcess) {
         lastLaunchDataUUID = [lcUserDefaults objectForKey:@"lastLaunchDataUUID"];
@@ -993,10 +1021,19 @@ int LiveContainerMain(int argc, char *argv[]) {
         // iOS often terminates a backgrounded game to reclaim memory; the next cold start would then show the
         // launcher. Remember the guest only while it is in the background so the launcher can reopen it.
         [lcUserDefaults removeObjectForKey:@"StrataResumeGuest"];
-        if (!isLiveProcess && selectedApp && !isSideStore) {
-            NSString *resumeKey = controlsKey;
+        if (!isLiveProcess && selectedApp && selectedContainer && !isSideStore) {
+            NSString *resumeApp = [selectedApp copy];
+            NSString *resumeContainer = [selectedContainer copy];
+            NSString *resumeURL = [launchUrl copy];
             [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil queue:nil usingBlock:^(NSNotification *note) {
-                [lcUserDefaults setObject:@{@"key": resumeKey, @"time": @(NSDate.date.timeIntervalSince1970)} forKey:@"StrataResumeGuest"];
+                if ([lcSharedDefaults boolForKey:@"StrataResumeAfterSystemClose"]) {
+                    NSMutableDictionary *record = [@{@"app": resumeApp, @"container": resumeContainer,
+                        @"time": @(NSDate.date.timeIntervalSince1970)} mutableCopy];
+                    if (resumeURL.length) record[@"url"] = resumeURL;
+                    [lcUserDefaults setObject:record forKey:@"StrataResumeGuest"];
+                } else {
+                    [lcUserDefaults removeObjectForKey:@"StrataResumeGuest"];
+                }
                 StrataKeepAliveStart();
             }];
             [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationWillEnterForegroundNotification object:nil queue:nil usingBlock:^(NSNotification *note) {
