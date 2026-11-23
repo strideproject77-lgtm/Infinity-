@@ -31,6 +31,20 @@ class StrataSigningAndFrameGenerationTests(unittest.TestCase):
         self.assertIn("certificatePassword.withCString", jitless)
         self.assertIn("certificateTeamID: certificateTeamID", launch)
 
+    def test_strata_4_runtime_connections_are_wired(self):
+        settings = source("LiveContainerSwiftUI/Views/AppList/AppSettings/LCAppSettingsView.swift")
+        model = source("LiveContainerSwiftUI/Models/LCAppModel.swift")
+        bootstrap = source("LiveContainer/LCBootstrap.m")
+        host = source("LiveContainerSwiftUI/Utilities/LCUtils.m")
+        switcher = source("LiveContainerSwiftUI/Views/StrataSwitcherSettings.swift")
+
+        self.assertIn("$model.uiHelperProcessesSupport", settings)
+        self.assertIn('guestAppInfo[@"helperProcessesSupport"]', bootstrap)
+        self.assertIn("StrataSeamlessSwitching", model)
+        self.assertIn("MultitaskWindowManager.openAppWindowWithDisplayName", host)
+        self.assertIn("StrataToggleHostControls", host)
+        self.assertIn("StrataSwitcherPinnedApps", switcher)
+
     def test_frame_generation_is_built_and_embedded_for_the_runtime_loader(self):
         build = source("scripts/build_ipa.sh")
         builder = source("scripts/build_strata_framegen.sh")
@@ -55,7 +69,12 @@ class StrataSigningAndFrameGenerationTests(unittest.TestCase):
         diagnostics = source("LiveContainerSwiftUI/Strata3/StrataRuntimeCenter.swift")
         self.assertIn('"huskEmbeddedAOT": "prelaunchIntegratedDeviceTestPending"', diagnostics)
         self.assertIn('"frameGeneration": "buildIntegratedExperimental2x3x4xDeviceTestPending"', diagnostics)
+        self.assertIn('"helperProcesses": "sourceConnectedDeviceTestPending"', diagnostics)
+        self.assertIn('"appSwitcher": "sourceConnectedDeviceTestPending"', diagnostics)
+        self.assertIn('"memoryDonor": "notDeviceVerified"', diagnostics)
         self.assertIn('"version": INFINITYVersion.display', diagnostics)
+        identity = source("LiveContainerSwiftUI/Strata3/StrataIdentitySettings.swift")
+        self.assertIn("password chosen during export—not your Apple Account password", identity)
 
 
 if __name__ == "__main__":
