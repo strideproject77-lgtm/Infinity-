@@ -25,7 +25,27 @@ struct LCAppSettingsView: View {
     private var appInfo : LCAppInfo
     
     @ObservedObject private var model : LCAppModel
-    
+    @AppStorage("StrataHostJITApps", store: LCUtils.appGroupUserDefault) private var hostJITApps = "{}"
+    @AppStorage("LCJITEnablerType", store: LCUtils.appGroupUserDefault) private var jitProvider = JITEnablerType.BuiltIn.rawValue
+
+    private var hostJITKey: String {
+        "\(model.uiIsShared ? "shared" : "local"):\(appInfo.relativeBundlePath ?? model.bundleIdentifier)"
+    }
+    private var hostJITEnabled: Binding<Bool> {
+        Binding(get: {
+            guard let data = hostJITApps.data(using: .utf8),
+                  let values = try? JSONDecoder().decode([String: Bool].self, from: data) else { return false }
+            return values[hostJITKey] == true
+        }, set: { enabled in
+            var values = hostJITApps.data(using: .utf8)
+                .flatMap { try? JSONDecoder().decode([String: Bool].self, from: $0) } ?? [:]
+            if enabled { values[hostJITKey] = true }
+            else { values.removeValue(forKey: hostJITKey) }
+            guard let data = try? JSONEncoder().encode(values),
+                  let encoded = String(data: data, encoding: .utf8) else { return }
+            hostJITApps = encoded
+        })
+    }
 
     @StateObject private var renameFolderInput = InputHelper()
     @StateObject private var moveToAppGroupAlert = YesNoHelper()
@@ -153,6 +173,12 @@ struct LCAppSettingsView: View {
                     Text("lc.appSettings.launchWithJit".loc)
                 }
                 .disabled(model.uiIs32bit)
+                if #available(iOS 17.4, *), model.uiIsJITNeeded, !model.uiIs32bit,
+                   !model.uiClassicMode, jitProvider == JITEnablerType.BuiltIn.rawValue {
+                    Toggle("Experimental HostJIT (in-process)", isOn: hostJITEnabled)
+                    Text("Attaches JIT to INFINITY itself and runs this guest in the host process. Requires a valid pairing file, LocalDevVPN and debugging permission on INFINITY. Experimental: if this app fails to launch, turn this off to use the normal separate guest-process JIT path.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                }
                 if #available(iOS 26.0, *) {
                     Picker("JIT script", selection: Binding(get: { model.strataJITScriptMode }, set: { model.strataJITScriptMode = $0 })) {
                         ForEach(StrataJITScriptMode.allCases) { mode in Text(mode.title).tag(mode) }
