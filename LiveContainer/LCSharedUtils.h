@@ -6,6 +6,7 @@
 + (NSURL*) appGroupPath;
 + (NSString *)certificatePassword;
 + (NSDictionary *)strataSigningIdentity;
++ (NSDictionary *)sideStoreSigningIdentity;
 + (BOOL)strataStoreSigningIdentity:(NSData *)p12 password:(NSString *)password error:(NSError **)error;
 + (BOOL)strataRemoveSigningIdentityWithError:(NSError **)error;
 + (void)strataStopHostJIT;
