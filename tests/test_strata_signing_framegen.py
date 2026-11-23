@@ -77,5 +77,19 @@ class StrataSigningAndFrameGenerationTests(unittest.TestCase):
         self.assertIn("password chosen during export—not your Apple Account password", identity)
 
 
+    def test_signing_identity_replacement_is_transactional(self):
+        shared = source("LiveContainer/LCSharedUtils.m")
+        store = shared.split("+ (BOOL)strataStoreSigningIdentity:", 1)[1].split(
+            "+ (BOOL)strataRemoveSigningIdentityWithError:", 1
+        )[0]
+        self.assertIn("snapshotQuery", store)
+        self.assertIn("SecItemCopyMatching", store)
+        self.assertIn("previousBytes", store)
+        self.assertIn("SecItemUpdate", store)
+        self.assertIn("SecItemDelete", store)
+        self.assertIn("The previous Keychain identity was restored.", store)
+        self.assertIn("Keychain rollback failed", store)
+
+
 if __name__ == "__main__":
     unittest.main()
