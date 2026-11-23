@@ -168,6 +168,8 @@
 + (NSData *)certificateData {
     NSDictionary *identity = [LCSharedUtils strataSigningIdentity];
     if (identity) return identity[@"p12"];
+    NSDictionary *sideStoreIdentity = [LCSharedUtils sideStoreSigningIdentity];
+    if (sideStoreIdentity) return sideStoreIdentity[@"p12"];
     NSUserDefaults* nud = [[NSUserDefaults alloc] initWithSuiteName:[LCSharedUtils appGroupID]];
     if(!nud) {
         nud = NSUserDefaults.standardUserDefaults;
