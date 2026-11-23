@@ -847,13 +847,22 @@ int LiveContainerMain(int argc, char *argv[]) {
             NSTimeInterval age = NSDate.date.timeIntervalSince1970 - [resume[@"time"] doubleValue];
             NSString *resumeApp = [resume[@"app"] isKindOfClass:NSString.class] ? resume[@"app"] : nil;
             NSString *resumeContainer = [resume[@"container"] isKindOfClass:NSString.class] ? resume[@"container"] : nil;
+            BOOL validAppPath = resumeApp.length && !resumeApp.isAbsolutePath &&
+                ![[resumeApp pathComponents] containsObject:@".."];
             BOOL validContainer = resumeContainer.length &&
                 [resumeContainer.lastPathComponent isEqualToString:resumeContainer] &&
                 ![resumeContainer isEqualToString:@"."] && ![resumeContainer isEqualToString:@".."];
             bool sharedResume = false;
-            NSBundle *resumeBundle = resumeApp.length
+            NSBundle *resumeBundle = validAppPath
                 ? [LCSharedUtils findBundleWithBundleId:resumeApp isSharedAppOut:&sharedResume] : nil;
-            if (age >= 0 && age <= 6 * 60 * 60 && resumeBundle && validContainer) {
+            NSString *dataRoot = sharedResume
+                ? [[LCSharedUtils.appGroupPath URLByAppendingPathComponent:@"LiveContainer/Data/Application"] path]
+                : [[NSString stringWithFormat:@"%s/Documents", getenv("LC_HOME_PATH")] stringByAppendingPathComponent:@"Data/Application"];
+            NSString *dataPath = validContainer ? [dataRoot stringByAppendingPathComponent:resumeContainer] : nil;
+            BOOL containerExists = NO;
+            BOOL isDirectory = NO;
+            if (dataPath.length) containerExists = [NSFileManager.defaultManager fileExistsAtPath:dataPath isDirectory:&isDirectory] && isDirectory;
+            if (age >= 0 && age <= 6 * 60 * 60 && resumeBundle && validContainer && containerExists) {
                 selectedApp = resumeApp;
                 selectedContainer = resumeContainer;
                 NSString *resumeURL = [resume[@"url"] isKindOfClass:NSString.class] ? resume[@"url"] : nil;
