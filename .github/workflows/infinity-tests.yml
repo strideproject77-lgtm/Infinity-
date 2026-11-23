@@ -24,6 +24,11 @@ on:
       - "LiveProcess/StrataJITGuestGate.m"
       - "LiveProcess/main.m"
       - "LiveContainer/LCSharedUtils.m"
+      - "scripts/build_ipa.sh"
+      - "scripts/build_strata_framegen.sh"
+      - "FrameGeneration/**"
+      - "Vendor/MetalFG/**"
+      - "tests/test_strata_signing_framegen.py"
       - "Scripts/embed-jit-helper.py"
       - "tests/test_strata_builtin_jit.py"
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKArchive.h"
@@ -87,6 +92,7 @@ jobs:
           bash -n scripts/import_husk_runtime.sh
           bash -n scripts/prepare_stikjit_idevice.sh
           bash -n scripts/build_infinity_runtime_assets.sh
+          bash -n scripts/build_strata_framegen.sh
           bash -n Vendor/Husk/build-support/build_angle_ios.sh
           bash -n Vendor/Husk/src/java-framework/build.sh
       - name: Verify SideStore pairing patch against pinned source
