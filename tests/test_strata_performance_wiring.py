@@ -29,7 +29,7 @@ class StrataPerformanceWiringTests(unittest.TestCase):
         self.assertIn('boolForKey:@"StrataResumeAfterSystemClose"', bootstrap)
         self.assertIn('resume[@"app"]', bootstrap)
         self.assertIn('resume[@"container"]', bootstrap)
-        self.assertIn('@{"app": resumeApp, @"container": resumeContainer', bootstrap)
+        self.assertIn('@{@"app": resumeApp, @"container": resumeContainer', bootstrap)
         self.assertIn('StrataKeepAliveStart();', bootstrap)
         self.assertIn('StrataKeepAliveStop();', bootstrap)
 
