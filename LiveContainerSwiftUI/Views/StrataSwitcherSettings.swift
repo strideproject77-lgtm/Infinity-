@@ -15,6 +15,7 @@ struct StrataSwitcherSettings: View {
                         let key = liveBoardAppKey(app)
                         pinned.removeAll { $0 == key }; if enabled { pinned.append(key) }
                         LCUtils.appGroupUserDefault.set(pinned, forKey: "StrataSwitcherPinnedApps")
+                        Task { @MainActor in StrataControlsLibrary.publish(apps) }
                     }))
                 }
             }
