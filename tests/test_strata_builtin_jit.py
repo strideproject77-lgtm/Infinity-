@@ -27,6 +27,22 @@ class StrataBuiltInJITContractTests(unittest.TestCase):
         self.assertIn('LCUtils.strataStartJITHelper(', host)
         self.assertIn('LCUtils.strataStopJITHelper(helper)', host)
 
+    def test_jit_helper_resolves_the_embedded_share_extension_identifier(self):
+        shared_header = source("LiveContainer/LCSharedUtils.h")
+        shared = source("LiveContainer/LCSharedUtils.m")
+        utilities = source("LiveContainerSwiftUI/Utilities/LCUtils.m")
+        extension_config = source("xcconfigs/ShareExtension.xcconfig")
+        extension_info = source("ShareExtension/Info.plist")
+
+        self.assertIn("strataJITHelperBundleIdentifier", shared_header)
+        self.assertIn('@"ShareExtension.appex"', shared)
+        self.assertIn("helperBundle.bundleIdentifier", shared)
+        self.assertIn("[LCSharedUtils strataJITHelperBundleIdentifier]", utilities)
+        self.assertIn("PRODUCT_BUNDLE_IDENTIFIER = $(LIVECONTAINER_BUNDLE_IDENTIFIER).ShareExtension", extension_config)
+        self.assertIn("ShareExtensionHandler", extension_info)
+        self.assertNotIn('stringByAppendingString:@".JITHelper"', shared)
+        self.assertNotIn('stringByAppendingString:@".JITHelper"', utilities)
+
     def test_helper_serializes_stikjit_operations(self):
         worker = source("ShareExtension/StrataJITWorker.swift")
         self.assertIn('DispatchQueue(label: "Strata.JIT.helper")', worker)
