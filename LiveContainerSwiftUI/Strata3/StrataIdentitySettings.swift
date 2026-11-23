@@ -14,13 +14,12 @@ struct StrataIdentitySettings: View {
     @State private var status = ""
     @State private var removing = false
     @State private var secured = false
-    @State private var sideStoreIdentityAvailable = false
     var body: some View {
         Form {
             Section("LocalSigner · Signing identity") {
                 Text("One local signing identity for Strata's existing signer and future engine adapters. Certificates do not extend provisioning expiration or grant new permissions.").font(.footnote)
                 if !fingerprint.isEmpty {
-                    LabeledContent("Storage", value: secured ? "INFINITY device-only Keychain" : (sideStoreIdentityAvailable ? "SideStore Keychain" : "Legacy preferences"))
+                    LabeledContent("Storage", value: secured ? "Shared device-only Keychain" : "Legacy preferences")
                     LabeledContent("Team", value: metadata["teamID"] as? String ?? "Unknown")
                     if let expiry = metadata["expires"] as? Date {
                         LabeledContent("Certificate expiry", value: expiry.formatted(date: .abbreviated, time: .omitted))
@@ -28,11 +27,11 @@ struct StrataIdentitySettings: View {
                     }
                     if metadata["expires"] == nil { Text("Certificate expiry could not be read by the native parser. Verify validity in SideStore before use.").font(.caption).foregroundStyle(.secondary) }
                     Text("Identity fingerprint\n\(fingerprint)").font(.caption.monospaced()).textSelection(.enabled)
-                    if !secured { Button(sideStoreIdentityAvailable ? "Copy SideStore identity into INFINITY" : "Move existing identity to Keychain") { adoptExisting() } }
+                    if !secured { Button("Move existing identity to Keychain") { adoptExisting() } }
                     Button("Remove signing identity", role: .destructive) { removing = true }
                 } else { Text("No signing identity imported.").foregroundStyle(.secondary) }
                 Button("Import .p12 identity") { selecting = true }
-                Text("INFINITY can read the active signing identity from the bundled SideStore Keychain directly. You can copy it into INFINITY’s device-only vault or import a .p12. For an exported .p12, enter the password chosen in SideStore’s export prompt—not your Apple Account password. Passwords are kept exactly as entered, including empty passwords and spaces. The vault is not included in guest backups.").font(.caption).foregroundStyle(.secondary)
+                Text("Use the identity that signed the executing app. Passwords are kept exactly as entered, including empty passwords and spaces. For a .p12 exported from SideStore, enter the password chosen during export—not your Apple Account password. The vault is not included in guest backups.").font(.caption).foregroundStyle(.secondary)
             }
             Section("Provisioning") {
                 Text("Apple account permissions and profile renewal remain in bundled SideStore. Local signing can reuse a valid identity; it cannot renew an expired profile offline.").font(.footnote)
@@ -61,13 +60,8 @@ struct StrataIdentitySettings: View {
         }
     }
     private func refresh() {
-        let identity = LCSharedUtils.strataSigningIdentity()
-        let sideStoreIdentity = identity == nil ? LCSharedUtils.sideStoreSigningIdentity() : nil
-        secured = identity != nil
-        sideStoreIdentityAvailable = sideStoreIdentity != nil
-        let data = (identity?["p12"] as? Data) ?? (sideStoreIdentity?["p12"] as? Data) ?? LCUtils.certificateData()
-        let secret = (identity?["password"] as? String) ?? (sideStoreIdentity?["password"] as? String) ?? LCSharedUtils.certificatePassword()
-        guard let data, let secret else { metadata = [:]; fingerprint = ""; return }
+        secured = LCSharedUtils.strataSigningIdentity() != nil
+        guard let data = LCUtils.certificateData(), let secret = LCSharedUtils.certificatePassword() else { metadata = [:]; fingerprint = ""; return }
         metadata = LCUtils.strataCertificateMetadata(data, password: secret) as? [String: Any] ?? [:]
         fingerprint = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
