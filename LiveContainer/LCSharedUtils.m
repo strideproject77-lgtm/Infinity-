@@ -20,6 +20,19 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 
 @implementation LCSharedUtils
 
++ (NSString *)strataJITHelperBundleIdentifier {
+    // JIT requests are handled by the embedded ShareExtension target.
+    // Resolve its signed identifier from the built product instead of guessing
+    // a suffix that does not match the Xcode target's PRODUCT_BUNDLE_IDENTIFIER.
+    NSBundle *hostBundle = lcMainBundle ?: NSBundle.mainBundle;
+    NSString *plugInsPath = hostBundle.builtInPlugInsPath;
+    if (!plugInsPath.length) return nil;
+    NSString *helperPath = [plugInsPath stringByAppendingPathComponent:@"ShareExtension.appex"];
+    NSBundle *helperBundle = [NSBundle bundleWithPath:helperPath];
+    NSString *identifier = helperBundle.bundleIdentifier;
+    return identifier.length ? identifier : nil;
+}
+
 + (void)strataStopHostJIT {
     if (strataHostHelper) { [strataHostHelper _kill:0]; strataHostHelper = nil; }
     NSUserDefaults *preferences = [[NSUserDefaults alloc] initWithSuiteName:self.appGroupID];
@@ -84,8 +97,10 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
             [[NSJSONSerialization dataWithJSONObject:object options:0 error:nil] writeToURL:diagnosticURL options:NSDataWritingAtomic error:nil];
         };
         NSError *error = nil;
-        strataHostHelper = [NSExtension extensionWithIdentifier:[lcMainBundle.bundleIdentifier stringByAppendingString:@".JITHelper"] error:&error];
-        if (!strataHostHelper) { record(@"JIT helper unavailable.", NO); return @"HostJIT helper unavailable. Keep all app extensions when signing."; }
+        NSString *helperIdentifier = [self strataJITHelperBundleIdentifier];
+        if (!helperIdentifier) { record(@"Embedded ShareExtension.appex is missing.", NO); return @"HostJIT helper extension is missing. Reinstall INFINITY and keep all app extensions."; }
+        strataHostHelper = [NSExtension extensionWithIdentifier:helperIdentifier error:&error];
+        if (!strataHostHelper) { record(error.localizedDescription ?: @"JIT helper unavailable.", NO); return [NSString stringWithFormat:@"HostJIT helper could not be opened: %@", error.localizedDescription ?: @"unknown extension error"]; }
         NSExtensionItem *item = [NSExtensionItem new];
         item.userInfo = @{@"strataJIT":@YES,@"group":self.appGroupID,@"operation":@"enable",@"token":token,@"pid":@(getpid()),@"pairing":pairing,@"script":request[@"script"] ?: @"",@"deviceAddress":address,@"remotePairPort":@(port)};
         [preferences setInteger:getpid() forKey:@"StrataJITVPNOwnerPID"];
