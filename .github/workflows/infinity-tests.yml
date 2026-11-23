@@ -40,6 +40,7 @@ on:
       - "LiveContainerSwiftUI/Strata3/INFINITYJITLess.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift"
       - "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift"
+      - "LiveContainerSwiftUI/Strata3/StrataIdentitySettings.swift"
       - "Vendor/Husk/include/**"
       - "Vendor/Husk/bridge/**"
       - "Vendor/Husk/translation-layer-next/**"
