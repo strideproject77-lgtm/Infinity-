@@ -397,24 +397,6 @@ struct INFINITYAPKLaunchView: View {
         .sheet(item: $hostSharePayload) { payload in
             INFINITYHuskActivitySheet(items: [payload.text])
         }
-        .onChange(of: scenePhase) { phase in
-            switch phase {
-            case .active:
-                runtime.recordSessionEvent("HOST_SCENE_ACTIVE", details: "foreground returned; resuming Husk")
-                runtime.setPaused(false)
-                runtime.setJavaPaused(false)
-            case .inactive:
-                runtime.recordSessionEvent("HOST_SCENE_INACTIVE", details: "system interruption or app switch; preserving Husk session")
-                runtime.setPaused(true)
-                runtime.setJavaPaused(true)
-            case .background:
-                runtime.recordSessionEvent("HOST_SCENE_BACKGROUND", details: "host moved to background; preserving Husk session")
-                runtime.setPaused(true)
-                runtime.setJavaPaused(true)
-            @unknown default:
-                runtime.recordSessionEvent("HOST_SCENE_UNKNOWN")
-            }
-        }
         .onDisappear {
             hostKeyboardFocused = false
             // Capture the phase at the moment of disappearance. Checking only
@@ -422,11 +404,15 @@ struct INFINITYAPKLaunchView: View {
             // a navigation dismissal and stop the engine on resume.
             let phaseAtDisappear = scenePhase
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                if phaseAtDisappear == .active && scenePhase == .active {
+                // UIKit's application state is the authoritative delayed check:
+                // the SwiftUI environment value captured by this view can be stale
+                // after the view disappears during an app switch.
+                let appIsActive = UIApplication.shared.applicationState == .active
+                if phaseAtDisappear == .active && appIsActive {
                     runtime.recordSessionEvent("LAUNCH_VIEW_DISMISSED", details: "stopping Husk after active navigation dismissal")
                     runtime.stop()
                 } else {
-                    runtime.recordSessionEvent("LAUNCH_VIEW_DISAPPEARED_INACTIVE", details: "keeping Husk session alive across system app switching; initialPhase=\(phaseAtDisappear), currentPhase=\(scenePhase)")
+                    runtime.recordSessionEvent("LAUNCH_VIEW_DISAPPEARED_INACTIVE", details: "keeping Husk session alive across system app switching; initialPhase=\(phaseAtDisappear), applicationState=\(UIApplication.shared.applicationState.rawValue)")
                 }
             }
         }
