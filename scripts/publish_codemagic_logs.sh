@@ -16,7 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.getcwd(), "scripts"))
 from codemagic_log_chunks import split_log
 
 repo = "strideproject77-lgtm/Infinity-"
