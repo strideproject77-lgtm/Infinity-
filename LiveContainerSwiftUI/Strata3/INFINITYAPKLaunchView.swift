@@ -341,9 +341,20 @@ struct INFINITYAPKLaunchView: View {
         .onChange(of: scenePhase) { phase in
             guard launchAttempted else { return }
             let paused = phase != .active
-            runtime.recordSessionEvent(paused ? "PAUSED" : "RESUMED",
-                                       details: "scenePhase=\(phase)")
+            let event: String
+            switch phase {
+            case .active:
+                event = "HOST_SCENE_ACTIVE"
+            case .inactive:
+                event = "HOST_SCENE_INACTIVE"
+            case .background:
+                event = "HOST_SCENE_BACKGROUND"
+            @unknown default:
+                event = "HOST_SCENE_UNKNOWN"
+            }
+            runtime.recordSessionEvent(event, details: "scenePhase=\(phase); pausing both native and Java engines=\(paused)")
             runtime.setPaused(paused)
+            runtime.setJavaPaused(paused)
         }
         .onReceive(NotificationCenter.default.publisher(for: .infinityHuskKeyboardRequest)) { note in
             let info = note.userInfo ?? [:]
