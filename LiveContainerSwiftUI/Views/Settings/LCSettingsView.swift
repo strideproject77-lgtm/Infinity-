@@ -691,17 +691,10 @@ struct LCSettingsView: View {
         await UIApplication.shared.open(url)
     }
     func onSideStoreCertificateCallback(certificateData: Data, password: String) {
-        do {
-            // Keep INFINITY's atomic Keychain identity, while preserving the
-            // official LiveContainer shared-App-Group certificate contract.
-            try LCSharedUtils.strataStoreSigningIdentity(certificateData, password: password)
-            LCUtils.appGroupUserDefault.set(certificateData, forKey: "LCCertificateData")
-            LCUtils.appGroupUserDefault.set(password, forKey: "LCCertificatePassword")
-            UserDefaults.standard.removeObject(forKey: "LCCertificateData")
-            UserDefaults.standard.removeObject(forKey: "LCCertificatePassword")
-            LCUtils.appGroupUserDefault.set(NSDate.now, forKey: "LCCertificateUpdateDate")
-            certificateDataFound = true
-        } catch { errorInfo = error.localizedDescription; errorShow = true }
+        LCUtils.appGroupUserDefault.set(certificateData, forKey: "LCCertificateData")
+        LCUtils.appGroupUserDefault.set(password, forKey: "LCCertificatePassword")
+        LCUtils.appGroupUserDefault.set(NSDate.now, forKey: "LCCertificateUpdateDate")
+        certificateDataFound = true
     }
     
     func removeCertificate() async {
@@ -709,10 +702,6 @@ struct LCSettingsView: View {
             return
         }
 
-        do { try LCSharedUtils.strataRemoveSigningIdentity() }
-        catch { errorInfo = error.localizedDescription; errorShow = true; return }
-        UserDefaults.standard.removeObject(forKey: "LCCertificateData")
-        UserDefaults.standard.removeObject(forKey: "LCCertificatePassword")
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificateData")
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificatePassword")
         LCUtils.appGroupUserDefault.set(nil, forKey: "LCCertificateUpdateDate")
