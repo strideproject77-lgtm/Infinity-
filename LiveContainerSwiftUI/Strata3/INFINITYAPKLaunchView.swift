@@ -386,9 +386,37 @@ struct INFINITYAPKLaunchView: View {
         .sheet(item: $hostSharePayload) { payload in
             INFINITYHuskActivitySheet(items: [payload.text])
         }
+        .onChange(of: scenePhase) { phase in
+            switch phase {
+            case .active:
+                runtime.recordSessionEvent("HOST_SCENE_ACTIVE", details: "foreground returned; resuming Husk")
+                runtime.setPaused(false)
+                runtime.setJavaPaused(false)
+            case .inactive:
+                runtime.recordSessionEvent("HOST_SCENE_INACTIVE", details: "system interruption or app switch; preserving Husk session")
+                runtime.setPaused(true)
+                runtime.setJavaPaused(true)
+            case .background:
+                runtime.recordSessionEvent("HOST_SCENE_BACKGROUND", details: "host moved to background; preserving Husk session")
+                runtime.setPaused(true)
+                runtime.setJavaPaused(true)
+            @unknown default:
+                runtime.recordSessionEvent("HOST_SCENE_UNKNOWN")
+            }
+        }
         .onDisappear {
             hostKeyboardFocused = false
-            runtime.stop()
+            // SwiftUI can report a transient disappearance during system UI/app
+            // switching. Do not tear down the native engine while iOS is inactive.
+            // Only stop after a real navigation dismissal while the host is active.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                if scenePhase == .active {
+                    runtime.recordSessionEvent("LAUNCH_VIEW_DISMISSED", details: "stopping Husk after active navigation dismissal")
+                    runtime.stop()
+                } else {
+                    runtime.recordSessionEvent("LAUNCH_VIEW_DISAPPEARED_INACTIVE", details: "keeping Husk session alive across system app switching")
+                }
+            }
         }
     }
 
