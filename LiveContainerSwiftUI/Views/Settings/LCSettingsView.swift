@@ -692,11 +692,13 @@ struct LCSettingsView: View {
     }
     func onSideStoreCertificateCallback(certificateData: Data, password: String) {
         do {
+            // Keep INFINITY's atomic Keychain identity, while preserving the
+            // official LiveContainer shared-App-Group certificate contract.
             try LCSharedUtils.strataStoreSigningIdentity(certificateData, password: password)
-            for defaults in [LCUtils.appGroupUserDefault, UserDefaults.standard] {
-                defaults.removeObject(forKey: "LCCertificateData")
-                defaults.removeObject(forKey: "LCCertificatePassword")
-            }
+            LCUtils.appGroupUserDefault.set(certificateData, forKey: "LCCertificateData")
+            LCUtils.appGroupUserDefault.set(password, forKey: "LCCertificatePassword")
+            UserDefaults.standard.removeObject(forKey: "LCCertificateData")
+            UserDefaults.standard.removeObject(forKey: "LCCertificatePassword")
             LCUtils.appGroupUserDefault.set(NSDate.now, forKey: "LCCertificateUpdateDate")
             certificateDataFound = true
         } catch { errorInfo = error.localizedDescription; errorShow = true }
