@@ -166,8 +166,6 @@
 }
 
 + (NSData *)certificateData {
-    NSDictionary *identity = [LCSharedUtils strataSigningIdentity];
-    if (identity) return identity[@"p12"];
     NSUserDefaults* nud = [[NSUserDefaults alloc] initWithSuiteName:[LCSharedUtils appGroupID]];
     if(!nud) {
         nud = NSUserDefaults.standardUserDefaults;
@@ -343,9 +341,8 @@
 
     NSLog(@"[LC] starting signing...");
     
-    NSDictionary *identity = [LCSharedUtils strataSigningIdentity];
-    NSData *data = identity ? identity[@"p12"] : self.certificateData;
-    NSString *password = identity ? identity[@"password"] : LCSharedUtils.certificatePassword;
+    NSData *data = self.certificateData;
+    NSString *password = LCSharedUtils.certificatePassword;
     NSProgress* ans = [NSClassFromString(@"ZSigner") signWithAppPath:[path path] bundleId:NSBundle.mainBundle.bundleIdentifier cert:data pass:password completionHandler:completionHandler];
     
     return ans;
@@ -382,9 +379,8 @@
 
 + (int)validateCertificateWithCompletionHandler:(void(^)(int status, NSDate *expirationDate, NSString *organizationalUnitName, NSString *error))completionHandler {
     NSError *error = nil;
-    NSDictionary *identity = [LCSharedUtils strataSigningIdentity];
-    NSData *certData = identity ? identity[@"p12"] : [LCUtils certificateData];
-    NSString *password = identity ? identity[@"password"] : [LCSharedUtils certificatePassword];
+    NSData *certData = [LCUtils certificateData];
+    NSString *password = [LCSharedUtils certificatePassword];
     [self loadStoreFrameworksWithError2:&error];
     if (error) {
         if (completionHandler) completionHandler(-6, nil, nil, error.localizedDescription);
