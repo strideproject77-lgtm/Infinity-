@@ -63,6 +63,12 @@ class APKStoreContractTests(unittest.TestCase):
         self.assertIn("hasJavaRuntimeAssets(at: stage)", store)
         self.assertIn("ANGLE remains an app-bundled, code-signed dependency", store)
 
+    def test_android_system_asset_preflight_rejects_empty_font_directories(self):
+        store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
+        self.assertIn("let fontFiles = try? fileManager.contentsOfDirectory(at: fonts", store)
+        self.assertIn("fontFiles?.isEmpty == false", store)
+        self.assertIn("certificateFiles?.isEmpty == false", store)
+
     def test_unsigned_runtime_folder_dylibs_are_not_accepted_as_graphics_engines(self):
         store = self.read("LiveContainerSwiftUI/Strata3/INFINITYAPKStore.swift")
         runtime = self.read("LiveContainerSwiftUI/Strata3/INFINITYHuskRuntime.swift")
