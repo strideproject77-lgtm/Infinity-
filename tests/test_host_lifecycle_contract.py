@@ -9,8 +9,9 @@ class HostLifecycleContractTests(unittest.TestCase):
     def test_husk_session_is_paused_and_preserved_during_system_app_switching(self):
         launch = (ROOT / "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift").read_text(encoding="utf-8")
         self.assertIn('.onChange(of: scenePhase)', launch)
-        self.assertIn('runtime.setPaused(true)', launch)
-        self.assertIn('runtime.setJavaPaused(true)', launch)
+        self.assertIn('runtime.setPaused(paused)', launch)
+        self.assertIn('runtime.setJavaPaused(paused)', launch)
+        self.assertIn('pausing both native and Java engines', launch)
         self.assertIn('HOST_SCENE_BACKGROUND', launch)
         self.assertIn('HOST_SCENE_ACTIVE', launch)
         self.assertIn('keeping Husk session alive across system app switching', launch)
