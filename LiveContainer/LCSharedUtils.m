@@ -240,8 +240,6 @@ NSString* FBSOpenApplicationOptionKeyPayloadURL = @"__PayloadURL";
 }
 
 + (NSString *)certificatePassword {
-    NSDictionary *identity = [self strataSigningIdentity];
-    if (identity) return identity[@"password"];
     NSUserDefaults* nud = NSUserDefaults.lcSharedDefaults ?: NSUserDefaults.standardUserDefaults;
     return [nud objectForKey:@"LCCertificatePassword"];
 }
