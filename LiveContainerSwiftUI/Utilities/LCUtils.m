@@ -360,11 +360,8 @@
         [paths addObject:url.path];
     }
     
-    NSDictionary *identity = [LCSharedUtils strataSigningIdentity];
-    NSData *data = identity ? identity[@"p12"] : self.certificateData;
-    NSString *password = identity ? identity[@"password"] : LCSharedUtils.certificatePassword;
-    return [NSClassFromString(@"ZSigner") signMachOPathArr:paths bundleId:NSBundle.mainBundle.bundleIdentifier cert:data
-                                                      pass:password completionHandler:completionHandler];
+    return [NSClassFromString(@"ZSigner") signMachOPathArr:paths bundleId:NSBundle.mainBundle.bundleIdentifier cert:self.certificateData
+                                                      pass:LCSharedUtils.certificatePassword completionHandler:completionHandler];
 }
 
 + (NSString*)getCertTeamIdWithKeyData:(NSData*)keyData password:(NSString*)password {
