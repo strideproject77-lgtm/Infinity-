@@ -330,7 +330,7 @@
 }
 
 + (NSProgress *)signAppBundleWithZSign:(NSURL *)path completionHandler:(void (^)(BOOL success, NSError *error))completionHandler {
-    NSError *error;
+    NSError *error = nil;
 
     // use zsign as our signer~
     // Load libraries from Documents, yeah
@@ -352,7 +352,7 @@
 }
 
 + (NSProgress *)signFilesWithZSignWithURLs:(NSArray<NSURL*>*)urls completionHandler:(void (^)(BOOL success, NSError *error))completionHandler {
-    NSError *error;
+    NSError *error = nil;
     [self loadStoreFrameworksWithError2:&error];
     if (error) {
         completionHandler(NO, error);
@@ -371,7 +371,7 @@
 }
 
 + (NSString*)getCertTeamIdWithKeyData:(NSData*)keyData password:(NSString*)password {
-    NSError *error;
+    NSError *error = nil;
     [self loadStoreFrameworksWithError2:&error];
     if (error) {
         return nil;
@@ -381,14 +381,15 @@
 }
 
 + (int)validateCertificateWithCompletionHandler:(void(^)(int status, NSDate *expirationDate, NSString *organizationalUnitName, NSString *error))completionHandler {
-    NSError *error;
+    NSError *error = nil;
     NSDictionary *identity = [LCSharedUtils strataSigningIdentity];
     NSData *certData = identity ? identity[@"p12"] : [LCUtils certificateData];
     NSString *password = identity ? identity[@"password"] : [LCSharedUtils certificatePassword];
+    [self loadStoreFrameworksWithError2:&error];
     if (error) {
+        if (completionHandler) completionHandler(-6, nil, nil, error.localizedDescription);
         return -6;
     }
-    [self loadStoreFrameworksWithError2:&error];
     int ans = [NSClassFromString(@"ZSigner") checkCert:certData pass:password completionHandler:completionHandler];
     return ans;
 }
