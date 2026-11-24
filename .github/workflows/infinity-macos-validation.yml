@@ -36,6 +36,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Run imported IPA lifecycle contract tests
+        run: python3 -m unittest discover -s tests -p "test_host_lifecycle_contract.py" -v
+
       - name: Verify toolchain
         run: |
           xcodebuild -version
