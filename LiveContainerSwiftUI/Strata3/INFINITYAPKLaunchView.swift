@@ -340,30 +340,21 @@ struct INFINITYAPKLaunchView: View {
         }
         .onChange(of: scenePhase) { phase in
             guard launchAttempted else { return }
+            let paused = phase != .active
             let event: String
             switch phase {
             case .active:
                 event = "HOST_SCENE_ACTIVE"
-                // Resume only when iOS has made the app active again.
-                runtime.recordSessionEvent(event, details: "scenePhase=\(phase); resuming Husk engine")
-                runtime.setPaused(false)
             case .inactive:
-                // Control Center, Notification Center and the interactive
-                // Home/App Switcher gesture make the scene inactive without
-                // actually backgrounding the process. Do not call into Husk
-                // during this transient UIKit state: the native activity may
-                // still own its render/UI threads and must remain attached.
                 event = "HOST_SCENE_INACTIVE"
-                runtime.recordSessionEvent(event, details: "scenePhase=\(phase); keeping Husk attached during transient system UI")
             case .background:
-                // Pause only after iOS really backgrounds Infinity.
                 event = "HOST_SCENE_BACKGROUND"
-                runtime.recordSessionEvent(event, details: "scenePhase=\(phase); pausing Husk after background transition")
-                runtime.setPaused(true)
             @unknown default:
                 event = "HOST_SCENE_UNKNOWN"
-                runtime.recordSessionEvent(event, details: "scenePhase=\(phase); leaving Husk state unchanged")
             }
+            runtime.recordSessionEvent(event, details: "scenePhase=\(phase); pausing both native and Java engines=\(paused)")
+            runtime.setPaused(paused)
+            runtime.setJavaPaused(paused)
         }
         .onReceive(NotificationCenter.default.publisher(for: .infinityHuskKeyboardRequest)) { note in
             let info = note.userInfo ?? [:]
