@@ -9,6 +9,19 @@ import SwiftUI
 @main
 struct LiveContainerSwiftUIApp : SwiftUI.App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
+    init() {
+        // INFINITY defaults to the stable in-process launch path. Migrate older
+        // installations once so a previously saved multitasking preference does
+        // not silently keep seamless/multitasking enabled after this update.
+        let defaults = UserDefaults.standard
+        let migrationKey = "INFINITYMultitaskingDefaultsMigrationV1"
+        if !defaults.bool(forKey: migrationKey) {
+            defaults.set(false, forKey: "LCLaunchInMultitaskMode")
+            LCUtils.appGroupUserDefault.set(false, forKey: "StrataSeamlessSwitching")
+            defaults.set(true, forKey: migrationKey)
+        }
+    }
     
     @MainActor private static var libraryLoadStarted = false
     @MainActor static func loadLibrary() async {
