@@ -1,0 +1,75 @@
+{
+  "provider": "Codemagic",
+  "repository": "strideproject77-lgtm/Infinity-",
+  "source_branch": "main",
+  "commit": "f2114e1d29d3de4ee270e15808d436eff48a06b0",
+  "build_id": "6b05c253d17d55100e0fda30",
+  "build_number": "unknown",
+  "workflow": "INFINITY IPA (Codemagic backup)",
+  "xcode": "26.2",
+  "exit_code": 0,
+  "result": "success",
+  "uploaded_at_utc": "2026-11-24T17:08:08.364319+00:00",
+  "logs": {
+    "build.log": {
+      "bytes": 7028693,
+      "lines": 31922,
+      "sha256": "5bf2569ac16a7503cbb1057a46077335f694c26a717814d3f3251989881ee47e"
+    },
+    "xcodebuild-archive.log": {
+      "bytes": 6829989,
+      "lines": 28859,
+      "sha256": "e1a22d02452820e2a9862ccaa288d130105d976edeb84e9c0f520100c297b283"
+    },
+    "submodules.log": {
+      "bytes": 240,
+      "lines": 5,
+      "sha256": "a5e6a3c3be5bf968bd603bf29da840afc62de8083f5d3ae34e81f891430d5f56"
+    }
+  },
+  "log_parts": {
+    "build.log": [
+      {
+        "path": "latest/build.log",
+        "bytes": 3145728,
+        "sha256": "9bc34d36686e1c67f479b94c079935521a4c7538ae3af9743a2a507507e25623"
+      },
+      {
+        "path": "latest/build.log.part002",
+        "bytes": 3145728,
+        "sha256": "1baacaec3ac779d2be969635cee5e96c10795913f19f5b4a6bbb03006c632d7c"
+      },
+      {
+        "path": "latest/build.log.part003",
+        "bytes": 737237,
+        "sha256": "864f1ce1b96fd180aa80887e28e6c7e3153047b5cf67428fea7d12e2a8735b69"
+      }
+    ],
+    "xcodebuild-archive.log": [
+      {
+        "path": "latest/xcodebuild-archive.log",
+        "bytes": 3145728,
+        "sha256": "fb8d23764175a74ed25ac9f5b5fe9eba4c5b90b1b68528bda839e7964a39faa9"
+      },
+      {
+        "path": "latest/xcodebuild-archive.log.part002",
+        "bytes": 3145728,
+        "sha256": "8866b816323afd412dd788a3383e2594f75799303bac2c43d038a26b16654ce3"
+      },
+      {
+        "path": "latest/xcodebuild-archive.log.part003",
+        "bytes": 538533,
+        "sha256": "ca6cadcedab955d440fe9154749a9846c5428cebd35df5e395be6c789c69fe7f"
+      }
+    ],
+    "submodules.log": [
+      {
+        "path": "latest/submodules.log",
+        "bytes": 240,
+        "sha256": "a5e6a3c3be5bf968bd603bf29da840afc62de8083f5d3ae34e81f891430d5f56"
+      }
+    ]
+  },
+  "max_part_bytes": 3145728,
+  "redaction": "Common credential/token patterns and PEM private-key blocks are redacted before publication."
+}
