@@ -11,14 +11,15 @@ struct LiveContainerSwiftUIApp : SwiftUI.App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     init() {
-        // INFINITY defaults to the stable in-process launch path. Migrate older
-        // installations once so a previously saved multitasking preference does
-        // not silently keep seamless/multitasking enabled after this update.
+        // Keep imported iOS apps isolated in their own LiveProcess by default.
+        // This avoids routing ordinary guest apps through INFINITY's in-process
+        // UIApplication lifecycle when iOS presents Home Bar or system overlays.
+        // V2 intentionally reverses the earlier in-process default migration.
         let defaults = UserDefaults.standard
-        let migrationKey = "INFINITYMultitaskingDefaultsMigrationV1"
+        let migrationKey = "INFINITYMultitaskingDefaultsMigrationV2"
         if !defaults.bool(forKey: migrationKey) {
             defaults.set(false, forKey: "LCLaunchInMultitaskMode")
-            LCUtils.appGroupUserDefault.set(false, forKey: "StrataSeamlessSwitching")
+            LCUtils.appGroupUserDefault.set(true, forKey: "StrataSeamlessSwitching")
             defaults.set(true, forKey: migrationKey)
         }
     }
