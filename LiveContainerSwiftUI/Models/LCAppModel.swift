@@ -270,7 +270,7 @@ class LCAppModel: ObservableObject, Hashable {
         // Seamless switching: run each app in its own process, full screen, so switching brings its
         // window to the front instead of relaunching Strata. Explicit in-process requests (HostJIT,
         // Classic Mode, Request Game Mode = multitask false) keep the old path.
-        let seamless = (LCUtils.appGroupUserDefault.object(forKey: "StrataSeamlessSwitching") as? Bool ?? true)
+        let seamless = (LCUtils.appGroupUserDefault.object(forKey: "StrataSeamlessSwitching") as? Bool ?? false)
             && !hostJIT && classicMode == 0 && multitask == nil && !preferredMultitask
             // The built-in SideStore lives inside Strata and can't run in a LiveProcess.
             && bundleIdOverride == nil && !(appInfo is BuiltInSideStoreAppInfo)
