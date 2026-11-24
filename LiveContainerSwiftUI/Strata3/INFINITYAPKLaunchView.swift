@@ -417,15 +417,16 @@ struct INFINITYAPKLaunchView: View {
         }
         .onDisappear {
             hostKeyboardFocused = false
-            // SwiftUI can report a transient disappearance during system UI/app
-            // switching. Do not tear down the native engine while iOS is inactive.
-            // Only stop after a real navigation dismissal while the host is active.
+            // Capture the phase at the moment of disappearance. Checking only
+            // after the delay can misclassify a background-to-active return as
+            // a navigation dismissal and stop the engine on resume.
+            let phaseAtDisappear = scenePhase
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                if scenePhase == .active {
+                if phaseAtDisappear == .active && scenePhase == .active {
                     runtime.recordSessionEvent("LAUNCH_VIEW_DISMISSED", details: "stopping Husk after active navigation dismissal")
                     runtime.stop()
                 } else {
-                    runtime.recordSessionEvent("LAUNCH_VIEW_DISAPPEARED_INACTIVE", details: "keeping Husk session alive across system app switching")
+                    runtime.recordSessionEvent("LAUNCH_VIEW_DISAPPEARED_INACTIVE", details: "keeping Husk session alive across system app switching; initialPhase=\(phaseAtDisappear), currentPhase=\(scenePhase)")
                 }
             }
         }
