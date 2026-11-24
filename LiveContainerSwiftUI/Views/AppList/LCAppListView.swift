@@ -319,7 +319,6 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
             }
                 }
-                }
                 if !manageLibrary && !installedAndroidApps.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
