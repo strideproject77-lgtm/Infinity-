@@ -77,7 +77,7 @@ sed -i '' 's/9SideStore26RefreshAllAppsWidgetIntentV/16SideStoreSupport26Refresh
 
 # AltWidgetExtension
 mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/PlugIns/AltWidgetExtension.appex ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex
-/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kdt.livecontainer2.LiveWidget"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kdt.livecontainer.LiveWidget"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable LiveWidgetExtension"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
 WIDGET_BUNDLE="./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex"
 WIDGET_OLD_EXECUTABLE="$WIDGET_BUNDLE/AltWidgetExtension"
