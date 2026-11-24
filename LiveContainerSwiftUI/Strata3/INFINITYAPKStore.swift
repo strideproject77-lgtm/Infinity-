@@ -708,8 +708,11 @@ enum INFINITYAPKStore {
         let system = root.appendingPathComponent("android-system", isDirectory: true)
         let certificates = system.appendingPathComponent("cacerts", isDirectory: true)
         let fonts = system.appendingPathComponent("fonts", isDirectory: true)
-        return (try? fileManager.contentsOfDirectory(at: certificates, includingPropertiesForKeys: nil).isEmpty) == false
-            && fileManager.fileExists(atPath: fonts.path)
+        let certificateFiles = try? fileManager.contentsOfDirectory(at: certificates, includingPropertiesForKeys: nil)
+        let fontFiles = try? fileManager.contentsOfDirectory(at: fonts, includingPropertiesForKeys: nil)
+        return fileManager.isReadableFile(atPath: system.path)
+            && certificateFiles?.isEmpty == false
+            && fontFiles?.isEmpty == false
             && fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/fonts.xml").path)
             && fileManager.isReadableFile(atPath: system.appendingPathComponent("etc/font_fallback.xml").path)
             && fileManager.isReadableFile(atPath: root.appendingPathComponent("cacert.pem").path)
