@@ -694,7 +694,11 @@ struct INFINITYAPKLibraryView: View {
                       allowedContentTypes: [.folder],
                       allowsMultipleSelection: false) { result in
             switch result {
-            case .success(let folder):
+            case .success(let folders):
+                guard let folder = folders.first else {
+                    loadError = "No runtime folder was selected."
+                    return
+                }
                 do {
                     try INFINITYAPKStore.installRuntimeAssets(from: folder)
                     runtimeReady = INFINITYAPKStore.runtimeDataReady()
