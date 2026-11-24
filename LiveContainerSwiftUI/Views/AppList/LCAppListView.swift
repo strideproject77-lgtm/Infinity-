@@ -319,6 +319,52 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
             }
                 }
+                }
+                if !manageLibrary && !installedAndroidApps.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Android Apps")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text("\(installedAndroidApps.count)")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                        }
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(installedAndroidApps) { androidApp in
+                                    Button {
+                                        selectedAPKForDetails = androidApp
+                                    } label: {
+                                        VStack(spacing: 6) {
+                                            Image(systemName: "gamecontroller.fill")
+                                                .font(.title2)
+                                                .frame(width: 48, height: 48)
+                                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 12))
+                                            Text(androidApp.displayName)
+                                                .font(.caption2.weight(.medium))
+                                                .lineLimit(2)
+                                                .multilineTextAlignment(.center)
+                                                .frame(width: 76)
+                                        }
+                                        .foregroundStyle(.primary)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityLabel("Open Android app \(androidApp.displayName)")
+                                }
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 12)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(2)
+                }
             }
             .navigationBarHidden(!manageLibrary && !isNavigationActive)
             .navigationBarProgressBar(show:$installprogressVisible, progress: $installProgressPercentage)
