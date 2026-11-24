@@ -19,7 +19,8 @@ class HostLifecycleContractTests(unittest.TestCase):
     def test_native_runtime_is_not_stopped_immediately_on_view_disappearance(self):
         launch = (ROOT / "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift").read_text(encoding="utf-8")
         self.assertIn('DispatchQueue.main.asyncAfter(deadline: .now() + 0.8)', launch)
-        self.assertIn('if scenePhase == .active', launch)
+        self.assertIn('let phaseAtDisappear = scenePhase', launch)
+        self.assertIn('if phaseAtDisappear == .active && scenePhase == .active', launch)
         self.assertIn('runtime.stop()', launch)
 
 
