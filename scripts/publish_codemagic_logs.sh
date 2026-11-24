@@ -16,6 +16,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from codemagic_log_chunks import split_log
+
 repo = "strideproject77-lgtm/Infinity-"
 branch = "codemagic-logs"
 token = os.environ["INFINITY_LOGS_GITHUB_TOKEN"]
@@ -85,6 +88,21 @@ for name, path in log_sources.items():
         "sha256": hashlib.sha256(clean).hexdigest(),
     }
 
+# Split every log into independently retrievable GitHub blobs (3 MiB each).
+# The first piece retains its historical filename; additional pieces use .part002, .part003, ...
+log_parts = {}
+files = []
+for name, content in log_data.items():
+    parts = split_log(name, content)
+    log_parts[name] = []
+    for path, piece in parts:
+        files.append((path, piece))
+        log_parts[name].append({
+            "path": path,
+            "bytes": len(piece),
+            "sha256": hashlib.sha256(piece).hexdigest(),
+        })
+
 now = datetime.datetime.now(datetime.timezone.utc).isoformat()
 metadata_path = os.environ.get("INFINITY_CODEMAGIC_METADATA_LOG", os.path.join(os.path.dirname(build_path), "metadata.json"))
 metadata = {
@@ -100,6 +118,8 @@ metadata = {
     "result": "success" if status == 0 else "failed",
     "uploaded_at_utc": now,
     "logs": log_stats,
+    "log_parts": log_parts,
+    "max_part_bytes": 3 * 1024 * 1024,
     "redaction": "Common credential/token patterns and PEM private-key blocks are redacted before publication.",
 }
 metadata_bytes = (json.dumps(metadata, indent=2) + "\n").encode("utf-8")
@@ -107,12 +127,7 @@ os.makedirs(os.path.dirname(metadata_path) or ".", exist_ok=True)
 with open(metadata_path, "wb") as handle:
     handle.write(metadata_bytes)
 
-files = [
-    ("latest/build.log", log_data["build.log"]),
-    ("latest/xcodebuild-archive.log", log_data["xcodebuild-archive.log"]),
-    ("latest/submodules.log", log_data["submodules.log"]),
-    ("latest/metadata.json", metadata_bytes),
-]
+files.append(("latest/metadata.json", metadata_bytes))
 tree_entries = []
 for path, content in files:
     tree_entries.append({
@@ -136,5 +151,5 @@ api_request("PATCH", "git/refs/" + ref, {
     "force": True,
 })
 print(f"Published latest logs to {repo}/tree/{branch}/latest")
-print("Verified non-empty build log; snapshot contains build, archive, submodule logs and metadata.")
+print("Verified non-empty build log; all log files are split into GitHub-retrievable parts (maximum 3 MiB each).")
 PY
