@@ -685,7 +685,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         // unless the user explicitly asked for a multitask window.
         let category = LiveBoardSharedCategories.category(forKey: liveBoardAppKey(app))
         // With seamless switching, Game Mode already applies to Strata as a whole; keep games switchable.
-        let seamless = LCUtils.appGroupUserDefault.object(forKey: "StrataSeamlessSwitching") as? Bool ?? true
+        let seamless = LCUtils.appGroupUserDefault.object(forKey: "StrataSeamlessSwitching") as? Bool ?? false
         let automaticGameMode = !seamless && multitask != true && (category == "Games" || category == "Ports")
         do {
             try await app.launchFromLibrary(multitask: multitask, forceJIT: forceJIT, gameMode: gameMode || automaticGameMode, metalHUD: metalHUD)
