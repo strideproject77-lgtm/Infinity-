@@ -6,15 +6,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class HostLifecycleContractTests(unittest.TestCase):
-    def test_husk_session_is_paused_and_preserved_during_system_app_switching(self):
+    def test_husk_is_not_paused_for_transient_system_overlays(self):
         launch = (ROOT / "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift").read_text(encoding="utf-8")
         self.assertIn('.onChange(of: scenePhase)', launch)
-        self.assertIn('runtime.setPaused(paused)', launch)
-        self.assertIn('runtime.setJavaPaused(paused)', launch)
-        self.assertIn('pausing both native and Java engines', launch)
-        self.assertIn('HOST_SCENE_BACKGROUND', launch)
-        self.assertIn('HOST_SCENE_ACTIVE', launch)
-        self.assertIn('keeping Husk session alive across system app switching', launch)
+        self.assertIn('case .inactive:', launch)
+        self.assertIn('keeping Husk attached during transient system UI', launch)
+        self.assertIn('case .background:', launch)
+        self.assertIn('pausing Husk after background transition', launch)
+        self.assertIn('runtime.setPaused(true)', launch)
+        self.assertIn('runtime.setPaused(false)', launch)
+        self.assertNotIn('runtime.setJavaPaused(paused)', launch)
 
     def test_native_runtime_is_not_stopped_immediately_on_view_disappearance(self):
         launch = (ROOT / "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift").read_text(encoding="utf-8")
@@ -25,11 +26,12 @@ class HostLifecycleContractTests(unittest.TestCase):
         self.assertNotIn('phaseAtDisappear == .active && scenePhase == .active', launch)
         self.assertIn('runtime.stop()', launch)
 
-    def test_scene_phase_is_handled_once_to_avoid_conflicting_pause_callbacks(self):
+    def test_scene_phase_is_handled_once_and_inactive_does_not_call_husk_pause(self):
         launch = (ROOT / "LiveContainerSwiftUI/Strata3/INFINITYAPKLaunchView.swift").read_text(encoding="utf-8")
         self.assertEqual(launch.count('.onChange(of: scenePhase)'), 1)
-        self.assertIn('runtime.setPaused(paused)', launch)
-        self.assertIn('runtime.setJavaPaused(paused)', launch)
+        inactive = launch.split('case .inactive:', 1)[1].split('case .background:', 1)[0]
+        self.assertNotIn('runtime.setPaused', inactive)
+        self.assertNotIn('runtime.setJavaPaused', inactive)
 
 
 if __name__ == "__main__":
