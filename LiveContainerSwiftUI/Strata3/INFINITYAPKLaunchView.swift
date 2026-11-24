@@ -615,9 +615,24 @@ struct INFINITYAPKLaunchView: View {
 struct INFINITYAPKLibraryView: View {
     @State private var apps: [INFINITYAPKInstalledApp] = []
     @State private var loadError: String?
+    @State private var showingRuntimeFolderPicker = false
+    @State private var runtimeReady = INFINITYAPKStore.runtimeDataReady()
 
     var body: some View {
         List {
+            Section("Husk Runtime") {
+                Label(runtimeReady ? "Android runtime assets installed" : "Runtime assets required",
+                      systemImage: runtimeReady ? "checkmark.circle.fill" : "exclamationmark.triangle")
+                    .foregroundStyle(runtimeReady ? .green : .secondary)
+                Button {
+                    showingRuntimeFolderPicker = true
+                } label: {
+                    Label("Import Husk Runtime Folder", systemImage: "shippingbox")
+                }
+                Text("First download the INFINITY Android runtime asset ZIP from GitHub Actions and extract it in Files. Select the extracted folder containing java-runtime, android-system and cacert.pem.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if let loadError {
                 Section {
                     Text(loadError).foregroundStyle(.red)
@@ -649,6 +664,22 @@ struct INFINITYAPKLibraryView: View {
         .navigationTitle("Android APKs")
         .toolbar { ToolbarItem(placement: .topBarTrailing) { EditButton() } }
         .onAppear(perform: reload)
+        .fileImporter(isPresented: $showingRuntimeFolderPicker,
+                      allowedContentTypes: [.folder],
+                      allowsMultipleSelection: false) { result in
+            switch result {
+            case .success(let folder):
+                do {
+                    try INFINITYAPKStore.installRuntimeAssets(from: folder)
+                    runtimeReady = INFINITYAPKStore.runtimeDataReady()
+                    loadError = runtimeReady ? nil : "Runtime import finished, but required files are still missing."
+                } catch {
+                    loadError = error.localizedDescription
+                }
+            case .failure(let error):
+                loadError = error.localizedDescription
+            }
+        }
     }
 
     private func reload() {
